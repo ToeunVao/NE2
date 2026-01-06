@@ -12,6 +12,18 @@
   .old-style-card {
     @apply bg-white rounded-[0.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8;
   }
+       .old-app-input { 
+          width: 100%; 
+          padding: 0.75rem; 
+          border: 1px solid #e5e7eb; 
+          border-radius: 0.5rem; 
+          font-size: 0.875rem; 
+          outline: none; 
+          transition: all 0.2s; 
+          background: white;
+        }
+        .old-app-input:focus { border-color: #be185d; ring: 2px; ring-color: #fce4ec; }
+      
 .logo-style {
     /* Using the CSS variable from our Next.js font setup */
     font-family: var(--font-playfair), 'Playfair Display', serif;

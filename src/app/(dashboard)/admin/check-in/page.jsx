@@ -321,7 +321,7 @@ const handleCheckInFromWaitlist = async (appt) => {
             </div>
 
 ) : activeSubTab === "Finished Clients" ? (
-<div className="space-y-6 animate-in fade-in duration-500">
+<div className="space-y-6">
     {/* Header & Search Section */}
     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
       <div>
