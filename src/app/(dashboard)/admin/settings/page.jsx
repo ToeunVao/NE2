@@ -20,10 +20,22 @@ export default function SettingsPage() {
   
   // --- FORMS ---
   const [catName, setCatName] = useState("");
-  const [serviceForm, setServiceForm] = useState({ name: "", price: "" });
-  const [userForm, setUserForm] = useState({
-    uid: "", name: "", phone: "", email: "", role: "Technician", payoutType: "Standard (Commission Only)", commission: "60"
-  });
+// Update your userForm initialization to include the email field and empty strings
+const [userForm, setUserForm] = useState({
+  uid: "", 
+  name: "", 
+  phone: "", 
+  email: "", // Ensure this is here
+  role: "Technician", 
+  payoutType: "Standard (Commission Only)", 
+  commission: "60"
+});
+
+// Update serviceForm as well
+const [serviceForm, setServiceForm] = useState({ 
+  name: "", 
+  price: "" 
+});
 
   useEffect(() => {
     const unsubServices = onSnapshot(collection(db, "services"), (snap) => {
@@ -214,43 +226,42 @@ const saveService = async () => {
 
           {/* Services List */}
           <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
-            {cat.items && cat.items.length > 0 ? (
-              cat.items.map((s) => (
-                <div key={s.id} className="flex justify-between items-center px-4 py-3 hover:bg-gray-50 rounded-xl transition-all border border-transparent hover:border-gray-100 group/item">
-                  <div className="flex-1">
-                    <p className="text-sm font-bold text-gray-700 uppercase">{s.name}</p>
-                    <p className="text-[11px] font-black text-pink-600 tracking-widest">${s.price}</p>
-                  </div>
-                  
-                  {/* Inline Actions */}
-                  <div className="flex gap-1">
-                   <button 
-                      onClick={() => { setSelectedCat(cat); setModalType("edit"); setEditingServiceId(s.id); setServiceForm({name: s.name, price: s.price}); setIsModalOpen(true); }} 
-                      className="p-2 text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
-                      title="Edit Service"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    </button>
-                    <button 
-                      onClick={async () => {
-                        if(confirm("Delete this service?")) {
-                          const updated = cat.items.filter(i => i.id !== s.id);
-                          await updateDoc(doc(db, "services", cat.id), { items: updated });
-                        }
-                      }} 
-                      className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
-                      title="Delete Service"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-10 text-center">
-                <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest italic">No services added</p>
-              </div>
-            )}
+{cat.items && cat.items.length > 0 ? (
+  cat.items.map((s, index) => (
+    /* Use s.id if it exists, otherwise use category ID + index as a fallback */
+    <div key={s.id || `${cat.id}-service-${index}`} className="flex justify-between items-center px-4 py-3 bg-gray-50/30 rounded-xl border border-gray-100">
+      <div className="flex-1">
+        <p className="text-sm font-bold text-gray-700 uppercase">{s.name}</p>
+        <p className="text-[11px] font-black text-pink-600 tracking-widest">${s.price}</p>
+      </div>
+      
+      {/* Action Icons */}
+      <div className="flex gap-1">
+        <button 
+          onClick={() => { setSelectedCat(cat); setModalType("edit"); setEditingServiceId(s.id); setServiceForm({name: s.name, price: s.price}); setIsModalOpen(true); }} 
+          className="p-2 text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+        </button>
+        <button 
+          onClick={async () => {
+            if(confirm("Delete this service?")) {
+              const updated = cat.items.filter(i => i.id !== s.id);
+              await updateDoc(doc(db, "services", cat.id), { items: updated });
+            }
+          }} 
+          className="p-2 text-red-500 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </div>
+    </div>
+  ))
+) : (
+  <div className="py-10 text-center">
+    <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest italic">No services added</p>
+  </div>
+)}
           </div>
 
           {/* Card Footer / Category Delete */}
@@ -286,12 +297,12 @@ const saveService = async () => {
         {modalType === "category" ? (
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-gray-500 uppercase">Category Name</label>
-            <input 
-              className="old-app-input" 
-              value={catName} 
-              onChange={(e) => setCatName(e.target.value)} 
-              placeholder="e.g., Pedicures" 
-            />
+           <input 
+  className="old-app-input" 
+  value={catName || ""} 
+  onChange={(e) => setCatName(e.target.value)} 
+  placeholder="e.g., Pedicures" 
+/>
           </div>
         ) : (
           <>
@@ -370,7 +381,13 @@ function FormInput({ label, value, onChange, placeholder = "" }) {
   return (
     <div className="space-y-1.5 w-full">
       <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</label>
-      <input className="old-app-input" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+      {/* Adding || "" ensures the value is never undefined */}
+      <input 
+        className="old-app-input" 
+        value={value || ""} 
+        onChange={e => onChange(e.target.value)} 
+        placeholder={placeholder} 
+      />
     </div>
   );
 }
