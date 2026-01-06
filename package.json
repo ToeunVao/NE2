@@ -9,8 +9,17 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
+    "chart.js": "^4.5.1",
+    "date-fns": "^4.1.0",
+    "firebase": "^12.7.0",
+    "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "next": "16.1.1",
+    "next-pwa": "^5.6.0",
     "react": "19.2.3",
+    "react-calendar": "^6.0.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3"
   },
   "devDependencies": {

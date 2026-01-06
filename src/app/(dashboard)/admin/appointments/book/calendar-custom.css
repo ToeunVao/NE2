@@ -1,0 +1,29 @@
+.react-calendar {
+  width: 100% !important;
+  border: none !important;
+  font-family: inherit;
+}
+
+.react-calendar__navigation button {
+  border-radius: 0.5rem !important;
+}
+
+.react-calendar__tile {
+  border-radius: 0.5rem !important;
+  padding: 15px !important;
+  height: 80px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.react-calendar__tile--active {
+  background: #db2777 !important;
+  color: white !important;
+}
+
+.react-calendar__tile--now {
+  background: #fdf2f8 !important;
+  color: #db2777 !important;
+}

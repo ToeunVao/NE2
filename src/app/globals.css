@@ -1,26 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-brand-pink: #d81b60;
+  --color-brand-light: #fce4ec;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer components {
+  /* The Main White Container with subtle shadow */
+  .old-style-card {
+    @apply bg-white rounded-[0.5rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-gray-100 p-8;
   }
-}
+.logo-style {
+    /* Using the CSS variable from our Next.js font setup */
+    font-family: var(--font-playfair), 'Playfair Display', serif;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 700;
+    color: rgb(190 24 93);
+    /* Adding a slight italic and tracking for that premium salon look */
+    font-style: italic;
+    letter-spacing: -0.025em;
+  }
+  /* Sub-menu Tabs (User Management, Inventory, etc.) */
+  .sub-nav-pill {
+    @apply px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-300;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  .sub-nav-pill-active {
+    @apply bg-brand-pink text-white shadow-lg shadow-pink-200;
+  }
+
+  .sub-nav-pill-inactive {
+    @apply text-gray-500 hover:bg-gray-50;
+  }
+
+  /* Service Selection Cards */
+  .service-card {
+    @apply border border-gray-100 rounded-2xl p-6 transition-all cursor-pointer hover:border-brand-pink hover:bg-pink-50/30;
+  }
+
+  .service-card-selected {
+    @apply border-brand-pink bg-pink-50/50 ring-2 ring-brand-pink/20;
+  }
+  .old-style-card {
+    @apply bg-white rounded-[0.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.04)] border border-gray-100 overflow-hidden;
+  }
+  
+  /* Sub-navigation bar inside the card */
+  .card-inner-nav {
+    @apply flex items-center gap-2 p-4 border-b border-gray-50 bg-gray-50/30;
+  }
 }
