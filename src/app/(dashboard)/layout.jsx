@@ -29,13 +29,23 @@ export default function DashboardLayout({ children }) {
       console.error("Logout error:", error);
     }
   };
-
-  const navLinks = [
-    { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
-    { name: "Booking", href: "/admin/appointments/book", icon: "fa-calendar-alt" },
-    { name: "Report", href: "/admin/reports", icon: "fa-chart-line" },
-    { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
-  ];
+const [reportOpen, setReportOpen] = useState(false);
+const navLinks = [
+  { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
+  { name: "Booking", href: "/admin/appointments/book", icon: "fa-calendar-alt" },
+  // Report is now a dropdown toggle
+  { 
+    name: "Report", 
+    icon: "fa-chart-line",
+    isDropdown: true,
+    subItems: [
+      { name: "Salon Earning", href: "/admin/reports/salon-earning" },
+      { name: "Profit Dashboard", href: "/admin/reports/profit" },
+      { name: "Expense", href: "/admin/reports/expenses" },
+    ]
+  },
+  { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
+];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -68,7 +78,41 @@ export default function DashboardLayout({ children }) {
 
      {/* Navigation */}
     <nav className="flex-1 px-3 space-y-2 mt-4">
-      {navLinks.map((link) => (
+{navLinks.map((link) => (
+    <div key={link.name}>
+      {link.isDropdown ? (
+        <>
+          <button 
+            onClick={() => setReportOpen(!reportOpen)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm border-none bg-transparent cursor-pointer ${
+              pathname.includes('/reports') ? "text-pink-600 bg-pink-50" : "text-gray-400 hover:text-pink-600"
+            }`}
+          >
+            <div className="flex items-center gap-4">
+              <i className={`fas ${link.icon} text-lg`}></i>
+              {!isCollapsed && <span>{link.name}</span>}
+            </div>
+            {!isCollapsed && <i className={`fas fa-chevron-${reportOpen ? 'up' : 'down'} text-[10px]`}></i>}
+          </button>
+          
+          {/* Sub Menu Items */}
+          {reportOpen && !isCollapsed && (
+            <div className="ml-12 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
+              {link.subItems.map(sub => (
+                <Link 
+                  key={sub.name} 
+                  href={sub.href}
+                  className={`block py-2 text-xs font-bold no-underline transition-colors ${
+                    pathname === sub.href ? "text-pink-600" : "text-gray-400 hover:text-pink-600"
+                  }`}
+                >
+                  {sub.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
         <Link 
           key={link.name} 
           href={link.href}
@@ -84,8 +128,10 @@ export default function DashboardLayout({ children }) {
           <i className={`fas ${link.icon} text-lg`}></i>
           {!isCollapsed && <span className="whitespace-nowrap">{link.name}</span>}
         </Link>
-      ))}
-    </nav>
+     )}
+    </div>
+  ))}
+</nav>
        {/* Footer (Logout) */}
     <div className={`p-4 border-t border-gray-50 space-y-4 ${isCollapsed ? "items-center" : ""}`}>
       <button 
