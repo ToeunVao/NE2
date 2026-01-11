@@ -269,11 +269,6 @@ const dailyAppts = filteredAppointments.filter(app => {
 </div>
       </div>
 
-      {/* ROUND FAB */}
-      <button onClick={() => { setSelectedDate(new Date()); setIsModalOpen(true); }} className="fixed bottom-10 right-10 bg-[#db2777] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white hover:scale-110 transition-all z-50">
-        <i className="fas fa-plus text-2xl"></i>
-      </button>
-
       {/* FULL RESTORED BOOKING MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

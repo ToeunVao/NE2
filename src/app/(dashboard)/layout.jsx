@@ -5,13 +5,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-
+import Sidebar from "@/components/Sidebar";
+import GlobalBookingModal from "@/components/GlobalBookingModal";
 export default function DashboardLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false); // New Stat
   const pathname = usePathname();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState(new Date());
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -33,17 +35,24 @@ const [reportOpen, setReportOpen] = useState(false);
 const navLinks = [
   { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
   { name: "Booking", href: "/admin/appointments/book", icon: "fa-calendar-alt" },
+   { name: "Appointment", href: "/admin/appointments", icon: "fa-calendar-alt" },
+  
   // Report is now a dropdown toggle
   { 
     name: "Report", 
     icon: "fa-chart-line",
     isDropdown: true,
     subItems: [
+       { name: "Staff Earning", href: "/admin/reports/staff-earnings" },
       { name: "Salon Earning", href: "/admin/reports/salon-earning" },
       { name: "Profit Dashboard", href: "/admin/reports/profit" },
       { name: "Expense", href: "/admin/reports/expenses" },
     ]
   },
+  { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift text-purple-600 group-hover:text-white" },
+  { name: "Inventory", href: "/admin/inventory", icon: "fa-user" },
+  { name: "Service", href: "/admin/services", icon: "fa-user" },
+  { name: "User", href: "/admin/users", icon: "fa-user" },
   { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
 ];
 
@@ -160,6 +169,19 @@ const navLinks = [
         <div className="p-8 overflow-y-auto">
           {children}
         </div>
+        {/* GLOBAL FLOATING BUTTON */}
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="fixed bottom-10 right-10 bg-[#db2777] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white hover:scale-110 transition-all z-50 print:hidden"
+        >
+          <i className="fas fa-plus text-2xl"></i>
+        </button>
+
+        {/* GLOBAL BOOKING MODAL */}
+        <GlobalBookingModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+        />
       </main>
     </div>
   );
