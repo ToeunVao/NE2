@@ -7,6 +7,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import Sidebar from "@/components/Sidebar";
 import GlobalBookingModal from "@/components/GlobalBookingModal";
+import NotificationCenter from "@/components/NotificationCenter";
 export default function DashboardLayout({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false); // New Stat
   const pathname = usePathname();
@@ -35,7 +36,6 @@ const [reportOpen, setReportOpen] = useState(false);
 const navLinks = [
   { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
   { name: "Booking", href: "/admin/appointments/book", icon: "fa-calendar-alt" },
-   { name: "Appointment", href: "/admin/appointments", icon: "fa-calendar-alt" },
   
   // Report is now a dropdown toggle
   { 
@@ -52,6 +52,7 @@ const navLinks = [
   { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift text-purple-600 group-hover:text-white" },
   { name: "Inventory", href: "/admin/inventory", icon: "fa-user" },
   { name: "Service", href: "/admin/services", icon: "fa-user" },
+   { name: "Clients", href: "/admin/clients", icon: "fa-user" },
   { name: "User", href: "/admin/users", icon: "fa-user" },
   { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
 ];
@@ -73,7 +74,7 @@ const navLinks = [
     </button> 
     {/* Logo Section */}
     <div className={`p-6 transition-all duration-300 ${isCollapsed ? "text-center px-2" : "p-8"}`}>
-      <Link href="/admin/appointments/book" className="no-underline group">
+      <Link href="/admin" className="no-underline group">
         <span className={`logo-style text-pink-700 block transition-all ${isCollapsed ? "text-xl" : "text-2xl"}`}>
           {isCollapsed ? "NE" : "Nails Express"}
         </span>
@@ -157,14 +158,10 @@ const navLinks = [
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar for Notifications/User Profile if needed */}
-        <header className="h-20 bg-white/50 backdrop-blur-md border-b border-gray-100 px-10 flex items-center justify-end">
-          <div className="relative text-gray-300 cursor-pointer hover:text-pink-600 transition-colors">
-            <i className="fas fa-bell text-xl"></i>
-            <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold">
-              3
-            </span>
-          </div>
-        </header>
+   <header className="h-20 bg-white/50 backdrop-blur-md border-b border-gray-100 px-10 flex items-center justify-end">
+  {/* REPLACE IT WITH THIS */}
+  <NotificationCenter />
+</header>
 
         <div className="p-8 overflow-y-auto">
           {children}

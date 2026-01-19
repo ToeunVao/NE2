@@ -37,6 +37,21 @@ const handleDelete = async (clientId) => {
   });
 
   const brandColor = "rgb(190 24 93)";
+useEffect(() => {
+  // Listen to your finished clients collection
+  // Change "service_logs" to whatever your finished collection is named
+  const q = query(collection(db, "service_logs"), orderBy("timestamp", "desc"));
+  
+  const unsubscribe = onSnapshot(q, (snap) => {
+    const logs = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setServiceLogs(logs);
+  });
+
+  return () => unsubscribe();
+}, []);
 
 useEffect(() => {
   // 1. Technicians & Services
@@ -219,6 +234,126 @@ const handleCheckInFromWaitlist = async (appt) => {
     console.error("Error checking in from waitlist:", error);
   }
 };
+const [isModalOpen, setIsModalOpen] = useState(false);
+const [serviceLogs, setServiceLogs] = useState([]);
+const [nameSuggestions, setNameSuggestions] = useState([]);
+
+useEffect(() => {
+  const q = query(
+    collection(db, "finished_clients"), 
+    orderBy("checkOutTimestamp", "desc"),
+    limit(100) // Look at the last 100 clients
+  );
+  
+  const unsub = onSnapshot(q, (snap) => {
+    setFinishedClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  });
+  
+  return () => unsub();
+}, []);
+
+// 1. Logic for Name Search
+const handleNameChange = (val) => {
+  setFormData({ ...formData, name: val });
+  
+  if (val && val.length > 1) {
+    const filtered = (finishedClients || [])
+      .filter(client => client.name?.toLowerCase().includes(val.toLowerCase()))
+      .map(client => ({ name: client.name, phone: client.phone }))
+      .filter((value, index, self) => 
+        index === self.findIndex((t) => t.name === value.name)
+      );
+    setNameSuggestions(filtered.slice(0, 5));
+  } else {
+    setNameSuggestions([]);
+  }
+};
+
+// 2. Logic for Phone Search (Optional but helpful)
+const handlePhoneChange = (val) => {
+  setFormData({ ...formData, phone: val });
+  
+  if (val && val.length > 3) {
+    const filtered = (finishedClients || [])
+      .filter(client => client.phone?.includes(val))
+      .map(client => ({ name: client.name, phone: client.phone }))
+      .filter((value, index, self) => index === self.findIndex((t) => t.phone === value.phone));
+    
+    setNameSuggestions(filtered.slice(0, 5));
+  } else {
+    setNameSuggestions([]);
+  }
+};
+
+// Add this above your return (around line 260)
+const renderSubCategoryOverlay = () => {
+  if (!activeCategory) return null;
+
+  // Use a fallback to check both .services and .items (some of your code uses cat.items)
+  const servicesList = activeCategory.services || activeCategory.items || [];
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      {/* Semi-dark background */}
+      <div 
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+        onClick={() => setActiveCategory(null)}
+      ></div>
+      
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-pink-50/50">
+          <h4 className="font-black text-sm uppercase tracking-widest text-pink-600">
+            {activeCategory.id.replace(/_/g, ' ')}
+          </h4>
+          <button 
+            onClick={() => setActiveCategory(null)}
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm text-gray-400 hover:text-pink-600 text-xl"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
+          {servicesList.length > 0 ? (
+            servicesList.map((service) => {
+              const isSelected = selectedServices.some(s => s.name === service.name);
+              return (
+                <div
+                  key={service.name}
+                  onClick={() => toggleService(service)}
+                  className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex justify-between items-center ${
+                    isSelected 
+                    ? "border-pink-500 bg-pink-50 shadow-md shadow-pink-100" 
+                    : "border-gray-100 hover:border-pink-200"
+                  }`}
+                >
+                  <div>
+                    <p className="font-bold text-gray-800 text-sm">{service.name}</p>
+                    <p className="text-xs text-pink-600 font-black">${service.price}</p>
+                  </div>
+                  {isSelected && <i className="fas fa-check-circle text-pink-500"></i>}
+                </div>
+              );
+            })
+          ) : (
+            <div className="col-span-2 py-10 text-center text-gray-400 italic">
+              No services found in this category.
+            </div>
+          )}
+        </div>
+        
+        <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+          <button 
+            onClick={() => setActiveCategory(null)}
+            className="px-6 py-2 bg-pink-600 text-white rounded-lg font-black uppercase text-[10px] tracking-widest"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 font-sans">
@@ -254,17 +389,53 @@ const handleCheckInFromWaitlist = async (appt) => {
           {activeSubTab === "Check In" ? (
             <div className="space-y-10">
               
-              {/* SECTION 1: USER INFO */}
-              <div className="space-y-6">
-                <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Your Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                  <InputItem label="Full Name" value={formData.name} onChange={v => setFormData({...formData, name: v})} placeholder="Jane Doe" />
-                  <InputItem label="Phone" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} placeholder="(555) 000-0000" />
-                  <SelectItem label="Technician" value={formData.technician} onChange={v => setFormData({...formData, technician: v})} options={["Any Technician", ...technicians.map(t => t.name)]} />
-                  <SelectItem label="Group Size" value={formData.groupSize} onChange={v => setFormData({...formData, groupSize: v})} options={["1", "2", "3", "4+"]} />
-                  <SelectItem label="Booking Type" value={formData.bookingType} onChange={v => setFormData({...formData, bookingType: v})} options={["Walk-IN", "Phone", "Online"]} />
-                </div>
-              </div>
+            {/* SECTION 1: USER INFO */}
+<div className="space-y-6">
+  <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Your Information</h3>
+  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+    
+    {/* FULL NAME WITH AUTO-COMPLETE */}
+    <div className="relative md:col-span-1">
+      <InputItem 
+        label="Full Name" 
+        value={formData.name} 
+        onChange={handleNameChange} 
+        placeholder="Jane Doe" 
+      />
+      
+      {/* SUGGESTIONS DROPDOWN */}
+      {nameSuggestions.length > 0 && (
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-100 shadow-2xl rounded-xl overflow-hidden">
+          {nameSuggestions.map((client, idx) => (
+            <div 
+              key={idx}
+              onClick={() => {
+                setFormData({ ...formData, name: client.name, phone: client.phone || "" });
+                setNameSuggestions([]);
+              }}
+              className="p-3 hover:bg-pink-50 cursor-pointer flex justify-between items-center border-b border-gray-50 last:border-0"
+            >
+              <span className="font-bold text-gray-700 text-sm">{client.name}</span>
+              <span className="text-[10px] text-gray-400">{client.phone}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {/* PHONE FIELD (Will auto-fill when name is clicked) */}
+    <InputItem 
+      label="Phone" 
+      value={formData.phone} 
+      onChange={v => setFormData({...formData, phone: v})} 
+      placeholder="(555) 000-0000" 
+    />
+
+    <SelectItem label="Technician" value={formData.technician} onChange={v => setFormData({...formData, technician: v})} options={["Any Technician", ...technicians.map(t => t.name)]} />
+    <SelectItem label="Group Size" value={formData.groupSize} onChange={v => setFormData({...formData, groupSize: v})} options={["1", "2", "3", "4+"]} />
+    <SelectItem label="Booking Type" value={formData.bookingType} onChange={v => setFormData({...formData, bookingType: v})} options={["Walk-IN", "Phone", "Online"]} />
+  </div>
+</div>
 
               {/* SECTION 2: CATEGORIES */}
               <div className="space-y-6">
@@ -279,10 +450,14 @@ const handleCheckInFromWaitlist = async (appt) => {
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {categories.map((cat) => (
                     <div 
-                      key={cat.id} 
-                      onClick={() => setActiveCategory(cat)} 
-                      className="relative p-5 border border-gray-100 rounded-lg text-center cursor-pointer transition-all hover:bg-gray-50 active:scale-95"
-                    >
+                     key={cat.id} 
+    onClick={() => {
+      // Find the full category object from your state to ensure services are included
+      const fullCategory = categories.find(c => c.id === cat.id);
+      setActiveCategory(fullCategory);
+    }} 
+    className="relative p-5 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
+  >
                         {getSelectedCountForCategory(cat) > 0 && (
                           <div className="absolute top-2 right-2 w-5 h-5 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-md" style={{ backgroundColor: brandColor }}>
                             {getSelectedCountForCategory(cat)}
@@ -324,14 +499,33 @@ const handleCheckInFromWaitlist = async (appt) => {
 <div className="space-y-6">
     {/* Header & Search Section */}
     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div>
-        <h3 className="text-xl font-black uppercase italic tracking-tighter text-gray-800">History Log</h3>
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-          Showing last {finishedClients.length} records
-        </p>
-      </div>
+{/* Tab Header for Finished Clients */}
+<div className="flex justify-between items-center mb-6">
+  <h2 className="text-2xl font-black text-gray-800 uppercase">Finished Today</h2>
+  
+<button 
+  onClick={() => {
+    // 1. Reset the form
+    setFormData({ 
+      name: "", 
+      phone: "", 
+      technician: "Any Technician", 
+      groupSize: "1", 
+      bookingType: "Walk-IN" 
+    });
+    // 2. Clear auto-complete suggestions
+    setNameSuggestions([]);
+    // 3. Open the modal
+    setIsModalOpen(true); 
+  }}
+  className="bg-pink-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-700 transition-all shadow-lg shadow-pink-100 flex items-center gap-2"
+>
+  <i className="fas fa-plus"></i>
+  Create New Finished Client
+</button>
+</div>
       
-      <div className="relative w-full md:w-72">
+      <div className="flex justify-between items-center">
         <input 
           type="text"
           placeholder="SEARCH CLIENT NAME..."
@@ -340,6 +534,7 @@ const handleCheckInFromWaitlist = async (appt) => {
           onChange={(e) => setHistorySearch(e.target.value)}
         />
         <svg className="absolute left-3 top-3 text-gray-300" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      
       </div>
     </div>
 
@@ -473,7 +668,7 @@ const handleCheckInFromWaitlist = async (appt) => {
     </div>
   </div>
 ) : activeSubTab === "Waitlist" ? (
-<div className="space-y-6 animate-in fade-in duration-500">
+<div className="space-y-6">
     {/* Header Section */}
     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 flex justify-between items-center">
       <div>
@@ -693,40 +888,6 @@ const handleCheckInFromWaitlist = async (appt) => {
         </div>
       </div>
 
-      {/* POPUP: SUB-CATEGORIES */}
-      {activeCategory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-50 backdrop-blur-sm" onClick={() => setActiveCategory(null)}></div>
-          <div className="relative bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-5 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-black uppercase text-sm tracking-widest" style={{ color: brandColor }}>{activeCategory.id.replace(/_/g, ' ')}</h3>
-              <button onClick={() => setActiveCategory(null)} className="text-gray-400 hover:text-gray-800 text-xl font-bold">×</button>
-            </div>
-            <div className="p-4 max-h-[60vh] overflow-y-auto space-y-2">
-              {activeCategory.items?.map((item, index) => {
-                const isSelected = selectedServices.some(s => s.name === item.name);
-                return (
-                  <div 
-                    key={index}
-                    onClick={() => toggleService(item)}
-                    className="p-4 rounded-lg border-2 cursor-pointer transition-all flex justify-between items-center"
-                    style={{ 
-                      borderColor: isSelected ? brandColor : "#f3f4f6",
-                      backgroundColor: isSelected ? "rgb(190 24 93 / 0.05)" : "white"
-                    }}
-                  >
-                    <span className="text-sm font-black" style={{ color: isSelected ? brandColor : "#374151" }}>{item.name}</span>
-                    <span className="text-xs font-black opacity-70" style={{ color: brandColor }}>${item.price}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="p-4 border-t border-gray-100">
-              <button onClick={() => setActiveCategory(null)} className="w-full bg-gray-800 text-white py-3 rounded-lg font-black uppercase text-[10px] tracking-widest">Done Selection</button>
-            </div>
-          </div>
-        </div>
-      )}
 {selectedReview && (
   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
     <div className="absolute inset-0 bg-gray-50 backdrop-blur-sm" onClick={() => setSelectedReview(null)}></div>
@@ -813,6 +974,136 @@ const handleCheckInFromWaitlist = async (appt) => {
     </div>
   </div>
 )}
+
+{/* ADD THIS CODE AT THE VERY BOTTOM OF YOUR RETURN (BEFORE THE FINAL </div>) */}
+{isModalOpen && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    {/* Backdrop */}
+    <div 
+      className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" 
+      onClick={() => setIsModalOpen(false)}
+    ></div>
+    
+    {/* Modal Content */}
+    <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+      <div className="p-6 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+        <h3 className="font-black uppercase text-lg tracking-tight text-pink-600">Manual Finished Entry</h3>
+        <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-800 text-2xl">×</button>
+      </div>
+
+      <div className="p-8 space-y-10">
+        {/* RE-USING YOUR INFORMATION SECTION */}
+        <div className="space-y-6">
+          <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Client Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            {/* NAME WITH AUTO-COMPLETE */}
+           <div className="relative">
+    <InputItem 
+      label="Full Name" 
+      value={formData.name} 
+      onChange={handleNameChange} 
+      placeholder="Search existing name..." 
+    />
+    
+    {nameSuggestions.length > 0 && (
+      <div className="absolute z-[200] w-full mt-1 bg-white border border-gray-200 shadow-2xl rounded-xl overflow-hidden">
+        {nameSuggestions.map((client, idx) => (
+          <div 
+            key={idx}
+            onClick={() => {
+              setFormData({ ...formData, name: client.name, phone: client.phone || "" });
+              setNameSuggestions([]);
+            }}
+            className="p-4 hover:bg-pink-50 cursor-pointer flex justify-between items-center border-b border-gray-50 last:border-0"
+          >
+            <div className="flex flex-col">
+              <span className="font-black text-gray-800 text-sm uppercase">{client.name}</span>
+              <span className="text-[10px] text-gray-400 font-bold">{client.phone}</span>
+            </div>
+            <i className="fas fa-history text-gray-300 text-xs"></i>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+
+  {/* PHONE FIELD WITH AUTO-COMPLETE */}
+  <div className="relative">
+    <InputItem 
+      label="Phone" 
+      value={formData.phone} 
+      onChange={handlePhoneChange} 
+      placeholder="(555) 000-0000" 
+    />
+  </div>
+           <SelectItem label="Technician" value={formData.technician} onChange={v => setFormData({...formData, technician: v})} options={["Any Technician", ...technicians.map(t => t.name)]} />
+            <SelectItem label="Group Size" value={formData.groupSize} onChange={v => setFormData({...formData, groupSize: v})} options={["1", "2", "3", "4+"]} />
+            <SelectItem label="Booking Type" value={formData.bookingType} onChange={v => setFormData({...formData, bookingType: v})} options={["Walk-IN", "Phone", "Online"]} />
+          </div>
+        </div>
+
+        {/* SERVICE SELECTION (Categories) */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-gray-50 pb-2">
+            <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Select Services</h3>
+            <div className="flex flex-wrap gap-1">
+              {selectedServices.map((s, i) => (
+                  <span key={i} className="px-2 py-0.5 border text-[9px] font-black rounded uppercase bg-pink-50 border-pink-200 text-pink-600">{s.name}</span>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {categories.map((cat) => (
+              <div 
+               key={cat.id} 
+    onClick={() => {
+      // Find the full category object from your state to ensure services are included
+      const fullCategory = categories.find(c => c.id === cat.id);
+      setActiveCategory(fullCategory);
+    }} 
+    className="relative p-5 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
+  >
+                  {getSelectedCountForCategory(cat) > 0 && (
+                    <div className="absolute top-2 right-2 w-5 h-5 bg-pink-600 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-md">
+                      {getSelectedCountForCategory(cat)}
+                    </div>
+                  )}
+                  <p className="font-black text-xs uppercase tracking-widest text-pink-700">{cat.id.replace(/_/g, ' ')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SUBMIT AS FINISHED */}
+        <div className="flex justify-center pt-6">
+          <button 
+            onClick={async () => {
+              // Prepare manual finish logic
+              const finishedData = {
+                name: formData.name,
+                phone: formData.phone || "",
+                technician: formData.technician,
+                groupSize: formData.groupSize || "1",
+                services: selectedServices.map(s => s.name),
+                checkInTimestamp: serverTimestamp(),
+                checkOutTimestamp: serverTimestamp(),
+                status: "completed"
+              };
+              await addDoc(collection(db, "finished_clients"), finishedData);
+              setIsModalOpen(false);
+              alert("Manual Entry Saved!");
+            }} 
+            className="px-20 py-5 bg-pink-600 rounded-xl font-black uppercase text-xs tracking-widest text-white shadow-xl hover:bg-pink-700 transition-all"
+          >
+            ✓ Save Directly to History
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* POPUP: SALON POLICY */}
       {showPolicyModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -839,6 +1130,9 @@ const handleCheckInFromWaitlist = async (appt) => {
           </div>
         </div>
       )}
+    
+    {renderSubCategoryOverlay()}
+    
     </div>
   );
 }

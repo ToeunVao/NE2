@@ -33,32 +33,18 @@ const STAFF_BAR_COLORS = ['#FFB6C1', '#87CEEB', '#98FB98', '#FFD700', '#DDA0DD',
   };
 
 export default function AdminDashboard() {
-  // 1. Fixed Date Logic (Uses local time instead of UTC to prevent date jumping)
+const formRef = useRef(null);
+  // --- NEW STATES FOR FILTERED TABLE ---
+  const [serviceLogs, setServiceLogs] = useState([]); // Raw logs from Firestore
+  const [reportFilterTech, setReportFilterTech] = useState('All'); // Technician Tab
+// 1. Fixed Date Logic (Uses local time instead of UTC to prevent date jumping)
 const getLocalDate = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60000;
   return new Date(now - offset).toISOString().split('T')[0];
 };
-  // --- 1. NEW STATES FOR CARDS & GRAPH ---
-const [overviewStart, setOverviewStart] = useState(getLocalDate()); // Defaults to Today
-const [overviewEnd, setOverviewEnd] = useState(getLocalDate());     // Defaults to Today
 
-const formRef = useRef(null);
-const [showAllRows, setShowAllRows] = useState(false);
-  // --- NEW STATES FOR FILTERED TABLE ---
-  const [serviceLogs, setServiceLogs] = useState([]); // Raw logs from Firestore
-  const [reportFilterTech, setReportFilterTech] = useState('All'); // Technician Tab
-
-const todayStr = getLocalDate(); // This will correctly return 2026-01-16
-const formatDisplayDate = (dateStr) => {
-  if (!dateStr) return "";
-  const [year, month, day] = dateStr.split("-");
-  return `${month}/${day}/${year}`;
-};
-
-const [startDate, setStartDate] = useState(todayStr);
-const [endDate, setEndDate] = useState(todayStr);
-
+const [reportFilterDate, setReportFilterDate] = useState(getLocalDate());
 const [newEarning, setNewEarning] = useState({
   date: getLocalDate(),
   staffName: "",
@@ -82,95 +68,6 @@ const BASE_PATH = `artifacts/${APP_ID}/public/data`;
 const [appointments, setAppointments] = useState([]); // Add this line
 const [selectedTechFilter, setSelectedTechFilter] = useState('All'); // Add this!
   // --- 1. SYNC DATABASE ---
-const overviewStats = useMemo(() => {
-  const dateFilteredLogs = serviceLogs.filter(log => 
-    log.dateStr >= overviewStart && log.dateStr <= overviewEnd
-  );
-  const filteredReports = earningsData.filter(r => r.id >= overviewStart && r.id <= overviewEnd);
-  const filteredLogs = serviceLogs.filter(log => log.dateStr >= overviewStart && log.dateStr <= overviewEnd);
-
-  let totalEarnings = 0;
-  let totalCash = 0;
-  let totalGiftCard = 0;
-  let totalExpense = 0;
-  const staffStats = {};
-  const dailyDataMap = {}; // Helper for the graph
-
-  // 2. ADD THIS: Filter appointments by the same overview dates
-  const liveAppointments = appointments.filter(appt => {
-    if (!appt.dateObj) return false;
-    const apptDateStr = appt.dateObj.toISOString().split('T')[0];
-    return apptDateStr >= overviewStart && apptDateStr <= overviewEnd;
-  });
-
-  // 1. Calculate Revenue & Staff Stats from individual logs
-  filteredLogs.forEach(log => {
-    const money = parseMoney(log.earning);
-    totalEarnings += money;
-    
-    // Grouping for the Graph (Trend Section)
-    if (!dailyDataMap[log.dateStr]) {
-      dailyDataMap[log.dateStr] = { 
-        name: formatDisplayDate(log.dateStr), // MM/DD/YYYY
-        revenue: 0,
-        cash: 0 
-      };
-    }
-    dailyDataMap[log.dateStr].revenue += money;
-
-    if (!staffStats[log.staffName]) {
-      staffStats[log.staffName] = { name: log.staffName, revenue: 0, bookings: 0 };
-    }
-    staffStats[log.staffName].revenue += money;
-    staffStats[log.staffName].bookings += 1;
-  });
-
-  // 2. Calculate Cash/Expenses from daily reports
-  filteredReports.forEach(report => {
-    totalGiftCard += parseMoney(report.sellGiftCard);
-    totalExpense += (parseMoney(report.product) + parseMoney(report.supply));
-    
-    let dailyTechSum = 0;
-    staffList.forEach(s => dailyTechSum += parseMoney(report[s.name.toLowerCase()]));
-    const dailyTotal = dailyTechSum + parseMoney(report.sellGiftCard);
-    const nonCash = parseMoney(report.totalCredit) + parseMoney(report.check) + 
-                    parseMoney(report.venmo) + parseMoney(report.square);
-    const dailyCashValue = (dailyTotal - nonCash);
-    totalCash += dailyCashValue;
-
-    // Add Cash to the Trend Graph if the date exists
-    if (dailyDataMap[report.id]) {
-      dailyDataMap[report.id].cash = dailyCashValue;
-    }
-  });
-
-  // 3. Convert Map to Sorted Array for Recharts
-  const trendData = Object.keys(dailyDataMap)
-    .sort()
-    .map(dateKey => dailyDataMap[dateKey]);
-
-  // 4. Staff Performance & Tops
-  const staffPerformance = Object.values(staffStats).map((staff, index) => {
-    const payout = staff.revenue * 0.60;
-    return {
-      ...staff,
-      payout,
-      checkPayout: payout * 0.70,
-      cashPayout: payout * 0.30,
-      color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
-    };
-  }).sort((a, b) => b.revenue - a.revenue);
-
-  return { 
-    totalEarnings, totalCash, totalGiftCard, totalExpense, 
-    topEarnerName: staffPerformance[0]?.name || "N/A", 
-    topBookingName: [...staffPerformance].sort((a, b) => b.bookings - a.bookings)[0]?.name || "N/A",
-    staffPerformance, 
-    trendData, // <--- This is for your graph
-    clientCount: filteredLogs.length,
-    liveAppointmentCount: liveAppointments.length
-  };
-}, [serviceLogs, earningsData, staffList, overviewStart, overviewEnd]);
 
 useEffect(() => {
   console.log("--- STARTING FIREBASE SYNC ---");
@@ -192,10 +89,9 @@ useEffect(() => {
 const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
   const logs = snap.docs.map(doc => {
     const data = doc.data();
-    let dStr = "";
-    if (data.date?.toDate) dStr = data.date.toDate().toISOString().split('T')[0];
-    else if (typeof data.date === 'string') dStr = data.date.split('T')[0];
-    return { id: doc.id, ...data, dateStr: dStr };
+    // Normalize date to string "YYYY-MM-DD"
+    let dateVal = data.date?.toDate ? data.date.toDate().toISOString().split('T')[0] : data.date;
+    return { id: doc.id, ...data, dateStr: dateVal }; // <--- MUST BE dateStr
   });
   setServiceLogs(logs);
 });
@@ -217,7 +113,6 @@ const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
       setFinishedCount(snap.size); // This is allowed here
     });
 
-    
   setLoading(false);
 
   return () => { unsubEarnings(); unsubStaff(); unsubAppts(); unsubFinished(); unsubLogs();};
@@ -264,7 +159,6 @@ const handleAddEarning = async () => {
   
 const dashboardData = useMemo(() => {
   if (!staffList) return null;
-
 
 
 
@@ -464,19 +358,18 @@ const isFuture = appt.dateObj >= now;
 }, [selectedMonth, earningsData, staffList, appointments, selectedTechFilter, finishedCount]);
 const filteredStats = useMemo(() => {
   const filtered = serviceLogs.filter(log => {
-    // Range check: Is the log date between start and end?
-    const isWithinRange = log.dateStr >= startDate && log.dateStr <= endDate;
+    // Change log.date to log.dateStr here:
+    const isDateMatch = log.dateStr === reportFilterDate; 
     const isTechMatch = reportFilterTech === 'All' || log.staffName === reportFilterTech;
-    return isWithinRange && isTechMatch;
+    return isDateMatch && isTechMatch;
   });
 
-  return {
-    totalEarnings: filtered.reduce((sum, log) => sum + parseMoney(log.earning), 0),
-    totalTips: filtered.reduce((sum, log) => sum + parseMoney(log.tip), 0),
-    clientCount: filtered.length,
-    rows: filtered
-  };
-}, [serviceLogs, startDate, endDate, reportFilterTech]); // Update dependencies here too!
+  const totalEarnings = filtered.reduce((sum, log) => sum + parseMoney(log.earning), 0);
+  const totalTips = filtered.reduce((sum, log) => sum + parseMoney(log.tip), 0);
+  const clientCount = filtered.length;
+
+  return { totalEarnings, totalTips, clientCount };
+}, [serviceLogs, reportFilterDate, reportFilterTech]);
 
 
   if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
@@ -495,178 +388,57 @@ const {
     <div className="max-w-[1600px] mx-auto p-6 space-y-8 font-sans pb-20">
       
       {/* HEADER */}
- 
-        {/* --- OVERVIEW FILTER SECTION --- */}
-<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-  <div>
-    <h2 className="text-lg font-black text-gray-800">Business Overview</h2>
-    <p className="text-xs text-gray-400 font-bold uppercase">Performance Metrics</p>
-  </div>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center">
+        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+            <span className="text-xs font-black text-gray-500 uppercase self-center mr-2">Quick Links:</span>
+            {['Staff Summary', 'Revenue Trend', 'Upcoming', 'Earning Report'].map(link => (
+                <button key={link} className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-[10px] font-black uppercase hover:bg-pink-50 hover:text-pink-600 transition-colors whitespace-nowrap">
+                    {link}
+                </button>
+            ))}
+        </div>
+        <div className="flex items-center gap-3">
+            <span className="text-xs font-black text-gray-500 uppercase">Date Range:</span>
+            <input 
+                type="month" 
+                value={selectedMonth} 
+                onChange={e => setSelectedMonth(e.target.value)} 
+                className="bg-gray-50 border-none rounded-lg text-xs font-bold px-3 py-1.5 outline-none focus:ring-2 focus:ring-pink-200"
+            />
+        </div>
+      </div>
 
-  {/* DATE PICKER FOR CARDS/GRAPH */}
-  <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-    <div className="flex items-center gap-2 px-2">
-      <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
-      <input 
-        type="date" 
-        value={overviewStart} 
-        onChange={e => setOverviewStart(e.target.value)} 
-        className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-      />
-    </div>
-    <div className="flex items-center gap-2 px-2 border-l border-gray-100">
-      <span className="text-[10px] font-black uppercase text-gray-400">To:</span>
-      <input 
-        type="date" 
-        value={overviewEnd} 
-        onChange={e => setOverviewEnd(e.target.value)} 
-        className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-      />
-    </div>
-    
-    {/* SHORTCUT BUTTONS */}
-    <div className="flex gap-1 pl-2 border-l border-gray-100">
-      <button 
-        onClick={() => { setOverviewStart(getLocalDate()); setOverviewEnd(getLocalDate()); }}
-        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black uppercase transition-colors"
-      >
-        Today
-      </button>
-      <button 
-        onClick={() => { 
-          const now = new Date();
-          const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0); // Local 1st of month
-          setOverviewStart(firstDay.toISOString().split('T')[0]); 
-          setOverviewEnd(getLocalDate()); 
-        }}
-        className="px-3 py-1.5 bg-pink-50 text-pink-600 hover:bg-pink-100 rounded-lg text-[10px] font-black uppercase transition-colors"
-      >
-        Month
-      </button>
-    </div>
-  </div>
-</div>
+      {/* ROW 1: TOP STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <PastelCard label="Total Salon Revenue" value={`$${totals.totalRevenue.toFixed(2)}`} bg={COLORS.pink} text={COLORS.pinkText} />
+        <PastelCard label="Total Cash" value={`$${totals.totalCash.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
+        <PastelCard label="Top Earning Technician" value={totals.topEarnerName} bg={COLORS.blue} text={COLORS.blueText} isText />
+<PastelCard 
+  label="Top Booking Technician" 
+  value={totals.topBookingName} // Use the destructured value
+  bg={COLORS.purple} 
+  text={COLORS.purpleText} 
+  isText={true} 
+/>
+      </div>
 
-{/* ROW 1: PRIMARY BUSINESS STATS */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-  
-  {/* TOTAL REVENUE - PINK */}
-  <div style={{ backgroundColor: COLORS.pink }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
-      <p style={{ color: COLORS.pinkText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Revenue</p>
-      <h3 style={{ color: COLORS.pinkText }} className="font-black text-3xl tracking-tight">${overviewStats.totalEarnings.toFixed(2)}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-  </div>
-
-  {/* TOTAL CASH - GREEN */}
-  <div style={{ backgroundColor: COLORS.green }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
-      <p style={{ color: COLORS.greenText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Cash</p>
-      <h3 style={{ color: COLORS.greenText }} className="font-black text-3xl tracking-tight">${overviewStats.totalCash.toFixed(2)}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
-    </div>
-  </div>
-
-  {/* TOP EARNER - BLUE */}
-  <div style={{ backgroundColor: COLORS.blue }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
-      <p style={{ color: COLORS.blueText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Earner</p>
-      <h3 style={{ color: COLORS.blueText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topEarnerName}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    </div>
-  </div>
-
-  {/* TOP BOOKING - PURPLE */}
-  <div style={{ backgroundColor: COLORS.purple }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
-      <p style={{ color: COLORS.purpleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Booking</p>
-      <h3 style={{ color: COLORS.purpleText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topBookingName}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-  </div>
-</div>
-
-{/* ROW 2: OPERATIONAL STATS */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-  
-{/* APPOINTMENTS - PERIWINKLE CARD */}
-<div style={{ backgroundColor: COLORS.periwinkle }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-  <div>
-    <p style={{ color: COLORS.periwinkleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-      Live Appointments
-    </p>
-    <h3 style={{ color: COLORS.periwinkleText }} className="text-3xl font-black tracking-tight">
-      {/* Updated to use the new calculated count */}
-      {overviewStats.liveAppointmentCount}
-    </h3>
-  </div>
-  <div className="p-3 rounded-full bg-white/30 text-gray-400">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-  </div>
-</div>
-
-{/* CLIENTS - MINT CARD */}
-<div style={{ backgroundColor: COLORS.mint }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
-  <div>
-    <p style={{ color: COLORS.mintText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-      Total Clients
-    </p>
-    <h3 style={{ color: COLORS.mintText }} className="text-3xl font-black tracking-tight">
-      {/* CHANGE THIS LINE FROM filteredStats.rows.length TO overviewStats.clientCount */}
-      {overviewStats.clientCount}
-    </h3>
-  </div>
-  <div className="p-3 rounded-full bg-white/30 text-white">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  </div>
-</div>
-  {/* GIFT CARDS - ORANGE */}
-  <div style={{ backgroundColor: COLORS.orange }} className="p-6 rounded-xl flex justify-between items-center">
-    <div>
-      <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Gift Cards</p>
-      <h3 style={{ color: COLORS.orangeText }} className="text-2xl font-black">${overviewStats.totalGiftCard.toFixed(2)}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-      </svg>
-    </div>
-  </div>
-
-  {/* EXPENSES - RED */}
-  <div style={{ backgroundColor: COLORS.red }} className="p-6 rounded-xl flex justify-between items-center">
-    <div>
-      <p style={{ color: COLORS.redText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Expenses</p>
-      <h3 style={{ color: COLORS.redText }} className="text-2xl font-black">${overviewStats.totalExpense.toFixed(2)}</h3>
-    </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-  </div>
-</div>
+      {/* ROW 2: SECONDARY STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+<PastelCard 
+  label="Total Appointments" 
+  value={totalSystemAppointments} // Now uses the global count
+  bg={COLORS.periwinkle} 
+  text={COLORS.periwinkleText} 
+/>
+<PastelCard 
+  label="Total Clients" 
+  value={totals.totalClients || 0} 
+  bg={COLORS.mint} 
+  text={COLORS.mintText} 
+/>
+ <PastelCard label="Total Gift Cards Sales" value={`$${totals.totalGiftCard.toFixed(2)}`} bg={COLORS.orange} text={COLORS.orangeText} />
+        <PastelCard label="Total Expense" value={`$${totals.totalExpense.toFixed(2)}`} bg={COLORS.red} text={COLORS.redText} />
+      </div>
 
       {/* SECTION 3: STAFF EARNINGS SUMMARY (Cards + Chart) */}
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
@@ -674,25 +446,24 @@ const {
         
         {/* Staff Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
-            {/* Change staffPerformance.map to overviewStats.staffPerformance.map */}
-{overviewStats.staffPerformance.map((staff, idx) => (
-    <div key={idx} className="p-5 rounded-xl border border-gray-50 hover:shadow-md transition-all" style={{backgroundColor: `${staff.color}15`}}>
-        <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
-        <p className="text-2xl font-black text-gray-800 mb-4">${staff.revenue.toFixed(2)}</p>
-        
-        <div className="space-y-1">
-            <PayoutRow label="Total Payout" value={staff.payout} />
-            <PayoutRow label="Check Payout" value={staff.checkPayout} />
-            <PayoutRow label="Cash Payout" value={staff.cashPayout} />
-        </div>
-    </div>
-))}
+            {staffPerformance.map((staff, idx) => (
+                <div key={idx} className="p-5 rounded-xl border border-gray-50 hover:shadow-md transition-all" style={{backgroundColor: `${staff.color}15`}}> {/* 15 is opacity */}
+                    <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
+                    <p className="text-2xl font-black text-gray-800 mb-4">${staff.revenue.toFixed(2)}</p>
+                    
+                    <div className="space-y-1">
+                        <PayoutRow label="Total Payout" value={staff.payout} />
+                        <PayoutRow label="Check Payout" value={staff.checkPayout} />
+                        <PayoutRow label="Cash Payout" value={staff.cashPayout} />
+                    </div>
+                </div>
+            ))}
         </div>
 
         {/* Bar Chart */}
         <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-               <BarChart data={overviewStats.staffPerformance} margin={{top: 20, right: 30, left: 20, bottom: 5}}>
+                <BarChart data={staffPerformance} margin={{top: 20, right: 30, left: 20, bottom: 5}}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fontWeight: 700, fill: '#6b7280'}} dy={10} />
                     <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
@@ -710,45 +481,17 @@ const {
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
          <h3 className="text-xl font-black text-gray-700 italic mb-6">Salon Revenue Trend</h3>
          <div className="h-[300px] w-full">
-           {/* Change dashboardData.trendData to overviewStats.trendData */}
-<ResponsiveContainer width="100%" height="100%">
-  <LineChart data={overviewStats.trendData}>
-    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-    <XAxis 
-      dataKey="name" 
-      axisLine={false} 
-      tickLine={false} 
-      tick={{fontSize: 10, fill: '#9ca3af'}} 
-    />
-    <YAxis 
-      axisLine={false} 
-      tickLine={false} 
-      tick={{fontSize: 10, fill: '#9ca3af'}} 
-      tickFormatter={(val) => `$${val}`}
-    />
-    <Tooltip 
-      contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
-    />
-    <Legend />
-    <Line 
-      type="monotone" 
-      dataKey="revenue" 
-      name="Total Revenue"
-      stroke={COLORS.pinkText} 
-      strokeWidth={3} 
-      dot={{ r: 4, fill: COLORS.pinkText }}
-      activeDot={{ r: 6 }} 
-    />
-    <Line 
-      type="monotone" 
-      dataKey="cash" 
-      name="Cash Revenue"
-      stroke={COLORS.greenText} 
-      strokeWidth={3} 
-      dot={{ r: 4, fill: COLORS.greenText }}
-    />
-  </LineChart>
-</ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#9ca3af'}} />
+                    <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+                    <Legend wrapperStyle={{paddingTop: '20px', fontSize: '11px', fontWeight: 700}} />
+                    <Line type="monotone" dataKey="Total Revenue" stroke="#ec4899" strokeWidth={3} dot={{r: 3, fill: '#ec4899'}} activeDot={{r: 6}} />
+                    <Line type="monotone" dataKey="Cash Revenue" stroke="#10b981" strokeWidth={3} dot={{r: 3, fill: '#10b981'}} activeDot={{r: 6}} />
+                </LineChart>
+            </ResponsiveContainer>
          </div>
       </div>
 
@@ -930,55 +673,15 @@ onClick={async () => {
     </div>
 
     {/* Date Filter (Right) */}
-<div className="flex flex-wrap items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-  {/* START DATE */}
-  <div className="flex flex-col gap-1">
-    <input 
-      type="date" 
-      value={startDate} 
-      onChange={e => setStartDate(e.target.value)} 
-      className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
-    />
-  </div>
-
-  {/* END DATE */}
-  <div className="flex flex-col gap-1">
-    <input 
-      type="date" 
-      value={endDate} 
-      onChange={e => setEndDate(e.target.value)} 
-      className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
-    />
-  </div>
-
-  {/* QUICK FILTERS */}
-  <div className="flex gap-2 h-[38px]">
-    <button 
-  onClick={() => {
-    const localToday = getLocalDate();
-    setStartDate(localToday);
-    setEndDate(localToday);
-  }}
-  className="px-4 py-2 bg-pink-600 text-white rounded-xl text-[10px] font-black uppercase"
->
-  Today
-</button>
-    <button 
-     onClick={() => {
-    const now = new Date();
-    // Create a date for the 1st of this month at 12:00 PM to avoid timezone shifts
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
-    const firstDayStr = firstDay.toISOString().split('T')[0];
-    
-    setStartDate(firstDayStr);
-    setEndDate(getLocalDate());
-  }}
-      className="px-4 bg-white border border-gray-200 text-gray-400 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100 transition-all"
-    >
-      This Month
-    </button>
-  </div>
-</div>
+    <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100 w-full md:w-auto">
+       <span className="text-[10px] font-black uppercase text-gray-400 px-2 border-r border-gray-200">Daily</span>
+       <input 
+         type="date" 
+         value={reportFilterDate} 
+         onChange={e => setReportFilterDate(e.target.value)} 
+         className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
+       />
+    </div>
   </div>
 
   {/* Table */}
@@ -996,12 +699,18 @@ onClick={async () => {
         </tr>
       </thead>
 <tbody className="divide-y divide-gray-50">
- {(showAllRows ? filteredStats.rows : filteredStats.rows.slice(0, 5)).map((log, index) => (
-    <tr key={log.id} className="text-sm font-bold text-gray-600 hover:bg-gray-50/50 transition-colors group">
-       <td className="px-6 py-4 text-gray-400">{index + 1}</td>
-        <td className="px-6 py-4">{formatDisplayDate(log.dateStr)}</td>
+  {serviceLogs
+    .filter(log => {
+      const isDateMatch = log.dateStr === reportFilterDate;
+      const isTechMatch = reportFilterTech === 'All' || log.staffName === reportFilterTech;
+      return isDateMatch && isTechMatch;
+    })
+    .map((log, idx) => (
+      <tr key={log.id} className="text-sm font-bold text-gray-600 hover:bg-gray-50/50">
+        <td className="px-6 py-4 text-gray-400">{idx + 1}</td>
+        <td className="px-6 py-4">{log.dateStr}</td>
         <td className="px-6 py-4 text-pink-600">{log.staffName}</td>
-        <td className="px-6 py-4 text-gray-400 font-normal">{log.service || "N/A"}</td>
+        <td className="px-6 py-4 text-gray-400 font-normal">{log.service || "General"}</td>
         <td className="px-6 py-4">${parseMoney(log.earning).toFixed(2)}</td>
         <td className="px-6 py-4 text-green-600">${parseMoney(log.tip).toFixed(2)}</td>
         <td className="px-6 py-4 text-right">
@@ -1050,62 +759,27 @@ onClick={async () => {
       </tr>
     ))}
 </tbody>
-
       {/* Table Footer with Totals */}
       <tfoot className="bg-gray-50/50 font-black text-gray-700">
         <tr>
           <td colSpan={4} className="px-6 py-4 text-right uppercase text-[10px] text-gray-400">Filtered Total:</td>
           <td className="px-6 py-4 text-pink-600">
             {/* SUM EARNINGS */}
-   ${serviceLogs
-  .filter(log => 
-    log.dateStr >= startDate && 
-    log.dateStr <= endDate && 
-    (reportFilterTech === 'All' || log.staffName === reportFilterTech)
-  )
-  .reduce((sum, log) => sum + parseMoney(log.earning), 0)
-  .toFixed(2)}
+    ${serviceLogs
+      .filter(log => log.dateStr === reportFilterDate && (reportFilterTech === 'All' || log.staffName === reportFilterTech))
+      .reduce((sum, log) => sum + parseMoney(log.earning), 0).toFixed(2)}
              </td>
           <td className="px-6 py-4 text-green-600">
            {/* SUM TIPS */}
-   ${serviceLogs
-  .filter(log => 
-    log.dateStr >= startDate && 
-    log.dateStr <= endDate && 
-    (reportFilterTech === 'All' || log.staffName === reportFilterTech)
-  )
-  .reduce((sum, log) => sum + parseMoney(log.tip), 0)
-  .toFixed(2)}
+    ${serviceLogs
+      .filter(log => log.dateStr === reportFilterDate && (reportFilterTech === 'All' || log.staffName === reportFilterTech))
+      .reduce((sum, log) => sum + parseMoney(log.tip), 0).toFixed(2)}
           </td>
           <td></td>
         </tr>
       </tfoot>
     </table>
   </div>
-  {filteredStats.rows.length > 5 && (
-        <div className="p-4 border-t border-gray-50 bg-gray-50/30 flex justify-center rounded-b-xl">
-          <button 
-            onClick={() => setShowAllRows(!showAllRows)}
-            className="text-[10px] font-black uppercase text-pink-600 hover:text-pink-700 tracking-widest flex items-center gap-2"
-          >
-            {showAllRows ? (
-              <>
-                <span>Show Less</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 15l7-7 7 7" />
-                </svg>
-              </>
-            ) : (
-              <>
-                <span>View All ({filteredStats.rows.length} Records)</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
-                </svg>
-              </>
-            )}
-          </button>
-        </div>
-      )}
 </div>
     </div>
   );

@@ -296,7 +296,7 @@ const monthlyTotals = useMemo(() => {
       {/* DETAILED TABLE */}
  {/* TABLE SECTION - UPDATED TO OLD UI STYLE */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-        <div className="px-6 py-4 bg-gray-50/50 border-b flex justify-between items-center">
+        <div className="px-6 py-4 bg-gray-50/50 border-b flex justify-between items-center border-gray-100">
           <div className="flex items-center gap-3">
             <h2 className="text-xs font-black text-gray-800 uppercase tracking-widest">Financial History</h2>
             <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-white px-3 py-1 rounded-lg border text-xs font-bold" />
@@ -305,7 +305,7 @@ const monthlyTotals = useMemo(() => {
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse whitespace-nowrap">
-            <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-500 border-b">
+            <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-500 border-b border-gray-100">
   <tr>
     <th className="px-4 py-4 sticky left-0 bg-gray-50 z-10">Date</th>
     {/* Map through filtered staff */}
@@ -343,7 +343,7 @@ const monthlyTotals = useMemo(() => {
     return (
       <tr key={report.id} className="hover:bg-gray-50 transition-colors">
         {/* DATE COLUMN */}
-        <td className="px-4 py-4 sticky left-0 bg-white z-10 font-black text-gray-800 border-r">
+        <td className="px-4 py-4 sticky left-0 bg-white z-10 font-black text-gray-800 border-r border-gray-100">
           {report.date?.seconds ? new Date(report.date.seconds * 1000).toLocaleDateString() : report.id}
         </td>
 
@@ -413,6 +413,7 @@ const monthlyTotals = useMemo(() => {
     <td className="px-3 py-4 text-center text-green-400 font-black">${monthlyTotals.cash.toFixed(2)}</td>
     <td className="px-3 py-4 text-center text-white border-l border-slate-700 text-xs font-black">${monthlyTotals.revenue.toFixed(2)}</td>
     <td></td>
+    <td></td>
   </tr>
 
   {/* ROW 2: DYNAMIC TOTAL PAYOUT (Shows 60% or 70% per column) */}
@@ -430,7 +431,7 @@ return (
   </td>
 );
     })}
-    <td colSpan={6}></td>
+    <td colSpan={8}></td>
   </tr>
 
   {/* ROW 3: CHECK PAYOUT */}
@@ -440,7 +441,7 @@ return (
       const val = staffTotals[s.name.toLowerCase()]?.check || 0;
       return <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">${val.toFixed(2)}</td>
     })}
-    <td colSpan={6}></td>
+    <td colSpan={8}></td>
   </tr>
 
   {/* ROW 4: CASH PAYOUT */}
@@ -450,7 +451,7 @@ return (
       const val = staffTotals[s.name.toLowerCase()]?.cash || 0;
       return <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">${val.toFixed(2)}</td>
     })}
-    <td colSpan={6}></td>
+    <td colSpan={8}></td>
   </tr>
 </tfoot>
 

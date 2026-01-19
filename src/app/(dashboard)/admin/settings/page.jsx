@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { 
-  doc, getDoc, setDoc, collection, onSnapshot, 
+  doc, getDoc, setDoc, collection, onSnapshot, writeBatch, Timestamp, 
   query, orderBy, deleteDoc, serverTimestamp 
 } from "firebase/firestore";
 
@@ -101,6 +101,90 @@ export default function SettingsPage() {
         }
     } catch (err) { alert("Firebase Error"); }
   };
+// --- 1. ADD THESE STATES ---
+  const [serviceLogs, setServiceLogs] = useState([]);
+  const [earningsData, setEarningsData] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+
+  // --- 2. ADD THIS EFFECT TO FETCH DATA ---
+  useEffect(() => {
+    // Fetch Earnings Logs
+    const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
+      setServiceLogs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Fetch Daily Summaries
+    const unsubSummary = onSnapshot(collection(db, "salon_earnings"), (snap) => {
+      setEarningsData(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    // Fetch Staff
+    const unsubStaff = onSnapshot(collection(db, "users"), (snap) => {
+      setStaffList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => { unsubLogs(); unsubSummary(); unsubStaff(); };
+  }, []);
+// --- BACKUP FUNCTION ---
+  const handleBackup = (serviceLogs, earningsData, staffList) => {
+    try {
+      const backupData = {
+        earnings: serviceLogs || [],
+        salon_earnings: earningsData || [],
+        users: staffList || [],
+        backupDate: new Date().toISOString(),
+        version: "2.0"
+      };
+
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `nailsexpress_backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Backup failed: " + error.message);
+    }
+  };
+
+  // --- RESTORE FUNCTION ---
+  const handleRestore = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!confirm("WARNING: This will merge data into your database. Continue?")) return;
+
+        const batch = writeBatch(db);
+
+        // Restore Earnings Collection
+        if (data.earnings) {
+          data.earnings.forEach((item) => {
+            const ref = doc(db, "earnings", item.id);
+            const restoreItem = { ...item };
+            // Convert strings back to Timestamps for the old app compatibility
+            if (item.dateStr) {
+              restoreItem.date = Timestamp.fromDate(new Date(item.dateStr + 'T12:00:00'));
+            }
+            batch.set(ref, restoreItem, { merge: true });
+          });
+        }
+
+        await batch.commit();
+        alert("System Restored Successfully!");
+        window.location.reload(); // Refresh to see changes
+      } catch (err) {
+        alert("Restore failed. Ensure the file is a valid salon backup JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+
 
   if (loading) return <div className="p-10 text-center font-black uppercase text-gray-300 tracking-widest">Loading Settings...</div>;
 
@@ -162,6 +246,57 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+        <div className="space-y-6">
+  {/* SECURITY CARD */}
+  <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+    <div className="flex items-center gap-4 mb-8">
+      <div className="p-3 bg-pink-50 rounded-xl">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <div>
+        <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Data Security</h3>
+        <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Database Backup & Recovery</p>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* EXPORT BOX */}
+      <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 group hover:border-pink-200 transition-all">
+        <h4 className="font-black text-gray-700 text-sm mb-2 uppercase">Create Local Backup</h4>
+        <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+          Saves all client logs, technician earnings, and staff profiles to a .json file on your device.
+        </p>
+        <button 
+          onClick={() => handleBackup(serviceLogs, earningsData, staffList)}
+          className="w-full flex items-center justify-center gap-3 bg-gray-900 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-lg shadow-gray-200"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download Backup
+        </button>
+      </div>
+
+      {/* IMPORT BOX */}
+      <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 group hover:border-green-200 transition-all">
+        <h4 className="font-black text-gray-700 text-sm mb-2 uppercase">Restore From File</h4>
+        <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+          Upload a backup file to restore lost data. <span className="text-red-500 font-bold">Warning: This may overwrite existing records.</span>
+        </p>
+        <label className="w-full flex items-center justify-center gap-3 bg-green-600 text-white py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-100 cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+          </svg>
+          Upload & Restore
+          <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
         </div>
 
         {/* Right Side */}

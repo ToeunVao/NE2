@@ -76,20 +76,22 @@ const filteredAppointments = useMemo(() => {
     setViewDate(next);
   };
 
-  const handleBooking = async (e) => {
-    e.preventDefault();
-    const [hours, mins] = bookingForm.time.split(":");
-    const finalDate = new Date(selectedDate);
-    finalDate.setHours(parseInt(hours), parseInt(mins));
+const handleBooking = async (e) => {
+  e.preventDefault();
+  const [hours, mins] = bookingForm.time.split(":");
+  const finalDate = new Date(selectedDate);
+  finalDate.setHours(parseInt(hours), parseInt(mins));
 
-   await addDoc(collection(db, "appointments"), {
+  await addDoc(collection(db, "appointments"), {
     ...bookingForm,
-    groupSize: Number(bookingForm.groupSize), // Ensure it is saved as a number
+    groupSize: Number(bookingForm.groupSize),
     appointmentTimestamp: Timestamp.fromDate(finalDate),
     status: "confirmed",
-    createdAt: serverTimestamp()
-    });
-    setIsModalOpen(false);
+    createdAt: serverTimestamp(), // Already have this
+    isRead: false                 // ADD THIS LINE
+  });
+  
+  setIsModalOpen(false);
     setBookingForm({ name: "", phone: "", email: "", time: "09:00", service: "", groupSize: 1, bookingType: "Calendar", price: 0, technician: "Any Technician", notes: "" });
   };
 
