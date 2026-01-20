@@ -49,10 +49,10 @@ const navLinks = [
       { name: "Expense", href: "/admin/reports/expenses" },
     ]
   },
-  { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift text-purple-600 group-hover:text-white" },
-  { name: "Inventory", href: "/admin/inventory", icon: "fa-user" },
-  { name: "Service", href: "/admin/services", icon: "fa-user" },
-   { name: "Clients", href: "/admin/clients", icon: "fa-user" },
+  { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift group-hover:text-white" },
+  { name: "Inventory", href: "/admin/inventory", icon: "fas fa-boxes" },
+  { name: "Service", href: "/admin/services", icon: "fas fa-concierge-bell" },
+   { name: "Clients", href: "/admin/clients", icon: "fas fa-user-friends" },
   { name: "User", href: "/admin/users", icon: "fa-user" },
   { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
 ];

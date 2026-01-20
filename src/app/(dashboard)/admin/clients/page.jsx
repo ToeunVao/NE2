@@ -211,15 +211,7 @@ const handleSaveNote = async () => {
         >
           <i className="fas fa-info-circle text-lg"></i>
         </button>
-        <button 
-    onClick={() => {
-      setEditData(client);
-      isEditing ? setIsEditing(false) : setIsEditing(true);
-    }} 
-    className="text-gray-400 p-2 hover:text-red-600 rounded-lg"
-  >
-    <i className="fas fa-pencil-alt"></i>
-  </button>
+        
         {/* DELETE BUTTON */}
         <button 
           onClick={() => handleDeleteClient(client.phone)}

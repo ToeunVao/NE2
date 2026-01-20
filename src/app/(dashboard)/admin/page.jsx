@@ -33,16 +33,27 @@ const STAFF_BAR_COLORS = ['#FFB6C1', '#87CEEB', '#98FB98', '#FFD700', '#DDA0DD',
   };
 
 export default function AdminDashboard() {
-  // 1. Fixed Date Logic (Uses local time instead of UTC to prevent date jumping)
-const getLocalDate = () => {
-  const now = new Date();
-  const offset = now.getTimezoneOffset() * 60000;
-  return new Date(now - offset).toISOString().split('T')[0];
-};
-  // --- 1. NEW STATES FOR CARDS & GRAPH ---
-const [overviewStart, setOverviewStart] = useState(getLocalDate()); // Defaults to Today
-const [overviewEnd, setOverviewEnd] = useState(getLocalDate());     // Defaults to Today
+// 1. Move the helper function INSIDE the component at the very top
+  const getLocalDate = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now - offset).toISOString().split('T')[0];
+  };
 
+  const getMonthDefaults = () => {
+    const now = new Date();
+    // First day of current month (e.g., 2026-01-01)
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0)
+      .toISOString().split('T')[0];
+    const today = getLocalDate();
+    return { firstDay, today };
+  };
+
+  // 2. Initialize the state using the function
+  const { firstDay: initialFirstDay, today: initialToday } = getMonthDefaults();
+
+  const [overviewStart, setOverviewStart] = useState(initialFirstDay); 
+  const [overviewEnd, setOverviewEnd] = useState(initialToday);
 const formRef = useRef(null);
 const [showAllRows, setShowAllRows] = useState(false);
   // --- NEW STATES FOR FILTERED TABLE ---
@@ -526,23 +537,26 @@ const {
     
     {/* SHORTCUT BUTTONS */}
     <div className="flex gap-1 pl-2 border-l border-gray-100">
-      <button 
-        onClick={() => { setOverviewStart(getLocalDate()); setOverviewEnd(getLocalDate()); }}
-        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black uppercase transition-colors"
-      >
-        Today
-      </button>
-      <button 
-        onClick={() => { 
-          const now = new Date();
-          const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0); // Local 1st of month
-          setOverviewStart(firstDay.toISOString().split('T')[0]); 
-          setOverviewEnd(getLocalDate()); 
-        }}
-        className="px-3 py-1.5 bg-pink-50 text-pink-600 hover:bg-pink-100 rounded-lg text-[10px] font-black uppercase transition-colors"
-      >
-        Month
-      </button>
+     <button 
+      onClick={() => { setOverviewStart(getLocalDate()); setOverviewEnd(getLocalDate()); }}
+      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${
+        overviewStart === overviewEnd ? 'bg-pink-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
+      }`}
+    >
+      Today
+    </button>
+    <button 
+  onClick={() => { 
+    const { firstDay, today } = getMonthDefaults();
+    setOverviewStart(firstDay); 
+    setOverviewEnd(today); 
+  }}
+  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
+    overviewStart === initialFirstDay ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+  }`}
+>
+  This Month
+</button>
     </div>
   </div>
 </div>
@@ -952,32 +966,42 @@ onClick={async () => {
   </div>
 
   {/* QUICK FILTERS */}
-  <div className="flex gap-2 h-[38px]">
-    <button 
-  onClick={() => {
-    const localToday = getLocalDate();
-    setStartDate(localToday);
-    setEndDate(localToday);
-  }}
-  className="px-4 py-2 bg-pink-600 text-white rounded-xl text-[10px] font-black uppercase"
->
-  Today
-</button>
-    <button 
-     onClick={() => {
-    const now = new Date();
-    // Create a date for the 1st of this month at 12:00 PM to avoid timezone shifts
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
-    const firstDayStr = firstDay.toISOString().split('T')[0];
-    
-    setStartDate(firstDayStr);
-    setEndDate(getLocalDate());
-  }}
-      className="px-4 bg-white border border-gray-200 text-gray-400 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100 transition-all"
-    >
-      This Month
-    </button>
-  </div>
+ <div className="flex gap-2 h-[38px]">
+  {/* TODAY BUTTON */}
+  <button 
+    onClick={() => {
+      const localToday = getLocalDate();
+      setStartDate(localToday);
+      setEndDate(localToday);
+    }}
+    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+      startDate === getLocalDate() && endDate === getLocalDate()
+        ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
+        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50' // Inactive Style
+    }`}
+  >
+    Today
+  </button>
+
+  {/* THIS MONTH BUTTON */}
+  <button 
+    onClick={() => {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
+      const firstDayStr = firstDay.toISOString().split('T')[0];
+      
+      setStartDate(firstDayStr);
+      setEndDate(getLocalDate());
+    }}
+    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+      startDate !== getLocalDate() 
+        ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
+        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50' // Inactive Style
+    }`}
+  >
+    This Month
+  </button>
+</div>
 </div>
   </div>
 
