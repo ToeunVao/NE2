@@ -3,14 +3,17 @@ import { useState, useEffect, useMemo } from "react";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { 
-  getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, 
-  serverTimestamp, query, orderBy, where 
+  getFirestore,
+  collection, 
+  onSnapshot, 
+  doc, 
+  setDoc, 
+  deleteDoc,
+  serverTimestamp, 
+  query, 
+  orderBy, 
+  where 
 } from "firebase/firestore";
-
-// --- FIREBASE INIT ---
-const firebaseConfig = {
-  // ... your config here ...
-};
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
@@ -20,287 +23,328 @@ export default function SalonEarningPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [staffList, setStaffList] = useState([]);
-  
-  // 1. Data Sources
-  const [earnings, setEarnings] = useState([]); // Saved Manual Reports (salon_earnings)
-  const [staffEarnings, setStaffEarnings] = useState([]); // Live Staff Entries (staff_earnings)
-  
+const [earnings, setEarnings] = useState([]);
+const [staffEntries, setStaffEntries] = useState([]); // NEW: Stores auto-feed data
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+// 1. Updated State (Line 31)
+const initialFormState = {
+  date: new Date().toISOString().split('T')[0],
+  sellGiftCard: "", 
+  returnGiftCard: "", 
+  check: "", 
+  no_of_credit: "",   // Matches database
+  total_credit: "",  // Matches database
+  venmo: "", 
+  square: ""
+};
 
-  const initialFormState = {
-    date: new Date().toISOString().split('T')[0],
-    sellGiftCard: "", returnGiftCard: "", check: "", noOfCredit: "", 
-    totalCredit: "", venmo: "", square: ""
-  };
+// 2. Updated Input Mapping (Inside the return statement)
+const fieldsToRender = [
+  { l: "Gift Card Sell", k: "sellGiftCard" },
+  { l: "Gift Card Return", k: "returnGiftCard" },
+  { l: "Check", k: "check" },
+  { l: "No. of Credit", k: "no_of_credit" }, // Matches old app
+  { l: "Total Credit", k: "total_credit" },  // Matches old app
+  { l: "Venmo", k: "venmo" },
+  { l: "Square", k: "square" }
+];
+
   const [formData, setFormData] = useState(initialFormState);
 
-  // --- AUTH ---
+  // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      u ? setUser(u) : signInAnonymously(auth);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        signInAnonymously(auth);
+      } else {
+        setUser(currentUser);
+      }
     });
     return () => unsubscribe();
   }, []);
 
-  // --- DATA FETCHING (Consolidated) ---
+  // Data Fetching
+// Data Fetching
   useEffect(() => {
     if (!user) return;
 
-    // A. Fetch Staff List
-    const qStaff = query(collection(db, "users"), where("role", "in", ["technician", "staff"]));
+    const qStaff = query(collection(db, "users"), where("role", "in", ["technician", "staff"])); 
     const unsubStaff = onSnapshot(qStaff, (snap) => {
       setStaffList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // B. Fetch Saved Salon Reports
-    const qEarnings = query(collection(db, "salon_earnings"), orderBy("date", "desc"));
+    const qEarnings = query(collection(db, "salon_earnings"), orderBy("__name__", "desc"));
     const unsubEarnings = onSnapshot(qEarnings, (snap) => {
       setEarnings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // C. Fetch Live Staff Earnings
-    const qStaffEntries = query(collection(db, "staff_earnings")); 
-    const unsubStaffEntries = onSnapshot(qStaffEntries, (snap) => {
-      setStaffEarnings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    // ADD THIS: Listen to the staff reports for the Auto-Feed
+    const qLiveWork = query(collection(db, "staff_earnings"));
+    const unsubLiveWork = onSnapshot(qLiveWork, (snap) => {
+      setStaffEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))); // You'll need to add [staffEntries, setStaffEntries] = useState([]) at the top
       setLoading(false);
     });
 
-    return () => { unsubStaff(); unsubEarnings(); unsubStaffEntries(); };
+    return () => { unsubStaff(); unsubEarnings(); unsubLiveWork(); };
   }, [user]);
 
-// --- CALCULATIONS: 1. Smart Merge of Staff Data ---
-const dailyTotals = useMemo(() => {
-    const totals = {};
-    
-    staffEarnings.forEach(entry => {
-      let rawDate = entry.date; 
-      if (!rawDate) return;
+// --- NEW LOGIC: 1. Calculate Daily Totals per Staff from Auto-Feed ---
+const dailyStaffTotals = useMemo(() => {
+  const totals = {}; 
+  staffEntries.forEach(entry => {
+    let d = entry.date;
+    if (!d) return;
 
-      // Normalize any date format to YYYY-MM-DD for internal matching
-      let normalizedKey = String(rawDate).trim();
-      
-      // Convert MM/DD/YYYY (Staff Report) to YYYY-MM-DD (Salon Table)
-      if (normalizedKey.includes('/')) {
-        const [m, d, y] = normalizedKey.split('/');
-        normalizedKey = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    // Standardize any date format into YYYY-MM-DD
+    if (d.seconds) {
+      d = new Date(d.seconds * 1000).toISOString().split('T')[0];
+    } else if (d instanceof Date) {
+      d = d.toISOString().split('T')[0];
+    } else if (typeof d === 'string') {
+      if (d.includes('/')) {
+        const [m, day, y] = d.split('/');
+        d = `${y}-${m.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      } else {
+        d = d.split(' ')[0]; // Take only the YYYY-MM-DD part if there is a time
       }
+    }
 
-      if (!totals[normalizedKey]) totals[normalizedKey] = {};
-      
-      // Match staff names exactly (trimming extra spaces like in "Steven ")
-      const staffKey = (entry.staffName || entry.name || entry.technician || "").trim().toUpperCase();
-      
-      if (staffKey) {
-        totals[normalizedKey][staffKey] = (totals[normalizedKey][staffKey] || 0) + (parseFloat(entry.earning) || 0);
-      }
-    });
-    
-    return totals;
-  }, [staffEarnings]);
+    if (!totals[d]) totals[d] = {};
+    const name = (entry.staffName || entry.name || "").trim().toLowerCase();
+    if (name) totals[d][name] = (totals[d][name] || 0) + (parseFloat(entry.earning) || 0);
+  });
+  return totals;
+}, [staffEntries]);
 
-  // --- CALCULATIONS: 2. Master Merge (The Single Source of Truth) ---
-  const mergedMonthData = useMemo(() => {
-    // A. Get dates from Saved Reports
-    const reportDates = earnings
-      .filter(r => r.id.startsWith(selectedMonth))
-      .map(r => r.id);
-    
-    // B. Get dates from Live Staff Data (using normalized keys)
-    const staffDates = Object.keys(dailyTotals)
-      .filter(d => d.startsWith(selectedMonth));
-
-    // C. Combine unique dates
-    const allDates = [...new Set([...reportDates, ...staffDates])].sort((a, b) => b.localeCompare(a));
+  // --- NEW LOGIC: 2. Merge Financials + Staff Totals for the Table ---
+  const mergedTableData = useMemo(() => {
+    const reportDates = earnings.filter(r => r.id.startsWith(selectedMonth)).map(r => r.id);
+    const liveDates = Object.keys(dailyStaffTotals).filter(d => d.startsWith(selectedMonth));
+    const allDates = [...new Set([...reportDates, ...liveDates])].sort((a, b) => b.localeCompare(a));
 
     return allDates.map(dateKey => {
       const report = earnings.find(r => r.id === dateKey) || {};
-      const liveStaffData = dailyTotals[dateKey] || {};
-
-      let dailyStaffRevenue = 0;
-      const staffRevenueMap = {};
-
-      staffList.forEach(s => {
-        const nameUpper = s.name.toUpperCase();
-        const nameLower = s.name.toLowerCase();
-        
-        // LOGIC: Use Live Data if > 0, otherwise fallback to Saved Report
-        const liveVal = liveStaffData[nameUpper] || 0;
-        const manualVal = parseFloat(report[nameLower]) || 0;
-        const val = liveVal > 0 ? liveVal : manualVal;
-        
-        staffRevenueMap[nameLower] = val;
-        dailyStaffRevenue += val;
-      });
+      const liveStaffData = dailyStaffTotals[dateKey] || {};
+      
+      // Calculate Revenue
+      let staffRevenue = 0;
+      const staffMap = {};
+staffList.forEach(s => {
+  const key = s.name.toLowerCase();
+  // 1. Try Live Feed first
+  let val = liveStaffData[key];
+  
+  // 2. If Live Feed is empty, check the Salon Report (Saved Data)
+  if (val === undefined || val === null || val === 0) {
+    val = parseFloat(report[key]) || 0;
+  }
+  
+  staffMap[key] = val;
+  staffRevenue += val;
+});
 
       const sellGC = parseFloat(report.sellGiftCard) || 0;
-      const totalRevenue = dailyStaffRevenue + sellGC;
+      const totalRevenue = staffRevenue + sellGC;
       
-      const nonCash = (parseFloat(report.totalCredit) || 0) + 
+      const nonCash = (parseFloat(report.total_credit) || 0) + 
                       (parseFloat(report.check) || 0) + 
                       (parseFloat(report.venmo) || 0) + 
                       (parseFloat(report.square) || 0) + 
                       (parseFloat(report.returnGiftCard) || 0);
 
       return {
+        id: dateKey,
         date: dateKey,
-        isMissingReport: !report.id, 
-        reportRaw: report,
-        staffRevenueMap, 
-        sellGC,
+        isMissingReport: !report.id,
+        staffMap,
         totalRevenue,
         totalCash: totalRevenue - nonCash,
-        // Pass through other values for display
+        sellGC,
         returnGC: parseFloat(report.returnGiftCard) || 0,
         check: parseFloat(report.check) || 0,
-        noOfCredit: report.noOfCredit || 0,
-        totalCredit: parseFloat(report.totalCredit) || 0,
+       // Change these to check BOTH formats just in case
+noCredit: report.no_of_credit || report.noOfCredit || 0,
+totalCredit: parseFloat(report.total_credit) || parseFloat(report.totalCredit) || 0,
         venmo: parseFloat(report.venmo) || 0,
         square: parseFloat(report.square) || 0,
+        rawReport: report
       };
     });
-  }, [earnings, dailyTotals, selectedMonth, staffList]);
+  }, [earnings, dailyStaffTotals, selectedMonth, staffList]);
 
-  // --- CALCULATIONS: 3. Summaries & Footers ---
-  const monthlySummary = useMemo(() => {
-    return mergedMonthData.reduce((acc, day) => {
-      acc.revenue += day.totalRevenue;
-      acc.cash += day.totalCash;
-      acc.clients += (parseInt(day.noOfCredit) || 0);
-      acc.gc += day.sellGC;
-      return acc;
-    }, { revenue: 0, cash: 0, clients: 0, gc: 0 });
-  }, [mergedMonthData]);
-
-  const staffFooterTotals = useMemo(() => {
-    const totals = {};
-    staffList.forEach(s => {
-      const key = s.name.toLowerCase();
-      // Sum from MERGED data
-      const sum = mergedMonthData.reduce((acc, day) => acc + (day.staffRevenueMap[key] || 0), 0);
-      
-      const rawRate = parseFloat(s.commission) || 0.6;
-      const rate = rawRate > 1 ? rawRate / 100 : rawRate; // handle 60 vs 0.6
-      
-      const payout = sum * rate;
-      const check = payout * 0.70;
-      const cash = payout - check;
-      
-      totals[key] = { sum, payout, check, cash, rate };
+  // --- NEW LOGIC: 3. Monthly Footer Totals ---
+const monthTotals = useMemo(() => {
+    const t = { revenue: 0, cash: 0, gc: 0, staff: {} };
+    mergedTableData.forEach(day => {
+      t.revenue += day.totalRevenue;
+      t.cash += day.totalCash;
+      t.gc += day.sellGC;
+      staffList.forEach(s => {
+        const key = s.name.toLowerCase();
+        t.staff[key] = (t.staff[key] || 0) + (day.staffMap[key] || 0);
+      });
     });
-    return totals;
-  }, [mergedMonthData, staffList]);
+    return t;
+  }, [mergedTableData, staffList]);
 
-  // --- ACTIONS ---
-  const handleSave = async () => {
-    if (!user || !formData.date) return;
-    try {
-      // Calculate preview totals for saving
-      let calcRevenue = 0;
-      staffList.forEach(s => calcRevenue += parseFloat(formData[s.name.toLowerCase()] || 0));
-      calcRevenue += parseFloat(formData.sellGiftCard || 0);
-      const calcNonCash = (parseFloat(formData.totalCredit)||0) + (parseFloat(formData.check)||0) + 
-                          (parseFloat(formData.returnGiftCard)||0) + (parseFloat(formData.venmo)||0) + 
-                          (parseFloat(formData.square)||0);
+  // Helper for Input Form Display
+  const currentDayStaffTotals = dailyStaffTotals[formData.date] || {};
 
-      const timestampDate = new Date(formData.date + 'T12:00:00');
-      
-      await setDoc(doc(db, "salon_earnings", formData.date), {
-        ...formData, 
-        totalRevenue: calcRevenue,
-        totalCash: calcRevenue - calcNonCash,
-        date: timestampDate, 
-        updatedAt: serverTimestamp() 
-      }, { merge: true });
-      
-      setFormData(initialFormState);
-      alert("Report Saved!");
-    } catch (e) { console.error(e); alert("Error saving"); }
-  };
+
+const handleSave = async () => {
+  if (!user || !formData.date) return;
+  const docId = formData.date; // e.g. "2026-01-19"
+
+  try {
+    const dataToSave = {
+      ...formData,
+      // CRITICAL: Forces date to be a String for old app compatibility
+      date: String(formData.date), 
+      updatedAt: serverTimestamp()
+    };
+
+    // Use merge: true so we don't wipe out staff names like 'juli', 'tj', etc.
+    await setDoc(doc(db, "salon_earnings", docId), dataToSave, { merge: true });
+    
+    setFormData(initialFormState);
+    alert("Saved! This will now show in your old app.");
+  } catch (e) {
+    console.error("Save Error:", e);
+  }
+};
 
   const handleDelete = async (id) => {
-    if(window.confirm("Delete this report?")) await deleteDoc(doc(db, "salon_earnings", id));
+    if(window.confirm("Delete this report?")) {
+      await deleteDoc(doc(db, "salon_earnings", id));
+    }
   };
 
-  const handleEdit = (rawReport) => {
-    if(!rawReport.id) return; 
-    setFormData({ ...initialFormState, ...rawReport, date: rawReport.id });
+  const handleEdit = (report) => {
+    let dateStr = report.id;
+    if (report.date && report.date.seconds) {
+        dateStr = new Date(report.date.seconds * 1000).toISOString().split('T')[0];
+    }
+    setFormData({ ...initialFormState, ...report, date: dateStr });
     window.scrollTo({top: 0, behavior: 'smooth'});
   };
 
-  // Logic for Top Form Preview
-  const currentFormResults = useMemo(() => {
-    let rev = 0;
-    staffList.forEach(s => rev += parseFloat(formData[s.name.toLowerCase()] || 0));
-    rev += parseFloat(formData.sellGiftCard || 0);
-    const nonCash = (parseFloat(formData.totalCredit)||0) + (parseFloat(formData.check)||0) + 
-                    (parseFloat(formData.returnGiftCard)||0) + (parseFloat(formData.venmo)||0) + 
-                    (parseFloat(formData.square)||0);
-    return { revenue: rev, cash: rev - nonCash };
-  }, [formData, staffList]);
 
-  const formatDisplayDate = (dateStr) => {
-  if (!dateStr || !dateStr.includes('-')) return dateStr;
-  const [year, month, day] = dateStr.split('-');
-  return `${month}/${day}/${year}`;
+// HELPER: Calculate Live Totals for Input Area
+const currentInputTotals = () => {
+  // 1. Get the auto-fed staff sum for the selected date
+  const dayStaffData = dailyStaffTotals[formData.date] || {};
+  
+  // 2. Add up all earnings from all staff for that day
+  const staffSum = Object.values(dayStaffData).reduce((a, b) => a + b, 0);
+  
+  // 3. Add the financial inputs
+  const revenue = staffSum + (parseFloat(formData.sellGiftCard) || 0);
+  
+  const nonCash = (parseFloat(formData.total_credit) || 0) + 
+                  (parseFloat(formData.check) || 0) + 
+                  (parseFloat(formData.returnGiftCard) || 0) + 
+                  (parseFloat(formData.venmo) || 0) + 
+                  (parseFloat(formData.square) || 0);
+                  
+  return { revenue, cash: revenue - nonCash };
 };
 
-  if (loading) return <div className="p-10 text-center font-bold text-gray-400">LOADING...</div>;
+  if (loading) return <div className="p-10 text-center font-black text-gray-300 uppercase tracking-widest">Loading Records...</div>;
 
+  
   return (
     <div className="max-w-[98%] mx-auto space-y-6 pb-20 mt-6 font-sans">
       
-      {/* 1. HEADER SUMMARY */}
-      <div className="flex flex-col md:flex-row justify-between items-end bg-white p-6 rounded-xl shadow-sm border border-gray-100 gap-4">
+      {/* HEADER SECTION */}
+{/* HEADER */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-black text-gray-800 uppercase italic">Salon Earning</h1>
-          <p className="text-[10px] font-black text-pink-500 uppercase tracking-[4px] mt-2">
-            Monthly Overview: {monthlySummary.clients} Clients
-          </p>
+          {/* FIX: Removed 'monthlySummary.clients' and replaced with static text or monthTotals if available */}
+          <p className="text-[10px] font-bold text-pink-500 uppercase tracking-widest mt-1">Auto-Sync Active</p>
         </div>
-        <div className="flex items-center gap-4 bg-gray-50 p-2 rounded-xl border border-gray-100">
-          <div className="px-3 border-r border-gray-200">
-             <p className="text-[9px] font-bold text-gray-400 uppercase">Monthly Revenue</p>
-             <p className="text-sm font-black text-green-600">${monthlySummary.revenue.toFixed(2)}</p>
-          </div>
-          <div className="px-3">
+        <div className="flex gap-4">
+           <div className="text-right">
+              <p className="text-[9px] font-bold text-gray-400 uppercase">Monthly Revenue</p>
+              {/* FIX: Use monthTotals.revenue instead of monthlySummary.revenue */}
+             <p className="text-xl font-black text-green-600">
+  ${(monthTotals?.revenue || 0).toFixed(2)}
+</p>
+           </div>
+           <div className="px-3">
              <p className="text-[9px] font-bold text-gray-400 uppercase">Entry Date</p>
-             <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="bg-transparent font-bold text-gray-700 outline-none text-xs"/>
+             <input 
+              type="date" 
+              value={formData.date}
+              onChange={e => setFormData({...formData, date: e.target.value})}
+              className="bg-transparent font-bold text-gray-700 outline-none cursor-pointer text-xs"
+            />
           </div>
         </div>
       </div>
 
-      {/* 2. INPUT FORM */}
+      {/* INPUT FORM */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
-            {staffList.map(staff => (
-                <div key={staff.id}>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase">{staff.name}</label>
-                    <input type="number" placeholder="0.00" value={formData[staff.name.toLowerCase()] || ""} onChange={e => setFormData({...formData, [staff.name.toLowerCase()]: e.target.value})} className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold border-none focus:ring-1 focus:ring-pink-200 outline-none" />
-                </div>
-            ))}
+{staffList.map(staff => (
+    <div key={staff.id} className="opacity-70">
+        <label className="text-[9px] font-bold text-gray-400 uppercase flex justify-between">
+            {staff.name} <i className="fas fa-lock text-[8px]"></i>
+        </label>
+        <div className="w-full p-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 border border-transparent">
+            {/* Auto-Feed Value Display */}
+            ${(currentDayStaffTotals[staff.name.toLowerCase()] || 0).toFixed(2)}
+        </div>
+    </div>
+))}
          </div>
-         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 border-t border-dashed border-gray-100 pt-6">
-            {[
-                {k:'sellGiftCard', l:'Sell GC'}, {k:'returnGiftCard', l:'Return GC'}, 
-                {k:'check', l:'Check'}, {k:'noOfCredit', l:'No Credit'}, 
-                {k:'totalCredit', l:'Total Credit'}, {k:'venmo', l:'Venmo'}, {k:'square', l:'Square'}
-            ].map(f => (
-                <div key={f.k}>
-                    <label className="text-[9px] font-bold text-pink-400 uppercase">{f.l}</label>
-                    <input type="number" value={formData[f.k]} placeholder="0" onChange={e => setFormData({...formData, [f.k]: e.target.value})} className="w-full p-2 bg-pink-50/30 rounded-lg text-xs font-bold border-none focus:ring-1 focus:ring-pink-200 outline-none" />
-                </div>
-            ))}
-         </div>
+        {/* INPUT FIELDS SECTION */}
+<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-4">
+  {(() => {
+    // Define the list of fields here
+const inputFields = [
+  { l: "Gift Card Sell", k: "sellGiftCard" },
+  { l: "Gift Card Return", k: "returnGiftCard" },
+  { l: "Check", k: "check" },
+  { l: "No. of Credit", k: "no_of_credit" }, // Fixed to underscore
+  { l: "Total Credit", k: "total_credit" },  // Fixed to underscore
+  { l: "Venmo", k: "venmo" },
+  { l: "Square", k: "square" }
+];
+
+    return inputFields.map((f) => (
+      <div key={f.k}>
+        <label className="text-[9px] font-bold text-pink-400 uppercase">{f.l}</label>
+        <input 
+          type="number" 
+          value={formData[f.k] || ""} 
+          onChange={e => setFormData({...formData, [f.k]: e.target.value})}
+          className="w-full p-2 bg-gray-50 rounded-lg text-xs font-bold outline-none border border-transparent focus:border-pink-200"
+          placeholder="0.00"
+        />
+      </div>
+    ));
+  })()}
+</div>
          <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex gap-10">
-               <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-wider">Day Revenue</p><p className="text-xl font-black text-gray-800">${currentFormResults.revenue.toFixed(2)}</p></div>
-               <div className="border-l border-gray-100 pl-10"><p className="text-[9px] font-black text-pink-500 uppercase mb-1 tracking-wider">Day Cash</p><p className="text-xl font-black text-green-600">${currentFormResults.cash.toFixed(2)}</p></div>
+               <div>
+   <p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-wider">Day Revenue</p>
+   {/* FIX: Use currentInputTotals().revenue instead of currentResults */}
+   <p className="text-xl font-black text-gray-800">${currentInputTotals().revenue.toFixed(2)}</p>
+</div>
+<div className="border-l border-gray-100 pl-10">
+   <p className="text-[9px] font-black text-pink-500 uppercase mb-1 tracking-wider">Day Cash</p>
+   {/* FIX: Use currentInputTotals().cash instead of currentResults */}
+   <p className="text-xl font-black text-green-600">${currentInputTotals().cash.toFixed(2)}</p>
+</div>
             </div>
             <button onClick={handleSave} className="bg-gray-900 text-white px-10 py-3 rounded-xl font-bold uppercase text-[10px] shadow-xl hover:bg-black transition-all tracking-widest">Save Daily Report</button>
          </div>
       </div>
 
-      {/* 3. TABLE SECTION */}
+      {/* DETAILED TABLE */}
+ {/* TABLE SECTION - UPDATED TO OLD UI STYLE */}
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
         <div className="px-6 py-4 bg-gray-50/50 border-b flex justify-between items-center border-gray-100">
           <div className="flex items-center gap-3">
@@ -312,120 +356,133 @@ const dailyTotals = useMemo(() => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse whitespace-nowrap">
             <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-500 border-b border-gray-100">
-              <tr>
-                <th className="px-4 py-4 sticky left-0 bg-gray-50 z-10">Date</th>
-                {staffList.map(s => <th key={s.id} className="px-3 py-4 text-center">{s.name}</th>)}
-                <th className="px-3 py-4 text-center">Sell GC</th>
-                <th className="px-3 py-4 text-center">Rtn GC</th>
-                <th className="px-3 py-4 text-center">Check</th>
-                <th className="px-3 py-4 text-center">No Credit</th>
-                <th className="px-3 py-4 text-center">Total Credit</th>
-                <th className="px-3 py-4 text-center font-black text-green-600">Total Cash</th>
-                <th className="px-3 py-4 text-center font-black text-gray-800">Total Revenue</th>
-                <th className="px-4 py-4 text-center sticky right-0 bg-gray-50 z-10">Action</th>
-              </tr>
-            </thead>
-            
-            <tbody className="divide-y divide-gray-100 text-[11px] font-bold text-gray-600">
-              {mergedMonthData.map((day) => (
-                <tr key={day.date} className={day.isMissingReport ? "bg-orange-50/50" : "hover:bg-gray-50"}>
-                  <td className="px-4 py-4 sticky left-0 bg-white z-10 font-black text-gray-800 border-r border-gray-100">
-           {(() => {
-    const parts = day.date.split('-');
-    return parts.length === 3 ? `${parts[1]}/${parts[2]}/${parts[0]}` : day.date;
-  })()}
-  
-  {day.isMissingReport && (
-    <span className="block text-[8px] text-orange-500 uppercase mt-1">
-      ⚠️ Missing Save
-    </span>
-  )}
-  </td>
-                  
-                  {/* STAFF COLUMNS (Uses Merged Data) */}
-                 {/* STAFF COLUMNS */}
-{staffList.map(s => {
-  // Normalize the staff name from the USER list
-  const nameKey = s.name.trim().toUpperCase();
-  const nameLower = s.name.toLowerCase();
-  
-  // 1. Check Live Data (using normalized key)
-  const liveVal = day.staffRevenueMap[s.name.toLowerCase()] || 
-                  (dailyTotals[day.date] && dailyTotals[day.date][nameKey]) || 0;
+  <tr>
+    <th className="px-4 py-4 sticky left-0 bg-gray-50 z-10">Date</th>
+    {/* Map through filtered staff */}
+    {staffList.map(s => <th key={s.id} className="px-3 py-4 text-center">{s.name}</th>)}
+    <th className="px-3 py-4 text-center">Sell GC</th>
+    <th className="px-3 py-4 text-center">Rtn GC</th>
+    <th className="px-3 py-4 text-center">Check</th>
+    <th className="px-3 py-4 text-center">No Credit</th>
+    <th className="px-3 py-4 text-center">Total Credit</th>
+    <th className="px-3 py-4 text-center font-black text-green-600">Total Cash</th>
+    <th className="px-3 py-4 text-center font-black text-gray-800">Total Revenue</th>
+    <th className="px-4 py-4 text-center sticky right-0 bg-gray-50 z-10">Action</th>
+  </tr>
+</thead>
+<tbody className="divide-y divide-gray-100 text-[11px] font-bold text-gray-600">
+  {mergedTableData.map((day) => (
+    <tr key={day.id} className={day.isMissingReport ? "bg-orange-50/40" : "hover:bg-gray-50"}>
+      {/* Date Column */}
+      <td className="px-4 py-4 sticky left-0 bg-white border-r border-gray-100 text-gray-800">
+        {(() => {
+           if(!day.date) return "";
+           const [y, m, d] = day.date.split('-'); 
+           return `${m}/${d}/${y}`;
+        })()}
+        {day.isMissingReport && <span className="block text-[8px] text-orange-400 mt-1 uppercase">⚠️ Not Saved</span>}
+      </td>
 
-  // 2. Check Manual Report
-  const manualVal = parseFloat(day.reportRaw[nameLower]) || 0;
-  
-  // 3. Winner takes all
-  const val = liveVal > 0 ? liveVal : manualVal;
+      {/* Staff Columns (Auto-Fed) */}
+      {staffList.map(s => {
+        const val = day.staffMap[s.name.toLowerCase()] || 0;
+        return (
+          <td key={s.id} className={`px-3 py-4 text-center ${val > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+            {val > 0 ? `$${val.toFixed(2)}` : '—'}
+          </td>
+        );
+      })}
 
-  return (
-    <td key={s.id} className={`px-3 py-4 text-center ${val>0?'text-gray-900':'text-gray-300'}`}>
-      {val > 0 ? `$${val.toFixed(2)}` : '—'}
-    </td>
-  )
-})}
+      {/* Financial Columns */}
+      <td className="px-3 py-4 text-center text-pink-500">${day.sellGC.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-red-400">${day.returnGC.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-gray-500">${day.check.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-blue-500">{day.noCredit}</td>
+      <td className="px-3 py-4 text-center text-gray-500">${day.totalCredit.toFixed(2)}</td>
+      
+      <td className="px-3 py-4 text-center bg-green-50/30 text-green-700 font-black">${day.totalCash.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center font-black text-gray-800">${day.totalRevenue.toFixed(2)}</td>
 
-                  <td className="px-3 py-4 text-center text-pink-500">${day.sellGC.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-center text-red-400">${day.returnGC.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-center text-gray-500">${day.check.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-center text-blue-500">{day.noOfCredit}</td>
-                  <td className="px-3 py-4 text-center text-gray-500">${day.totalCredit.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-center bg-green-50/30 text-green-700 font-black">${day.totalCash.toFixed(2)}</td>
-                  <td className="px-3 py-4 text-center font-black text-gray-800">${day.totalRevenue.toFixed(2)}</td>
-                  
-                  <td className="px-4 py-4 text-center sticky right-0 bg-white z-10">
-                    <button onClick={() => handleEdit(day.reportRaw)} className="text-blue-500 hover:scale-110"><i className="fas fa-edit"></i></button>
-                    {!day.isMissingReport && (
-                        <button onClick={() => handleDelete(day.date)} className="ml-3 text-red-400 hover:scale-110"><i className="fas fa-trash"></i></button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+      {/* Actions */}
+      <td className="px-4 py-4 text-center sticky right-0 bg-white border-l border-gray-100">
+        <button onClick={() => { setFormData({...day.rawReport, date: day.date}); window.scrollTo(0,0); }} className="text-blue-500 mr-3 hover:scale-110"><i className="fas fa-edit"></i></button>
+        {!day.isMissingReport && <button onClick={() => handleDelete(day.id)} className="text-red-400 hover:scale-110"><i className="fas fa-trash"></i></button>}
+      </td>
+    </tr>
+  ))}
+</tbody>
+<tfoot className="bg-slate-900 text-white text-[10px] font-black uppercase">
+  {/* ROW 1: MONTHLY TOTAL remains the same */}
+ {/* ROW 1: MONTHLY TOTAL PER STAFF */}
+<tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
+    <td className="px-4 py-4 border-r border-slate-700">Monthly Total</td>
+    {staffList.map(s => {
+      // FIX: Changed staffTotals to monthTotals.staff
+      const total = monthTotals.staff[s.name.toLowerCase()] || 0;
+      return (
+        <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold">
+          ${total.toFixed(2)}
+        </td>
+      );
+    })}
+    <td className="px-3 py-4 text-center text-pink-400">${monthTotals.gc.toFixed(2)}</td>
+    <td colSpan={2}></td>
+    <td className="px-3 py-4 text-center text-green-400 font-black">${monthTotals.cash.toFixed(2)}</td>
+    <td className="px-3 py-4 text-center text-white font-black">${monthTotals.revenue.toFixed(2)}</td>
+    <td></td>
+</tr>
 
-            {/* FOOTER */}
-            <tfoot className="bg-slate-900 text-white text-[10px] font-black uppercase">
-              {/* TOTAL ROW */}
-              <tr className="border-b border-slate-800">
-                <td className="px-4 py-4 border-r border-slate-700">Monthly Total</td>
-                {staffList.map(s => (
-                  <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold">
-                    ${staffFooterTotals[s.name.toLowerCase()]?.sum.toFixed(2)}
-                  </td>
-                ))}
-                <td className="px-3 py-4 text-center text-pink-400">${monthlySummary.gc.toFixed(2)}</td>
-                <td colSpan={3}></td>
-                <td className="px-3 py-4 text-center text-green-400 font-black">${monthlySummary.cash.toFixed(2)}</td>
-                <td className="px-3 py-4 text-center text-white border-l border-slate-700 text-xs font-black">${monthlySummary.revenue.toFixed(2)}</td>
-                <td></td>
-              </tr>
-              
-              {/* PAYOUT ROWS */}
-              <tr className="bg-slate-800/40 border-b border-slate-700">
-                <td className="px-4 py-3 border-r border-slate-700 text-indigo-300 italic">Total Payout</td>
-                {staffList.map(s => {
-                    const d = staffFooterTotals[s.name.toLowerCase()];
-                    return (
-                        <td key={s.id} className="px-3 py-3 text-center text-indigo-200">
-                            <span className="block text-[8px] opacity-50">{Math.round(d.rate*100)}% Rate</span>
-                            ${d?.payout.toFixed(2)}
-                        </td>
-                    )
-                })}
-                <td colSpan={8}></td>
-              </tr>
-               <tr className="bg-slate-800/20 border-b border-slate-700">
-                <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Check Payout (70%)</td>
-                {staffList.map(s => <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">${staffFooterTotals[s.name.toLowerCase()]?.check.toFixed(2)}</td>)}
-                <td colSpan={8}></td>
-              </tr>
-              <tr className="bg-slate-800/10">
-                <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Cash Payout (30%)</td>
-                {staffList.map(s => <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">${staffFooterTotals[s.name.toLowerCase()]?.cash.toFixed(2)}</td>)}
-                <td colSpan={8}></td>
-              </tr>
-            </tfoot>
+  {/* ROW 2: DYNAMIC TOTAL PAYOUT (Shows 60% or 70% per column) */}
+{/* ROW 2: TOTAL PAYOUT */}
+  <tr className="bg-indigo-900/20 border-b border-slate-700">
+    <td className="px-4 py-3 border-r border-slate-700 text-indigo-300 italic">Total Payout</td>
+    {staffList.map(s => {
+      // Use the new monthTotals object
+      const totalEarning = monthTotals.staff[s.name.toLowerCase()] || 0;
+      const rate = 0.6; // Default 60% rate
+      
+      return (
+        <td key={s.id} className="px-3 py-3 text-center text-indigo-200">
+          <span className="block text-[8px] opacity-50 text-white">60% Rate</span>
+          ${(totalEarning * rate).toFixed(2)}
+        </td>
+      );
+    })}
+    <td colSpan={8}></td>
+  </tr>
+
+  {/* ROW 3: CHECK PAYOUT (70%) */}
+  <tr className="bg-slate-800/20 border-b border-slate-700">
+    <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Check Payout (70%)</td>
+    {staffList.map(s => {
+      // Calculate 70% of the month total for the check amount
+      const val = (monthTotals.staff[s.name.toLowerCase()] || 0) * 0.7;
+      return (
+        <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">
+          ${val.toFixed(2)}
+        </td>
+      );
+    })}
+    <td colSpan={8}></td>
+  </tr>
+  {/* ROW 4: CASH PAYOUT */}
+ {/* ROW 4: CASH PAYOUT (30%) */}
+<tr className="bg-slate-800/10 border-b border-slate-700">
+  <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Cash Payout (30%)</td>
+  {staffList.map(s => {
+    // FIX: Use monthTotals.staff and calculate 30% on the fly
+    const totalMonthEarning = monthTotals.staff[s.name.toLowerCase()] || 0;
+    const val = totalMonthEarning * 0.3; // 30% calculation
+    return (
+      <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">
+        ${val.toFixed(2)}
+      </td>
+    );
+  })}
+  <td colSpan={8}></td>
+</tr>
+</tfoot>
+
           </table>
         </div>
       </div>
