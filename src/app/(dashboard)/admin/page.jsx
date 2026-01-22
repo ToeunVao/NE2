@@ -944,7 +944,7 @@ onClick={async () => {
     </div>
 
     {/* Date Filter (Right) */}
-<div className="flex flex-wrap items-end gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+<div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
   {/* START DATE */}
   <div className="flex flex-col gap-1">
     <input 

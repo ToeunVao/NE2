@@ -78,8 +78,8 @@ const fieldsToRender = [
       setEarnings(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    // ADD THIS: Listen to the staff reports for the Auto-Feed
-    const qLiveWork = query(collection(db, "staff_earnings"));
+// FIX: Match the collection name used in your Dashboard ('earnings')
+const qLiveWork = query(collection(db, "earnings"));
     const unsubLiveWork = onSnapshot(qLiveWork, (snap) => {
       setStaffEntries(snap.docs.map(d => ({ id: d.id, ...d.data() }))); // You'll need to add [staffEntries, setStaffEntries] = useState([]) at the top
       setLoading(false);
@@ -87,32 +87,40 @@ const fieldsToRender = [
 
     return () => { unsubStaff(); unsubEarnings(); unsubLiveWork(); };
   }, [user]);
+  
 
-// --- NEW LOGIC: 1. Calculate Daily Totals per Staff from Auto-Feed ---
 const dailyStaffTotals = useMemo(() => {
   const totals = {}; 
   staffEntries.forEach(entry => {
     let d = entry.date;
     if (!d) return;
 
-    // Standardize any date format into YYYY-MM-DD
+    // 1. Convert Timestamp (from Dashboard) to YYYY-MM-DD
     if (d.seconds) {
       d = new Date(d.seconds * 1000).toISOString().split('T')[0];
-    } else if (d instanceof Date) {
-      d = d.toISOString().split('T')[0];
     } else if (typeof d === 'string') {
-      if (d.includes('/')) {
-        const [m, day, y] = d.split('/');
-        d = `${y}-${m.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      } else {
-        d = d.split(' ')[0]; // Take only the YYYY-MM-DD part if there is a time
-      }
+      d = d.split('T')[0];
     }
 
     if (!totals[d]) totals[d] = {};
-    const name = (entry.staffName || entry.name || "").trim().toLowerCase();
-    if (name) totals[d][name] = (totals[d][name] || 0) + (parseFloat(entry.earning) || 0);
+    
+    // 2. MATCH FIELDS FROM DASHBOARD
+    // Dashboard saves as 'staffName', we also check 'name' just in case
+const rawName = entry.staffName || entry.name || "";
+const cleanName = rawName.trim();
+const lowerName = cleanName.toLowerCase();
+    
+const val = parseFloat(entry.earning) || parseFloat(entry.earnings) || 0;
+    
+if (cleanName) {
+  if (!totals[d]) totals[d] = {};
+  // Store both to guarantee the table finds it regardless of capitalization
+  totals[d][cleanName] = (totals[d][cleanName] || 0) + val;
+  totals[d][lowerName] = (totals[d][lowerName] || 0) + val;
+}
+
   });
+
   return totals;
 }, [staffEntries]);
 
@@ -130,16 +138,25 @@ const dailyStaffTotals = useMemo(() => {
       let staffRevenue = 0;
       const staffMap = {};
 staffList.forEach(s => {
-  const key = s.name.toLowerCase();
-  // 1. Try Live Feed first
-  let val = liveStaffData[key];
+  const exactName = s.name.trim(); 
+  const lowerName = exactName.toLowerCase(); 
   
-  // 2. If Live Feed is empty, check the Salon Report (Saved Data)
-  if (val === undefined || val === null || val === 0) {
-    val = parseFloat(report[key]) || 0;
+  // FIX: Look for data using exact, lowercase, AND with a trailing space
+  let val = liveStaffData[exactName] || 
+            liveStaffData[lowerName] || 
+            liveStaffData[exactName + " "] || // Supports "Steven "
+            liveStaffData[lowerName + " "] || // Supports "steven "
+            0;
+  
+  // Fallback for manually saved data in the salon_earnings collection
+  if (val === 0) {
+    const reportVal = report[exactName] || report[lowerName] || report[exactName + " "];
+    if (reportVal !== undefined) {
+      val = parseFloat(String(reportVal).replace(/[$,]/g, "")) || 0;
+    }
   }
   
-  staffMap[key] = val;
+  staffMap[lowerName] = val; 
   staffRevenue += val;
 });
 
@@ -193,26 +210,49 @@ const monthTotals = useMemo(() => {
 
 const handleSave = async () => {
   if (!user || !formData.date) return;
-  const docId = formData.date; // e.g. "2026-01-19"
+  const docId = formData.date;
 
   try {
+    const dayStaffData = dailyStaffTotals[formData.date] || {};
+
+    // 1. Convert Staff Names/Totals for Old App Compatibility
+    const legacyStaffData = {};
+    Object.keys(dayStaffData).forEach(name => {
+      const trimmed = name.trim();
+      const amount = parseFloat(dayStaffData[name]) || 0;
+      legacyStaffData[trimmed] = amount;
+      legacyStaffData[trimmed + " "] = amount; // Supports "Steven "
+    });
+
+    // 2. FORCE all inputs to be NUMBERS (prevents "" empty string error)
     const dataToSave = {
       ...formData,
-      // CRITICAL: Forces date to be a String for old app compatibility
-      date: String(formData.date), 
+      ...legacyStaffData,
+      sellGiftCard: parseFloat(formData.sellGiftCard) || 0,
+      returnGiftCard: parseFloat(formData.returnGiftCard) || 0,
+      check: parseFloat(formData.check) || 0,
+      total_credit: parseFloat(formData.total_credit) || 0,
+      totalCredit: parseFloat(formData.total_credit) || 0, // Legacy field
+      venmo: parseFloat(formData.venmo) || 0,   // FIX: No more venmo: ""
+      square: parseFloat(formData.square) || 0, // FIX: No more square: ""
+      no_of_credit: parseInt(formData.no_of_credit) || 0,
+      noOfCredit: parseInt(formData.no_of_credit) || 0,
+
+      // 3. FIX: Convert String Date to real Firebase Timestamp
+      // This fixes: "n.date.toDate is not a function"
+      date: new Date(formData.date + "T12:00:00"), 
+      
       updatedAt: serverTimestamp()
     };
 
-    // Use merge: true so we don't wipe out staff names like 'juli', 'tj', etc.
     await setDoc(doc(db, "salon_earnings", docId), dataToSave, { merge: true });
     
     setFormData(initialFormState);
-    alert("Saved! This will now show in your old app.");
+    alert("Saved! Data is now cleaned and the old app will stop crashing.");
   } catch (e) {
     console.error("Save Error:", e);
   }
 };
-
   const handleDelete = async (id) => {
     if(window.confirm("Delete this report?")) {
       await deleteDoc(doc(db, "salon_earnings", id));
@@ -231,15 +271,18 @@ const handleSave = async () => {
 
 // HELPER: Calculate Live Totals for Input Area
 const currentInputTotals = () => {
-  // 1. Get the auto-fed staff sum for the selected date
   const dayStaffData = dailyStaffTotals[formData.date] || {};
   
-  // 2. Add up all earnings from all staff for that day
-  const staffSum = Object.values(dayStaffData).reduce((a, b) => a + b, 0);
+  // We need to be careful not to double-count if we stored "Steven" and "Steven "
+  // We filter for unique values based on a trimmed version of the names
+  const uniqueNames = {};
+  Object.keys(dayStaffData).forEach(name => {
+    uniqueNames[name.trim().toLowerCase()] = dayStaffData[name];
+  });
+
+  const staffSum = Object.values(uniqueNames).reduce((a, b) => a + b, 0);
   
-  // 3. Add the financial inputs
   const revenue = staffSum + (parseFloat(formData.sellGiftCard) || 0);
-  
   const nonCash = (parseFloat(formData.total_credit) || 0) + 
                   (parseFloat(formData.check) || 0) + 
                   (parseFloat(formData.returnGiftCard) || 0) + 
@@ -293,7 +336,12 @@ const currentInputTotals = () => {
         </label>
         <div className="w-full p-2 bg-gray-100 rounded-lg text-xs font-bold text-gray-500 border border-transparent">
             {/* Auto-Feed Value Display */}
-            ${(currentDayStaffTotals[staff.name.toLowerCase()] || 0).toFixed(2)}
+         ${(
+  currentDayStaffTotals[staff.name.trim()] || 
+  currentDayStaffTotals[staff.name.trim().toLowerCase()] || 
+  currentDayStaffTotals[staff.name.trim() + " "] || 
+  0
+).toFixed(2)}
         </div>
     </div>
 ))}
@@ -382,16 +430,24 @@ const inputFields = [
         })()}
         {day.isMissingReport && <span className="block text-[8px] text-orange-400 mt-1 uppercase">⚠️ Not Saved</span>}
       </td>
+{/* Staff Columns (Auto-Fed) */}
+{/* Staff Columns (Auto-Fed) */}
+{staffList.map(s => {
+  const exactName = s.name.trim();
+  const lowerName = exactName.toLowerCase();
+  
+  // Check exact, lowercase, and the trailing space version
+  const val = day.staffMap[exactName] || 
+              day.staffMap[lowerName] || 
+              day.staffMap[exactName + " "] || 
+              0;
 
-      {/* Staff Columns (Auto-Fed) */}
-      {staffList.map(s => {
-        const val = day.staffMap[s.name.toLowerCase()] || 0;
-        return (
-          <td key={s.id} className={`px-3 py-4 text-center ${val > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-            {val > 0 ? `$${val.toFixed(2)}` : '—'}
-          </td>
-        );
-      })}
+  return (
+    <td key={s.id} className={`px-3 py-4 text-center ${val > 0 ? 'text-gray-900 font-bold' : 'text-gray-300'}`}>
+      {val > 0 ? `$${val.toFixed(2)}` : '—'}
+    </td>
+  );
+})}
 
       {/* Financial Columns */}
       <td className="px-3 py-4 text-center text-pink-500">${day.sellGC.toFixed(2)}</td>
@@ -405,7 +461,20 @@ const inputFields = [
 
       {/* Actions */}
       <td className="px-4 py-4 text-center sticky right-0 bg-white border-l border-gray-100">
-        <button onClick={() => { setFormData({...day.rawReport, date: day.date}); window.scrollTo(0,0); }} className="text-blue-500 mr-3 hover:scale-110"><i className="fas fa-edit"></i></button>
+        <button 
+  onClick={() => { 
+    // This ensures the date is set exactly as the dailyStaffTotals key (YYYY-MM-DD)
+    setFormData({
+      ...initialFormState, // Start with a clean state
+      ...day.rawReport, 
+      date: day.date 
+    }); 
+    window.scrollTo({top: 0, behavior: 'smooth'}); 
+  }} 
+  className="text-blue-500 mr-3 hover:scale-110"
+>
+  <i className="fas fa-edit"></i>
+</button>
         {!day.isMissingReport && <button onClick={() => handleDelete(day.id)} className="text-red-400 hover:scale-110"><i className="fas fa-trash"></i></button>}
       </td>
     </tr>
@@ -416,17 +485,23 @@ const inputFields = [
  {/* ROW 1: MONTHLY TOTAL PER STAFF */}
 <tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
     <td className="px-4 py-4 border-r border-slate-700">Monthly Total</td>
-    {staffList.map(s => {
-      // FIX: Changed staffTotals to monthTotals.staff
-      const total = monthTotals.staff[s.name.toLowerCase()] || 0;
-      return (
-        <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold">
-          ${total.toFixed(2)}
-        </td>
-      );
-    })}
+{staffList.map(s => {
+  const exactName = s.name.trim();
+  const lowerName = exactName.toLowerCase();
+  
+  // Sum up all possible variations for the monthly total
+  const total = (monthTotals.staff[exactName] || 0) + 
+                (monthTotals.staff[lowerName] || 0) + 
+                (monthTotals.staff[exactName + " "] || 0);
+
+  return (
+    <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold">
+      ${total.toFixed(2)}
+    </td>
+  );
+})}
     <td className="px-3 py-4 text-center text-pink-400">${monthTotals.gc.toFixed(2)}</td>
-    <td colSpan={2}></td>
+    <td colSpan={4}></td>
     <td className="px-3 py-4 text-center text-green-400 font-black">${monthTotals.cash.toFixed(2)}</td>
     <td className="px-3 py-4 text-center text-white font-black">${monthTotals.revenue.toFixed(2)}</td>
     <td></td>
