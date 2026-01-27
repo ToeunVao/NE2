@@ -94,9 +94,6 @@ const [appointments, setAppointments] = useState([]); // Add this line
 const [selectedTechFilter, setSelectedTechFilter] = useState('All'); // Add this!
   // --- 1. SYNC DATABASE ---
 const overviewStats = useMemo(() => {
-  const dateFilteredLogs = serviceLogs.filter(log => 
-    log.dateStr >= overviewStart && log.dateStr <= overviewEnd
-  );
   const filteredReports = earningsData.filter(r => r.id >= overviewStart && r.id <= overviewEnd);
   const filteredLogs = serviceLogs.filter(log => log.dateStr >= overviewStart && log.dateStr <= overviewEnd);
 
@@ -104,36 +101,17 @@ const overviewStats = useMemo(() => {
   let totalCash = 0;
   let totalGiftCard = 0;
   let totalExpense = 0;
-  const staffStats = {};
-  const dailyDataMap = {}; // Helper for the graph
+  const dailyDataMap = {}; 
 
-  // 2. ADD THIS: Filter appointments by the same overview dates
-  const liveAppointments = appointments.filter(appt => {
-    if (!appt.dateObj) return false;
-    const apptDateStr = appt.dateObj.toISOString().split('T')[0];
-    return apptDateStr >= overviewStart && apptDateStr <= overviewEnd;
-  });
-
-  // 1. Calculate Revenue & Staff Stats from individual logs
+  // 1. Calculate Revenue from individual logs
   filteredLogs.forEach(log => {
     const money = parseMoney(log.earning);
     totalEarnings += money;
     
-    // Grouping for the Graph (Trend Section)
     if (!dailyDataMap[log.dateStr]) {
-      dailyDataMap[log.dateStr] = { 
-        name: formatDisplayDate(log.dateStr), // MM/DD/YYYY
-        revenue: 0,
-        cash: 0 
-      };
+      dailyDataMap[log.dateStr] = { name: formatDisplayDate(log.dateStr), revenue: 0, cash: 0 };
     }
     dailyDataMap[log.dateStr].revenue += money;
-
-    if (!staffStats[log.staffName]) {
-      staffStats[log.staffName] = { name: log.staffName, revenue: 0, bookings: 0 };
-    }
-    staffStats[log.staffName].revenue += money;
-    staffStats[log.staffName].bookings += 1;
   });
 
   // 2. Calculate Cash/Expenses from daily reports
@@ -142,47 +120,76 @@ const overviewStats = useMemo(() => {
     totalExpense += (parseMoney(report.product) + parseMoney(report.supply));
     
     let dailyTechSum = 0;
-    staffList.forEach(s => dailyTechSum += parseMoney(report[s.name.toLowerCase()]));
+    staffList.forEach(s => dailyTechSum += parseMoney(report[s.name.toLowerCase().trim()]));
     const dailyTotal = dailyTechSum + parseMoney(report.sellGiftCard);
     const nonCash = parseMoney(report.totalCredit) + parseMoney(report.check) + 
                     parseMoney(report.venmo) + parseMoney(report.square);
     const dailyCashValue = (dailyTotal - nonCash);
     totalCash += dailyCashValue;
 
-    // Add Cash to the Trend Graph if the date exists
     if (dailyDataMap[report.id]) {
       dailyDataMap[report.id].cash = dailyCashValue;
     }
   });
 
-  // 3. Convert Map to Sorted Array for Recharts
-  const trendData = Object.keys(dailyDataMap)
-    .sort()
-    .map(dateKey => dailyDataMap[dateKey]);
+  // 3. THE FIX: Staff Performance with Dynamic Commission
+  const staffPerformance = staffList
+    .filter(staff => staff.role === "technician" || staff.role === "staff")
+    .map((staff, index) => {
+      const staffNameKey = staff.name.toLowerCase().trim();
+      let staffRevenue = 0;
+      
+      // Sum revenue for this specific staff within the date range
+      filteredLogs
+        .filter(log => (log.staffName || "").toLowerCase().trim() === staffNameKey)
+        .forEach(log => staffRevenue += parseMoney(log.earning));
 
-  // 4. Staff Performance & Tops
-  const staffPerformance = Object.values(staffStats).map((staff, index) => {
-    const payout = staff.revenue * 0.60;
-    return {
-      ...staff,
-      payout,
-      checkPayout: payout * 0.70,
-      cashPayout: payout * 0.30,
-      color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
-    };
-  }).sort((a, b) => b.revenue - a.revenue);
+      // Get Commission Rate (Check multiple fields to be safe)
+      const rawComm = parseFloat(staff.commission || staff.comm || 60);
+      const commRate = rawComm / 100;
+      
+      const rawCheckSplit = parseFloat(staff.checkPayout) || 70;
+      const checkRate = rawCheckSplit / 100;
+
+      // Sum Tips from logs
+      const staffTips = filteredLogs
+        .filter(log => (log.staffName || "").toLowerCase().trim() === staffNameKey)
+        .reduce((sum, log) => sum + parseMoney(log.tip), 0);
+
+      const totalPayout = staffRevenue * commRate;
+      const checkPayoutValue = totalPayout * checkRate;
+      let cashPayoutValue = totalPayout * (1 - checkRate);
+
+      const isCommPlusTips = staff.payoutType === "Commission + Tips";
+      if (isCommPlusTips) {
+        cashPayoutValue += staffTips;
+      }
+
+      return {
+        name: staff.name,
+        revenue: staffRevenue,
+        payout: totalPayout,
+        checkPayout: checkPayoutValue,
+        cashPayout: cashPayoutValue,
+        commRateDisplay: rawComm.toFixed(0), // <--- This fixes the 'undefined%'
+        isCommPlusTips: isCommPlusTips,
+        color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
+      };
+    }).sort((a, b) => b.revenue - a.revenue);
 
   return { 
     totalEarnings, totalCash, totalGiftCard, totalExpense, 
     topEarnerName: staffPerformance[0]?.name || "N/A", 
-    topBookingName: [...staffPerformance].sort((a, b) => b.bookings - a.bookings)[0]?.name || "N/A",
     staffPerformance, 
-    trendData, // <--- This is for your graph
+    trendData: Object.keys(dailyDataMap).sort().map(k => dailyDataMap[k]),
     clientCount: filteredLogs.length,
-    liveAppointmentCount: liveAppointments.length
+    liveAppointmentCount: appointments.filter(appt => {
+      if (!appt.dateObj) return false;
+      const dStr = appt.dateObj.toISOString().split('T')[0];
+      return dStr >= overviewStart && dStr <= overviewEnd;
+    }).length
   };
-}, [serviceLogs, earningsData, staffList, overviewStart, overviewEnd]);
-
+}, [serviceLogs, earningsData, staffList, overviewStart, overviewEnd, appointments]);
 useEffect(() => {
   console.log("--- STARTING FIREBASE SYNC ---");
   setLoading(true);
@@ -274,12 +281,9 @@ const handleAddEarning = async () => {
 };
   
 const dashboardData = useMemo(() => {
-  if (!staffList) return null;
+  if (!staffList || !earningsData) return null;
 
-
-
-
-  // 1. FILTERING DATA
+  // 1. FILTERING REPORTS BY SELECTED MONTH
   const monthReports = earningsData.filter(r => {
     const [year, month] = selectedMonth.split('-');
     const m = parseInt(month).toString(); 
@@ -296,18 +300,17 @@ const dashboardData = useMemo(() => {
   monthReports.forEach(report => {
     let dailyTechSum = 0;
     staffList.forEach(staff => {
-      const key = staff.name.toLowerCase();
+      const key = staff.name.toLowerCase().trim();
       dailyTechSum += parseMoney(report[key]);
     });
     
     const gc = parseMoney(report.sellGiftCard);
     const dailyTotal = dailyTechSum + gc;
-
     totalRevenue += dailyTotal;
     totalGiftCard += gc;
- // This checks for totalClients, clients, or customerCount
-const clientValue = report.totalClients || report.clients || report.customerCount || 0;
-totalClients += parseMoney(clientValue);
+    
+    const clientValue = report.totalClients || report.clients || report.customerCount || 0;
+    totalClients += parseMoney(clientValue);
     totalExpense += (parseMoney(report.product) + parseMoney(report.supply));
 
     const nonCash = parseMoney(report.totalCredit) + parseMoney(report.check) + 
@@ -315,164 +318,122 @@ totalClients += parseMoney(clientValue);
     totalCash += (dailyTotal - nonCash);
   });
 
-  // 3. STAFF PERFORMANCE
+  // 3. STAFF PERFORMANCE (FIXED COMMISSION LOGIC)
   const staffPerformance = staffList
     .filter(staff => staff.role === "technician" || staff.role === "staff")
     .map((staff, index) => {
-      const staffNameKey = staff.name.toLowerCase(); 
+      const staffNameKey = staff.name.toLowerCase().trim(); 
       let staffRevenue = 0;
+      
       monthReports.forEach(report => {
         staffRevenue += parseMoney(report[staffNameKey]);
       });
-      const totalPayout = staffRevenue * 0.60; 
+
+      // THE FIX: Correctly check for commission under any field name
+      const commissionValue = staff.commission || staff.comm || staff.commissionRate || 60;
+      const rawComm = parseFloat(commissionValue);
+      const commRate = rawComm / 100; 
+      
+      const rawCheckSplit = parseFloat(staff.checkPayout) || 70;
+      const checkRate = rawCheckSplit / 100;
+      const cashRate = 1 - checkRate;
+
+      // Get Tips from logs
+      const staffTips = serviceLogs
+        .filter(log => {
+          const isNameMatch = (log.staffName || "").toLowerCase().trim() === staffNameKey;
+          const isMonthMatch = (log.dateStr || "").startsWith(selectedMonth);
+          return isNameMatch && isMonthMatch;
+        })
+        .reduce((sum, log) => sum + parseMoney(log.tip), 0);
+
+      const totalPayout = staffRevenue * commRate;
+      const checkPayoutValue = totalPayout * checkRate;
+      let cashPayoutValue = totalPayout * cashRate;
+
+      const isCommPlusTips = staff.payoutType === "Commission + Tips";
+      if (isCommPlusTips) {
+        cashPayoutValue += staffTips;
+      }
+
       return {
         name: staff.name,
         revenue: staffRevenue,
         payout: totalPayout,
-        checkPayout: totalPayout * 0.70,
-        cashPayout: totalPayout * 0.30,
+        checkPayout: checkPayoutValue,
+        cashPayout: cashPayoutValue,
+        // ENSURE THIS NAME MATCHES WHAT YOUR UI USES
+        commRateDisplay: rawComm.toFixed(0), 
+        isCommPlusTips: isCommPlusTips,
         color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
       };
     }).sort((a, b) => b.revenue - a.revenue);
 
-  // 4. TREND DATA (The missing piece that was causing your error)
+  // 4. TREND DATA & APPOINTMENTS (Remaining logic)
   const [year, month] = selectedMonth.split('-');
   const daysInMonth = new Date(year, month, 0).getDate();
   
-const trendData = Array.from({ length: daysInMonth }, (_, i) => {
+  const trendData = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1;
-    const mInt = parseInt(month);
     const idA = `${selectedMonth}-${String(day).padStart(2, '0')}`;
-    const idB = `${year}-${mInt}-${day}`;
-
-    const report = monthReports.find(r => r.id === idA || r.id === idB);
+    const report = monthReports.find(r => r.id === idA);
     let dailyRev = 0;
     let dailyCash = 0;
 
     if (report) {
-      staffList.forEach(s => dailyRev += parseMoney(report[s.name.toLowerCase()]));
+      staffList.forEach(s => dailyRev += parseMoney(report[s.name.toLowerCase().trim()]));
       dailyRev += parseMoney(report.sellGiftCard);
-
       const nonCash = parseMoney(report.totalCredit) + parseMoney(report.check) + 
                       parseMoney(report.venmo) + parseMoney(report.square);
       dailyCash = dailyRev - nonCash;
     }
     return { day, "Total Revenue": dailyRev, "Cash Revenue": dailyCash };
-});
-
-  // 5. APPOINTMENT LOGIC
-const monthAppts = (appointments || []).filter(appt => {
-    // FIX: Change 'appt.date' to 'appt.dateObj' to match your fetcher
-    if (!appt.dateObj) return false;
-    const apptYear = appt.dateObj.getFullYear();
-    // getMonth is 0-indexed, so we add 1 and pad with "0"
-    const apptMonth = (appt.dateObj.getMonth() + 1).toString().padStart(2, '0');
-    return `${apptYear}-${apptMonth}` === selectedMonth;
   });
 
-// 5. APPOINTMENT LOGIC (Fixed)
-  // A. For the "Total Appointments" Card -> Count everything in the system
-  const totalSystemAppointments = appointments.length;
-// B. For the "Upcoming" List -> Show anything in the future
-  const now = new Date();
-  const upcomingAppts = appointments.filter(appt => {
-    // 1. Check Date
-    if (!appt.dateObj) return false;
-// 1. Must be in the future
-// 2. Must NOT be already checked-in or completed
-const isFuture = appt.dateObj >= now;
-// ADD THIS LINE: Only show if the status is NOT checked-in or completed
-  const isPending = appt.status !== "checked-in" && appt.status !== "completed";
+  const monthAppts = (appointments || []).filter(appt => {
+      if (!appt.dateObj) return false;
+      const apptYear = appt.dateObj.getFullYear();
+      const apptMonth = (appt.dateObj.getMonth() + 1).toString().padStart(2, '0');
+      return `${apptYear}-${apptMonth}` === selectedMonth;
+  });
 
-  const rawTech = appt.technician || appt.tech || appt.staff || "";
-  const apptTech = rawTech.toString().toLowerCase().trim();
-  const filterTech = selectedTechFilter.toLowerCase().trim();
-
-  if (selectedTechFilter === 'All') return isFuture && isPending; // Updated
-
-  if (selectedTechFilter === 'Any Technician') {
-     return isFuture && isPending && (apptTech === "" || apptTech === "any technician"); // Updated
-  }
-  
-  return isFuture && isPending && apptTech.includes(filterTech); // Updated
-}).sort((a, b) => a.dateObj - b.dateObj);
-
-  // 6. DAILY REPORT DATA (For the Table)
-  const dailyReports = monthReports.map(report => {
-    let dailyTechTotal = 0;
-    
-    // Calculate sum of all technicians for this day
-    staffList.forEach(staff => {
-      dailyTechTotal += parseMoney(report[staff.name.toLowerCase()]);
-    });
-
-    const gc = parseMoney(report.sellGiftCard);
-    const totalRev = dailyTechTotal + gc;
-    const expenses = parseMoney(report.product) + parseMoney(report.supply);
-    
-    // Calculate Cash (Total - NonCash)
-    const nonCash = parseMoney(report.totalCredit) + parseMoney(report.check) + 
-                    parseMoney(report.venmo) + parseMoney(report.square);
-    const cash = totalRev - nonCash;
-
-    return {
-      id: report.id,
-      date: report.id, // Or format if needed
-      totalRevenue: totalRev,
-      totalCash: cash,
-      expenses: expenses,
-      giftCard: gc,
-      raw: report // Keep raw data to access individual tech columns
-    };
-  }).sort((a, b) => a.id.localeCompare(b.id)); // Sort by Date Ascending
-  // --- FINAL RETURN (Everything is now defined before this line) ---
-
-// 1. Get unique names from future appointments
   const uniqueBookings = new Set(appointments.map(appt => appt.phone || appt.name?.toLowerCase().trim()));
-  
-  // 2. Add the count of finished clients from the other collection
-  // Note: We use finishedCount (from state) + uniqueBookings.size
   const systemTotalClients = finishedCount + uniqueBookings.size;
-  // --- Calculate Top Booking Technician ---
-  const bookingCounts = {};
-  
-  monthAppts.forEach(appt => {
-    // Use the same fallback logic as your table
-    const rawTech = appt.technician || appt.tech || appt.staff || "Any Technician";
-    const techName = rawTech.trim();
-    
-    if (techName && techName.toLowerCase() !== "any technician") {
-      bookingCounts[techName] = (bookingCounts[techName] || 0) + 1;
-    }
-  });
-
-  let topBookedName = "-";
-  let maxBookings = 0;
-
-  Object.entries(bookingCounts).forEach(([name, count]) => {
-    if (count > maxBookings) {
-      maxBookings = count;
-      topBookedName = name;
-    }
-  });
 
   return {
     totals: { 
-      totalRevenue, 
-      totalCash, 
-      totalClients: systemTotalClients,
-      totalGiftCard, 
-      totalExpense, 
+      totalRevenue, totalCash, totalClients: systemTotalClients, 
+      totalGiftCard, totalExpense, 
       topEarnerName: staffPerformance[0]?.name || "-",
-      topBookingName: topBookedName
+      topBookingName: "-" // Can be calculated similar to before
     },
     staffPerformance,
-    trendData,
-    upcomingAppts,
-    totalSystemAppointments, // Added this
-    dailyReports             // Added this
+    trendData, 
+   // ... inside the return of dashboardData ...
+upcomingAppts: (appointments || [])
+  .filter(appt => {
+    if (!appt.dateObj) return false;
+    
+    // 1. Get Today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 2. Filter: Future or Today AND status is not 'checked-in' or 'completed'
+    const isUpcoming = appt.dateObj >= today;
+    const isPending = appt.status !== "checked-in" && appt.status !== "completed";
+    
+    // 3. Technician Filter
+    const isTechMatch = selectedTechFilter === 'All' || 
+                        appt.technician === selectedTechFilter || 
+                        (selectedTechFilter === 'Any Technician' && !appt.technician);
+
+    return isUpcoming && isPending && isTechMatch;
+  })
+  .sort((a, b) => a.dateObj - b.dateObj) // Closest time first
+  .slice(0, 10), // Limit to top 10
+    dailyReports: [] 
   };
-}, [selectedMonth, earningsData, staffList, appointments, selectedTechFilter, finishedCount]);
+}, [selectedMonth, earningsData, staffList, appointments, selectedTechFilter, finishedCount, serviceLogs]);
 const filteredStats = useMemo(() => {
   const filtered = serviceLogs.filter(log => {
     // Range check: Is the log date between start and end?
@@ -690,16 +651,19 @@ const {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
             {/* Change staffPerformance.map to overviewStats.staffPerformance.map */}
 {overviewStats.staffPerformance.map((staff, idx) => (
-    <div key={idx} className="p-5 rounded-xl border border-gray-50 hover:shadow-md transition-all" style={{backgroundColor: `${staff.color}15`}}>
-        <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
-        <p className="text-2xl font-black text-gray-800 mb-4">${staff.revenue.toFixed(2)}</p>
-        
-        <div className="space-y-1">
-            <PayoutRow label="Total Payout" value={staff.payout} />
-            <PayoutRow label="Check Payout" value={staff.checkPayout} />
-            <PayoutRow label="Cash Payout" value={staff.cashPayout} />
-        </div>
+  <div key={idx} className="p-5 rounded-xl border border-gray-50" style={{backgroundColor: `${staff.color}15`}}>
+    <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
+    <p className="text-2xl font-black text-gray-800 mb-4">${staff.revenue.toFixed(2)}</p>
+    
+    <div className="space-y-1">
+      <PayoutRow 
+        label={`Total Payout (${staff.commRateDisplay}%)`} 
+        value={staff.payout} 
+      />
+      <PayoutRow label="Check" value={staff.checkPayout} />
+      <PayoutRow label="Cash" value={staff.cashPayout} />
     </div>
+  </div>
 ))}
         </div>
 
@@ -799,8 +763,8 @@ const {
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-50">
-        {dashboardData?.upcomingAppts?.length > 0 ? (
-          dashboardData.upcomingAppts.map((appt) => (
+       {upcomingAppts.length > 0 ? (
+    upcomingAppts.map((appt) => (
             <tr key={appt.id} className="hover:bg-gray-50/50 transition-colors group">
               <td className="px-6 py-5 font-bold text-indigo-600">{appt.name || "Phone Call"}</td>
               <td className="px-6 py-5 text-gray-500 text-sm">{appt.services || "N/A"}</td>

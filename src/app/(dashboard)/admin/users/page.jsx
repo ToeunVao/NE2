@@ -18,7 +18,8 @@ const initialForm = {
     uid: "",
     role: "technician",
     payoutType: "standard",
-    commission: "60" // Ensure this is a string for the input field
+    commission: "60",
+    checkPayout: "70" // Ensure this is a string for the input field
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -47,7 +48,8 @@ const userPayload = {
   role: formData.role.toLowerCase(),
   email: formData.email.toLowerCase(),
   // FIX: Divide by 100 so 60 becomes 0.6 and 70 becomes 0.7
-  commission: (parseFloat(formData.commission) / 100) || 0.6,
+  commission: parseFloat(formData.commission) || 60,
+  checkPayout: parseFloat(formData.checkPayout) || 70,
   updatedAt: serverTimestamp()
 };
 
@@ -78,7 +80,8 @@ const handleEdit = (user) => {
     role: user.role?.toLowerCase() || "technician",
     payoutType: detectedPayout, // Matches the new select options
     // 2. Ensure commission is pulled exactly as it is (e.g., 70)
-    commission: user.commission ? (user.commission * 100).toString() : "60"
+    commission: user.commission > 100 ? user.commission / 100 : (user.commission || "60"),
+    checkPayout: user.checkPayout ? user.checkPayout.toString() : "70"
   });
   
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -173,6 +176,17 @@ const handleEdit = (user) => {
                 className="w-full p-3 bg-gray-50 rounded-xl text-xs font-bold border border-gray-100 outline-none focus:border-pink-300" 
               />
             </div>
+            {/* NEW: Check Payout Field */}
+  <div className="space-y-1.5">
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Check Payout (%)</label>
+    <input 
+      type="number" 
+      value={formData.checkPayout || "70"} 
+      onChange={e => setFormData({...formData, checkPayout: e.target.value})}
+      className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-pink-100" 
+      placeholder="70"
+    />
+  </div>
             <button 
               type="submit"
               className="w-full py-3.5 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 shadow-md transition-all"

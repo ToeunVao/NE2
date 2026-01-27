@@ -191,19 +191,49 @@ totalCredit: parseFloat(report.total_credit) || parseFloat(report.totalCredit) |
 
   // --- NEW LOGIC: 3. Monthly Footer Totals ---
 const monthTotals = useMemo(() => {
-    const t = { revenue: 0, cash: 0, gc: 0, staff: {} };
+    const t = { revenue: 0, cash: 0, gc: 0, staff: {}, staffTips: {}, totalTips: 0 };
+    
+    // 1. Calculate Services Revenue from the table data
     mergedTableData.forEach(day => {
-      t.revenue += day.totalRevenue;
-      t.cash += day.totalCash;
-      t.gc += day.sellGC;
+      t.revenue += Number(day.totalRevenue || 0);
+      t.cash += Number(day.totalCash || 0);
+      t.gc += Number(day.sellGC || 0);
+
       staffList.forEach(s => {
-        const key = s.name.toLowerCase();
-        t.staff[key] = (t.staff[key] || 0) + (day.staffMap[key] || 0);
+        const key = s.name.toLowerCase().trim();
+        t.staff[key] = (t.staff[key] || 0) + Number(day.staffMap[key] || 0);
       });
     });
-    return t;
-  }, [mergedTableData, staffList]);
 
+    // 2. GATHER TIPS FROM THE FEED (staffEntries)
+    console.log("🔍 Debug: Total Feed Entries found:", staffEntries.length);
+    
+    staffEntries.forEach(entry => {
+      const rawName = entry.staffName || entry.name || "";
+      const key = rawName.toLowerCase().trim();
+      const tipAmt = parseFloat(entry.tips) || parseFloat(entry.tip) || 0;
+
+      if (key && tipAmt > 0) {
+        // We only sum tips that belong to the current selected month
+        let entryDate = "";
+        if (entry.date?.seconds) {
+          entryDate = new Date(entry.date.seconds * 1000).toISOString().slice(0, 7);
+        } else if (typeof entry.date === 'string') {
+          entryDate = entry.date.slice(0, 7);
+        }
+
+        if (entryDate === selectedMonth) {
+          t.staffTips[key] = (t.staffTips[key] || 0) + tipAmt;
+          t.totalTips += tipAmt;
+        }
+      }
+    });
+
+    console.log("📊 Debug: Monthly Tip Totals per Staff:", t.staffTips);
+    console.log("💰 Debug: Grand Total Tips for Month:", t.totalTips);
+
+    return t;
+}, [mergedTableData, staffList, staffEntries, selectedMonth]);
   // Helper for Input Form Display
   const currentDayStaffTotals = dailyStaffTotals[formData.date] || {};
 
@@ -269,6 +299,8 @@ const handleSave = async () => {
   };
 
 
+
+
 // HELPER: Calculate Live Totals for Input Area
 const currentInputTotals = () => {
   const dayStaffData = dailyStaffTotals[formData.date] || {};
@@ -291,6 +323,51 @@ const currentInputTotals = () => {
                   
   return { revenue, cash: revenue - nonCash };
 };
+
+const totals = useMemo(() => {
+  let serviceTotal = 0;
+  let commissionTotal = 0; 
+  let checkPayoutTotal = 0;
+  let cashPayoutTotal = 0;
+
+  // Use the mergedTableData from your state
+  mergedTableData.forEach(day => {
+    serviceTotal += Number(day.totalRevenue || 0);
+    
+    // Check each staff member's contribution for this day
+    staffList.forEach(staff => {
+      const staffNameKey = staff.name.toLowerCase();
+      const earnings = Number(day.staffMap[staffNameKey] || 0);
+      
+      if (earnings > 0) {
+        // Get rates from the staff profile (saved in your Users page)
+        const commRate = (parseFloat(staff.commission) || 60) / 100;
+        const checkRate = (parseFloat(staff.checkPayout) || 70) / 100;
+        const isCommPlusTips = staff.payoutType === "Commission + Tips";
+
+        const staffCommAmt = earnings * commRate;
+        commissionTotal += staffCommAmt;
+
+        // Split logic
+        const checkAmount = staffCommAmt * checkRate;
+        const cashAmount = staffCommAmt * (1 - checkRate);
+
+        checkPayoutTotal += checkAmount;
+
+        // Add Tips to Cash if they are 'Commission + Tips' type
+        if (isCommPlusTips) {
+          // In your file, tips are stored in rawReport.totalTips
+          const dailyTips = Number(day.rawReport?.totalTips || 0);
+          cashPayoutTotal += cashAmount + dailyTips;
+        } else {
+          cashPayoutTotal += cashAmount;
+        }
+      }
+    });
+  });
+
+  return { serviceTotal, commissionTotal, checkPayoutTotal, cashPayoutTotal };
+}, [mergedTableData, staffList]);
 
   if (loading) return <div className="p-10 text-center font-black text-gray-300 uppercase tracking-widest">Loading Records...</div>;
 
@@ -481,76 +558,87 @@ const inputFields = [
   ))}
 </tbody>
 <tfoot className="bg-slate-900 text-white text-[10px] font-black uppercase">
-  {/* ROW 1: MONTHLY TOTAL remains the same */}
- {/* ROW 1: MONTHLY TOTAL PER STAFF */}
-<tr className="bg-slate-900 text-white text-[10px] font-black uppercase">
-    <td className="px-4 py-4 border-r border-slate-700">Monthly Total</td>
-{staffList.map(s => {
-  const exactName = s.name.trim();
-  const lowerName = exactName.toLowerCase();
-  
-  // Sum up all possible variations for the monthly total
-  const total = (monthTotals.staff[exactName] || 0) + 
-                (monthTotals.staff[lowerName] || 0) + 
-                (monthTotals.staff[exactName + " "] || 0);
-
-  return (
-    <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold">
-      ${total.toFixed(2)}
-    </td>
-  );
-})}
+  {/* ROW 1: MONTHLY TOTAL PER STAFF */}
+  <tr className="bg-slate-900 text-white border-b border-slate-700">
+    <td className="px-4 py-4 border-r border-slate-700 sticky left-0 bg-slate-900 z-10">Monthly Total</td>
+    {staffList.map(s => {
+      const lowerName = s.name.trim().toLowerCase();
+      const total = monthTotals.staff[lowerName] || 0;
+      return (
+        <td key={s.id} className="px-3 py-4 text-center text-slate-400 font-bold border-r border-slate-800">
+          ${total.toFixed(2)}
+        </td>
+      );
+    })}
     <td className="px-3 py-4 text-center text-pink-400">${monthTotals.gc.toFixed(2)}</td>
     <td colSpan={4}></td>
     <td className="px-3 py-4 text-center text-green-400 font-black">${monthTotals.cash.toFixed(2)}</td>
     <td className="px-3 py-4 text-center text-white font-black">${monthTotals.revenue.toFixed(2)}</td>
     <td></td>
-</tr>
+  </tr>
 
-  {/* ROW 2: DYNAMIC TOTAL PAYOUT (Shows 60% or 70% per column) */}
-{/* ROW 2: TOTAL PAYOUT */}
-  <tr className="bg-indigo-900/20 border-b border-slate-700">
-    <td className="px-4 py-3 border-r border-slate-700 text-indigo-300 italic">Total Payout</td>
+  {/* ROW 2: TOTAL PAYOUT (Commission %) */}
+  <tr className="bg-indigo-900/40 border-b border-slate-700">
+    <td className="px-4 py-3 border-r border-slate-700 text-indigo-300 italic sticky left-0 bg-[#1e1b4b] z-10">Total Payout</td>
     {staffList.map(s => {
-      // Use the new monthTotals object
       const totalEarning = monthTotals.staff[s.name.toLowerCase()] || 0;
-      const rate = 0.6; // Default 60% rate
-      
+      const rate = (parseFloat(s.commission) || 60) / 100;
       return (
-        <td key={s.id} className="px-3 py-3 text-center text-indigo-200">
-          <span className="block text-[8px] opacity-50 text-white">60% Rate</span>
+        <td key={s.id} className="px-3 py-3 text-center text-indigo-200 border-r border-slate-800">
+          <span className="block text-[7px] opacity-50 text-white">{(rate * 100).toFixed(0)}% Rate</span>
           ${(totalEarning * rate).toFixed(2)}
         </td>
       );
     })}
-    <td colSpan={8}></td>
+    <td colSpan={8} className="bg-indigo-900/10"></td>
   </tr>
 
   {/* ROW 3: CHECK PAYOUT (70%) */}
-  <tr className="bg-slate-800/20 border-b border-slate-700">
-    <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Check Payout (70%)</td>
+  <tr className="bg-slate-800/40 border-b border-slate-700">
+    <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal sticky left-0 bg-[#1e293b] z-10">Check Payout</td>
     {staffList.map(s => {
-      // Calculate 70% of the month total for the check amount
-      const val = (monthTotals.staff[s.name.toLowerCase()] || 0) * 0.7;
+      const totalEarning = monthTotals.staff[s.name.toLowerCase()] || 0;
+      const commRate = (parseFloat(s.commission) || 60) / 100;
+      const checkRate = (parseFloat(s.checkPayout) || 70) / 100;
+      const val = (totalEarning * commRate) * checkRate;
       return (
-        <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">
+        <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal border-r border-slate-800">
+          <span className="block text-[7px] opacity-30">{(checkRate * 100).toFixed(0)}% Check</span>
           ${val.toFixed(2)}
         </td>
       );
     })}
     <td colSpan={8}></td>
   </tr>
-  {/* ROW 4: CASH PAYOUT */}
- {/* ROW 4: CASH PAYOUT (30%) */}
-<tr className="bg-slate-800/10 border-b border-slate-700">
-  <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal">Cash Payout (30%)</td>
+
+{/* ROW 4: CASH PAYOUT (30% + TIPS) */}
+<tr className="bg-slate-800/20">
+  <td className="px-4 py-3 border-r border-slate-700 text-slate-400 font-normal sticky left-0 bg-[#1e293b] z-10">Cash Payout</td>
   {staffList.map(s => {
-    // FIX: Use monthTotals.staff and calculate 30% on the fly
-    const totalMonthEarning = monthTotals.staff[s.name.toLowerCase()] || 0;
-    const val = totalMonthEarning * 0.3; // 30% calculation
+    const lowerName = s.name.toLowerCase().trim();
+    const totalEarning = monthTotals.staff[lowerName] || 0;
+    
+    const commRate = (parseFloat(s.commission) || 60) / 100;
+    const checkRate = (parseFloat(s.checkPayout) || 70) / 100;
+    const cashRate = 1 - checkRate; 
+    
+    const commissionCashShare = (totalEarning * commRate) * cashRate;
+    const staffTips = monthTotals.staffTips[lowerName] || 0;
+
+    const isCommPlusTips = s.payoutType === "Commission + Tips";
+    
+    // Final Value: 30% Share + (Tips only if eligible)
+    const finalCashVal = isCommPlusTips ? (commissionCashShare + staffTips) : commissionCashShare;
+
     return (
-      <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal">
-        ${val.toFixed(2)}
+      <td key={s.id} className="px-3 py-3 text-center text-slate-300 font-normal border-r border-slate-800">
+        <span className="block text-[7px] opacity-30">
+          {isCommPlusTips ? "Commission + Tips" : `${(cashRate * 100).toFixed(0)}% Cash`}
+        </span>
+        ${finalCashVal.toFixed(2)}
+        {isCommPlusTips && staffTips > 0 && (
+          <span className="block text-[8px] text-green-400"> (Inc. ${staffTips.toFixed(2)} tips)</span>
+        )}
       </td>
     );
   })}

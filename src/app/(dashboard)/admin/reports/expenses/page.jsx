@@ -284,7 +284,7 @@ const existingSuppliers = useMemo(() => {
       </div>
 
       {/* ON-SCREEN HEADER */}
-      <div className="flex justify-between items-center border-b pb-4 print:hidden">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-end print:hidden">
         <div>
             <h1 className="text-2xl font-black text-gray-800 uppercase italic">Expense Ledger</h1>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Displaying: {formatDateDisplay(startDate)} TO {formatDateDisplay(endDate)}</p>

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, onSnapshot, doc, deleteDoc, 
-  serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion 
+  serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion, Timestamp
 } from "firebase/firestore";
 
 // --- ASSETS ---
@@ -29,12 +29,38 @@ const giftCardBackgrounds = {
         'https://www.creativefabrica.com/wp-content/uploads/2021/08/30/Happy-birthday-background-design-Graphics-16518598-1-1-580x430.jpg'
     ]
 };
-
 export default function GiftCardPage() {
-  // --- STATE ---
+  // Add these near your other useState hooks
+const [transaction, setTransaction] = useState({ type: 'Redeem', amount: '', note: '' });
+const [isEditingCode, setIsEditingCode] = useState(false);
+const [newCodeInput, setNewCodeInput] = useState("");
+
   const [giftCards, setGiftCards] = useState([]);
+// 1. Add this state
+    const [clients, setClients] = useState([]);
+
+    // 2. Add this useEffect to get your clients
+    useEffect(() => {
+        const q = query(collection(db, "clients"), orderBy("name", "asc"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            setClients(snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            })));
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // 3. Define the missing variable here (Fixes your error)
+    const autocompleteNames = useMemo(() => {
+        return clients.map(c => c.name).filter(Boolean);
+    }, [clients]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCard, setSelectedCard] = useState(null); // Controls the Modal
+
+const [expValue, setExpValue] = useState(6);
+const [expUnit, setExpUnit] = useState('months');
 
   // Designer State
   const [category, setCategory] = useState('General');
@@ -50,7 +76,6 @@ export default function GiftCardPage() {
     showTo: true,
     showFrom: true
   });
-
   // --- FIREBASE LISTENERS ---
   useEffect(() => {
     const q = query(collection(db, "gift_cards"), orderBy("createdAt", "desc"));
@@ -67,55 +92,99 @@ export default function GiftCardPage() {
     );
   }, [giftCards, searchTerm]);
 
-  // --- ACTIONS: CREATE ---
-  const handleSaveAndPrint = async () => {
-    const qty = parseInt(form.quantity);
-    const amount = parseFloat(form.amount);
-    if (qty < 1 || amount <= 0) return alert("Invalid quantity or amount");
-    
-    const batch = writeBatch(db);
-    const cardsToPrint = [];
+const handleSaveAndPrint = async () => {
+    const qty = parseInt(form.quantity) || 1;
+    const amount = parseFloat(form.amount) || 0;
+    const manualInput = form.code.trim();
 
+    if (amount <= 0) return alert("Please enter a valid amount");
+
+    // 1. Calculate Expiration
+    let finalExpirationDate = null;
+    if (!form.noExpiry && expUnit !== 'never') {
+        const d = new Date();
+        const val = Number(expValue);
+        if (expUnit === 'months') d.setMonth(d.getMonth() + val);
+        else if (expUnit === 'years') d.setFullYear(d.getFullYear() + val);
+        finalExpirationDate = Timestamp.fromDate(d);
+    }
+
+    const batch = writeBatch(db);
+    let startNumber;
+
+    // 2. Determine the starting number (NO Date.now() here)
+    if (manualInput !== "") {
+        // If admin typed 123, numericPart becomes 123
+        const numericPart = manualInput.toUpperCase().replace("GC-", "");
+        startNumber = parseInt(numericPart);
+        if (isNaN(startNumber)) return alert("Please enter a numeric code");
+    } else {
+        // AUTO-CALCULATE: Look at the table below (giftCards state)
+        if (giftCards.length > 0) {
+            const existingNumbers = giftCards
+                .map(card => {
+                    // This regex finds the numbers in "GC-000005" -> 5
+                    const match = card.code.match(/\d+/);
+                    return match ? parseInt(match[0]) : 0;
+                })
+                .filter(num => !isNaN(num));
+
+            const maxNum = Math.max(...existingNumbers, 0);
+            startNumber = maxNum + 1; // If highest is 10, start at 11
+        } else {
+            startNumber = 1; // If system is empty, start at 000001
+        }
+    }
+
+    // 3. Generate Sequential Batch
     for (let i = 0; i < qty; i++) {
-        let finalCode = (qty === 1 && form.code) ? form.code : `GC-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+        const currentNum = startNumber + i;
+        
+        // This forces exactly 6 digits with leading zeros
+        const paddedNumber = currentNum.toString().padStart(6, '0');
+        const finalCode = `GC-${paddedNumber}`;
+
+        // Duplicate check against current state
+        if (giftCards.some(card => card.code === finalCode)) {
+            // If it exists, we skip to the next available number automatically
+            startNumber++; 
+            i--; // Repeat this loop index
+            continue;
+        }
+
         const cardData = {
             amount: amount,
             balance: amount,
-            recipientName: form.recipient,
-            senderName: form.sender,
+            recipientName: form.recipient || "Customer",
+            senderName: form.sender || "Store",
             code: finalCode,
             status: 'Active',
             type: 'Physical',
-            backgroundUrl: bgImage,
-            noExpiry: form.noExpiry,
-            expiryDate: form.noExpiry ? "" : form.expiryDate,
-            showTo: form.showTo,
-            showFrom: form.showFrom,
+            expirationDate: finalExpirationDate,
             createdAt: serverTimestamp(),
             history: [{
-                date: new Date().toLocaleString(),
+                date: Timestamp.fromDate(new Date()),
                 type: "Created",
                 oldBalance: 0,
                 newBalance: amount,
                 note: "Initial issuance"
             }] 
         };
+        
         const newCardRef = doc(collection(db, "gift_cards"));
         batch.set(newCardRef, cardData);
-        cardsToPrint.push(cardData);
     }
 
     try {
         await batch.commit();
-        printCards(cardsToPrint);
-        // Reset specific form fields but keep amount/category for convenience
-        setForm(prev => ({...prev, recipient: "", sender: "", code: ""}));
+        // Clear form (keeping sender for convenience)
+        setForm(prev => ({...prev, recipient: "", code: "", quantity: 1, amount: ""}));
         alert(`Successfully generated ${qty} gift cards!`);
     } catch (e) {
+        console.error("Save Error:", e);
         alert("Error saving: " + e.message);
     }
-  };
-
+};
   // --- ACTIONS: MODAL UPDATE / REDEEM ---
   const handleUpdateCard = async (e) => {
     e.preventDefault();
@@ -143,7 +212,51 @@ export default function GiftCardPage() {
         alert("Gift card updated!");
     } catch (err) { alert(err.message); }
   };
+const handleAddCard = async () => {
+  try {
+    // 1. Calculate the Expiration Date
+let finalExpirationDate = null;
+if (expUnit !== 'never') {
+    const d = new Date();
+    const val = Number(expValue);
+    if (expUnit === 'months') {
+        d.setMonth(d.getMonth() + val);
+    } else if (expUnit === 'years') {
+        d.setFullYear(d.getFullYear() + val);
+    }
+    finalExpirationDate = Timestamp.fromDate(d); // Compatible with Old App
+}
 
+    // 2. Prepare the data object
+    const amountNum = Number(newCardData.amount);
+    const docData = {
+      ...newCardData,
+      amount: amountNum,
+      balance: amountNum,
+      status: 'active',
+      expirationDate: finalExpirationDate, // MUST match the table field
+      createdAt: serverTimestamp(),
+      history: [{
+        date: Timestamp.fromDate(new Date()),
+        type: 'Initial Load',
+        amount: amountNum,
+        oldBalance: 0,
+        newBalance: amountNum,
+        note: 'Admin Created'
+      }]
+    };
+
+    // 3. Save
+    await addDoc(collection(db, "gift_cards"), docData);
+    
+    // 4. Reset UI
+    setIsAddModalOpen(false);
+    setExpValue(6);
+    setExpUnit('months');
+  } catch (error) {
+    console.error("Error saving gift card:", error);
+  }
+};
   const handleQuickRedeem = async (amountToSubtract) => {
     if (!selectedCard) return;
     const currentBalance = parseFloat(selectedCard.balance);
@@ -187,6 +300,8 @@ export default function GiftCardPage() {
     );
     window.location.href = `sms:${phoneNumber}?body=${message}`;
   };
+// Get unique list of Recipient and Sender names for autocomplete
+
 
   // --- PRINTING ---
   const printCards = (cards) => {
@@ -237,134 +352,198 @@ export default function GiftCardPage() {
     setTimeout(() => { printWindow.print(); }, 500);
   };
 
+  const handleApplyTransaction = async () => {
+    const amount = parseFloat(transaction.amount);
+    if (!amount || amount <= 0) return alert("Please enter a valid amount");
+
+    const currentBalance = Number(selectedCard.balance);
+    let newBalance;
+
+    if (transaction.type === 'Redeem') {
+        if (amount > currentBalance) return alert("Insufficient balance");
+        newBalance = currentBalance - amount;
+    } else {
+        newBalance = currentBalance + amount;
+    }
+
+    try {
+        const cardRef = doc(db, "gift_cards", selectedCard.id);
+        await updateDoc(cardRef, {
+            balance: newBalance,
+            history: arrayUnion({
+                date: Timestamp.fromDate(new Date()),
+                type: transaction.type,
+                oldBalance: currentBalance,
+                newBalance: newBalance,
+                note: transaction.note || `${transaction.type} transaction`
+            })
+        });
+        
+        // Update local state to reflect change in modal
+        setSelectedCard(prev => ({
+            ...prev, 
+            balance: newBalance,
+            history: [...prev.history, { 
+                date: Timestamp.fromDate(new Date()), 
+                type: transaction.type, 
+                oldBalance: currentBalance, 
+                newBalance: newBalance, 
+                note: transaction.note 
+            }]
+        }));
+        setTransaction({ type: 'Redeem', amount: '', note: '' });
+        alert("Transaction successful!");
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+};
+const handleUpdateCode = async () => {
+    if (!newCodeInput.trim()) return;
+    
+    // Check if new code already exists
+    const exists = giftCards.some(c => c.code === newCodeInput && c.id !== selectedCard.id);
+    if (exists) return alert("This code is already in use!");
+
+    try {
+        const cardRef = doc(db, "gift_cards", selectedCard.id);
+        await updateDoc(cardRef, { code: newCodeInput });
+        setSelectedCard(prev => ({ ...prev, code: newCodeInput }));
+        setIsEditingCode(false);
+        alert("Code updated successfully!");
+    } catch (e) {
+        alert("Error updating code: " + e.message);
+    }
+};
+
   return (
     <div className="max-w-[95%] mx-auto space-y-8 pb-20 pt-4">
       
-      {/* =======================
-          DESIGNER SECTION 
-      ======================= */}
-      <div className="flex flex-col lg:flex-row gap-8">
-        
-        {/* LEFT: Controls */}
-        <div className="w-full lg:w-1/2 bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-6">
-            <h2 className="text-xl font-black text-gray-800 uppercase italic">Printable Gift Card Designer</h2>
-            
-            {/* Show/Hide Toggles */}
-            <div className="grid grid-cols-2 gap-4">
-               <label className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer border border-transparent hover:border-pink-200 transition-all">
-                  <input type="checkbox" checked={form.showTo} onChange={e => setForm({...form, showTo: e.target.checked})} className="w-4 h-4 accent-pink-500" />
-                  <span className="text-[10px] font-black uppercase text-gray-600">Show 'To' Field</span>
-               </label>
-               <label className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl cursor-pointer border border-transparent hover:border-pink-200 transition-all">
-                  <input type="checkbox" checked={form.showFrom} onChange={e => setForm({...form, showFrom: e.target.checked})} className="w-4 h-4 accent-pink-500" />
-                  <span className="text-[10px] font-black uppercase text-gray-600">Show 'From' Field</span>
-               </label>
+{/* =======================
+    SIMPLE GIFT CARD CREATOR 
+======================= */}
+<div className="mx-auto mb-12">
+    <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center">
+                <i className="fas fa-plus text-pink-500 text-xl"></i>
             </div>
-
-            {/* Recipient & Sender Row */}
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                 <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Recipient Name</label>
-                 <input type="text" value={form.recipient} onChange={e => setForm({...form, recipient: e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-xl text-xs font-bold border-none" />
-               </div>
-               <div>
-                 <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Sender Name</label>
-                 <input type="text" value={form.sender} onChange={e => setForm({...form, sender: e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-xl text-xs font-bold border-none" />
-               </div>
-            </div>
-
-            {/* MIDDLE SECTION: Code & Expiry */}
-            <div className="p-4 bg-purple-50 rounded-xl border border-purple-100 space-y-4">
-               <div>
-                 <label className="text-[10px] font-black text-purple-700 uppercase ml-1">Gift Card Code (Optional)</label>
-                 <input type="text" placeholder="Leave blank for auto-generate" value={form.code} onChange={e => setForm({...form, code: e.target.value})} className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border-none" />
-               </div>
-               <div className="space-y-3 pt-2 border-t border-purple-200">
-                 <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.noExpiry} onChange={e => setForm({...form, noExpiry: e.target.checked})} className="w-4 h-4 accent-purple-600" />
-                    <span className="text-[10px] font-black uppercase text-purple-700">No Expiration (Handwritten)</span>
-                 </label>
-                 {!form.noExpiry && (
-                   <div className="space-y-1">
-                      <label className="text-[10px] font-black text-purple-400 uppercase ml-1">Set Expiration Date</label>
-                      <input type="date" value={form.expiryDate} onChange={e => setForm({...form, expiryDate: e.target.value})} className="w-full p-2.5 bg-white rounded-xl text-xs font-bold border-none" />
-                   </div>
-                 )}
-               </div>
-            </div>
-
-            {/* Background Image Selection */}
             <div>
-                <div className="flex gap-2 border-b border-gray-100 pb-2 mb-3 overflow-x-auto text-nowrap">
-                    {Object.keys(giftCardBackgrounds).map(cat => (
-                        <button key={cat} onClick={() => setCategory(cat)} className={`px-3 py-1 text-xs font-bold uppercase rounded-lg ${category === cat ? 'bg-pink-100 text-pink-600' : 'text-gray-400'}`}>{cat}</button>
-                    ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                    {giftCardBackgrounds[category].map((url, idx) => (
-                        <button key={idx} onClick={() => setBgImage(url)} className={`h-12 w-full rounded-xl bg-cover bg-center border-2 ${bgImage === url ? 'border-pink-500' : 'border-transparent'}`} style={{ backgroundImage: `url(${url})` }}></button>
-                    ))}
-                </div>
+                <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Create Gift Card</h2>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Enter details to generate new cards</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                 <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Quantity</label>
-                 <input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-xl text-xs font-bold border-none" />
-               </div>
-               <div>
-                 <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Value ($)</label>
-                 <input type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full p-2.5 bg-gray-50 rounded-xl text-xs font-bold border-none" />
-               </div>
-            </div>
-            
-            <button onClick={handleSaveAndPrint} className="w-full py-4 bg-pink-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-700 transition-all shadow-lg flex items-center justify-center gap-2">
-                <i className="fas fa-print"></i> Save & Print Cards
-            </button>
         </div>
+ <hr className="mb-3 border-gray-100" />
+      {/* Redesigned Input Grid */}
+<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Row 1: Names with Autocomplete */}
+    <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Name</label>
+        <input 
+            type="text" 
+            list="client-list" 
+            value={form.recipient} 
+            onChange={e => setForm({...form, recipient: e.target.value})} 
+            placeholder="To clients"
+            className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+        />
+    </div>
+    <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sender Name</label>
+        <input 
+            type="text" 
+            list="client-list" 
+            value={form.sender} 
+            onChange={e => setForm({...form, sender: e.target.value})} 
+            placeholder="From clients"
+            className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+        />
+    </div>
 
-        {/* RIGHT: Live Preview (Front & Back) */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-6 items-center bg-gray-50 rounded-xl border border-dashed border-gray-200 p-8">
-             
-             {/* FRONT PREVIEW */}
-             <div className="w-[400px] h-[228px] rounded-xl shadow-2xl relative overflow-hidden bg-cover bg-center text-white flex flex-col justify-between p-8"
-                  style={{ backgroundImage: `url(${bgImage})`, textShadow: '1px 1px 3px rgba(0,0,0,0.6)' }}>
-                <div className="flex justify-between items-start">
-                    <div className="w-10 h-10 rounded-full border-2 border-white bg-white/20 backdrop-blur-sm"></div>
-                    <div className="text-right">
-                        <p className="font-parisienne text-3xl leading-none">Gift Card</p>
-                        <p className="text-[8px] font-bold tracking-widest uppercase opacity-90">Nails Express</p>
-                    </div>
-                </div>
-                <div className="text-center">
-                    <p className="text-5xl font-bold tracking-tighter">${parseFloat(form.amount || 0).toFixed(2)}</p>
-                </div>
-                <div className="text-[10px] space-y-2">
-                    <div className="flex justify-between font-bold">
-                        <span>{form.showTo ? `TO: ${form.recipient || '__________'}` : ''}</span>
-                        <span>{form.showFrom ? `FROM: ${form.sender || '__________'}` : ''}</span>
-                    </div>
-                    {/* Centered Code and Expiry */}
-                    <div className="flex flex-col items-center pt-2 border-t border-white/30">
-                      <p className="font-mono tracking-[0.2em] text-[11px]">{form.code || 'GC-XXXX-XXXX'}</p>
-                      <p className="text-[7px] uppercase font-bold opacity-80 mt-0.5">Expires: {form.noExpiry ? '________________' : (form.expiryDate || 'N/A')}</p>
-                    </div>
-                </div>
-             </div>
 
-             {/* BACK PREVIEW */}
-             <div className="w-[400px] h-[228px] rounded-xl shadow-lg bg-white border border-gray-200 p-6 flex flex-col justify-between">
-                <div className="w-full h-10 bg-black/80 rounded-lg"></div>
-                <div className="px-4 text-center space-y-2">
-                   <p className="text-[9px] text-gray-500 leading-relaxed">This card is redeemable for services at Nails Express. Treat this card like cash; it is not replaceable if lost or stolen. Non-refundable.</p>
+    {/* Row 2: Qty & Amount */}
+    <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
+        <input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
+    </div>
+    <div className="space-y-1.5">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Amount ($)</label>
+        <input type="number" placeholder="50"  value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
+    </div>
+
+
+    {/* Row 3: Manual Code (The one we are adding back) */}
+<div className="md:col-span-1 space-y-1.5">
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">
+        Custom Gift Card Code (Optional)
+    </label>
+    <input 
+        type="text" 
+        maxLength={6} // <--- Forces the limit
+        value={form.code} 
+        onChange={e => {
+            // Only allow numbers to be typed
+            const val = e.target.value.replace(/\D/g, "");
+            setForm({...form, code: val});
+        }} 
+        placeholder="000001"
+        className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+    />
+    {giftCards.some(c => c.code.toLowerCase() === form.code.trim().toLowerCase()) && form.code !== "" && (
+        <p className="text-[10px] text-red-500 font-bold ml-1 uppercase">
+            <i className="fas fa-exclamation-triangle mr-1"></i> This code already exists!
+        </p>
+    )}
+</div>
+        {/* Expiration Settings */}
+     <div className="md:col-span-1 space-y-1.5">
+        <label className="flex items-center gap-3 cursor-pointer">
+                <input 
+                    type="checkbox" 
+                    checked={form.noExpiry} 
+                    onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        setForm({ ...form, noExpiry: isChecked });
+                        if (isChecked) setExpUnit('never');
+                        else setExpUnit('months');
+                    }} 
+                    className="w-5 h-5 accent-pink-500 rounded-md" 
+                />
+                <span className="text-xs font-black uppercase text-pink-700">No Expiration Date</span>
+            </label>
+
+            {!form.noExpiry && (
+                <div className="flex gap-3 items-center">
+                    <span className="text-[10px] font-black text-pink-400 uppercase">Valid for:</span>
+                    <input type="number" value={expValue} onChange={(e) => setExpValue(e.target.value)} className="w-24 p-3 bg-white rounded-xl text-sm font-bold outline-none shadow-sm" />
+                    <select value={expUnit} onChange={(e) => setExpUnit(e.target.value)} className="flex-1 max-w-[150px] p-3 bg-white rounded-xl text-sm font-bold outline-none shadow-sm appearance-none">
+                        <option value="months">Months</option>
+                        <option value="years">Years</option>
+                    </select>
                 </div>
-                <div className="text-center">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-pink-600 leading-none">Nails Express</p>
-                   <p className="text-[8px] text-gray-400 mt-1">1560 Hustonville Rd #345, Danville, KY</p>
-                </div>
-             </div>
+            )}
         </div>
-      </div>
+         <div className="md:col-span-1 space-y-1.5">
+        <button 
+            onClick={handleSaveAndPrint}
+            className="w-full py-5 bg-pink-700 hover:bg-black text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-xl active:scale-95"
+        >
+            <i className="fas fa-save mr-2"></i> Save Gift Card
+        </button>
+        </div>
+</div>
+
+
+
+        
+    </div>
+</div>
+
+{/* Keep your datalist here */}
+<datalist id="client-list">
+    {autocompleteNames.map((name, index) => (
+        <option key={index} value={name} />
+    ))}
+</datalist>
 
       <hr className="border-gray-100" />
 
@@ -385,6 +564,9 @@ export default function GiftCardPage() {
                 <th className="px-6 py-4">Code</th>
                 <th className="px-6 py-4">Balance</th>
                 <th className="px-6 py-4">To / From</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">
+  Expires
+</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-center">Action</th>
               </tr>
@@ -401,14 +583,47 @@ export default function GiftCardPage() {
                         <span className="text-[9px] text-gray-400">Fr: {card.senderName || '---'}</span>
                     </div>
                   </td>
+                  {/* Inside your giftCards.map((card) => (...)) */}
+<td className="px-6 py-4 whitespace-nowrap">
+    {card.expirationDate ? (
+        <div className="flex flex-col">
+            <span className="text-sm font-bold text-gray-700">
+                {card.expirationDate.toDate().toLocaleDateString()}
+            </span>
+            <span className={`text-[9px] font-black uppercase tracking-tighter ${
+                card.expirationDate.toDate() < new Date() ? 'text-red-500' : 'text-green-500'
+            }`}>
+                ● {card.expirationDate.toDate() < new Date() ? 'Expired' : 'Valid'}
+            </span>
+        </div>
+    ) : (
+        <span className="px-3 py-1 bg-gray-100 text-gray-400 text-[10px] font-black uppercase rounded-xl">
+            Never
+        </span>
+    )}
+</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-xl text-[9px] uppercase ${card.balance > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {card.balance > 0 ? 'Active' : 'Empty'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-center space-x-3">
-                    <button onClick={() => setSelectedCard(card)} className="text-gray-400 hover:text-blue-600 transition-colors" title="Manage Card"><i className="fas fa-edit"></i></button>
-                    <button onClick={() => printCards([card])} className="text-gray-400 hover:text-pink-600 transition-colors" title="Print"><i className="fas fa-print"></i></button>
+                   <button 
+  onClick={() => {
+    setSelectedCard({
+      ...card,
+      // Safety: Ensure these exist as numbers or arrays to prevent .toFixed() and .map() crashes
+      amount: card.amount || 0,
+      balance: card.balance || 0,
+      history: card.history || [] 
+    });
+  }} 
+  className="text-gray-400 hover:text-blue-600 transition-colors" 
+  title="Manage Card"
+>
+  <i className="fas fa-edit"></i>
+</button>
+ <button onClick={() => printCards([card])} className="text-gray-400 hover:text-pink-600 transition-colors" title="Print"><i className="fas fa-print"></i></button>
                     <button onClick={() => deleteDoc(doc(db, "gift_cards", card.id))} className="text-gray-400 hover:text-red-600 transition-colors" title="Delete"><i className="fas fa-trash"></i></button>
                   </td>
                 </tr>
@@ -451,36 +666,99 @@ export default function GiftCardPage() {
               {/* Left Column: Quick Redeem & Edit Form */}
               <div className="p-6 space-y-6 lg:w-2/5 border-r border-gray-100 overflow-y-auto">
                 
-                {/* QUICK REDEEM */}
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-gray-400 uppercase ml-1">Quick Redeem</h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[5, 10, 20, 30, 50, 100].map((amt) => (
-                      <button
-                        key={amt}
-                        onClick={() => handleQuickRedeem(amt)}
-                        className="py-2 rounded-xl bg-pink-50 text-pink-600 font-black text-xs border border-pink-100 hover:bg-pink-600 hover:text-white transition-all shadow-sm"
-                      >
-                        -${amt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {isEditingCode ? (
+            <div className="flex gap-2">
+                <input 
+                    type="text" 
+                    value={newCodeInput} 
+                    onChange={e => setNewCodeInput(e.target.value)}
+                    className="flex-1 p-2 bg-white border rounded-lg font-bold text-sm outline-none focus:ring-2 focus:ring-pink-200"
+                />
+                <button onClick={handleUpdateCode} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold">Save</button>
+                <button onClick={() => setIsEditingCode(false)} className="px-3 py-1 bg-gray-300 text-white rounded-lg text-xs font-bold">X</button>
+            </div>
+        ) : (
+            <div className="flex justify-between items-center">
+                <span className="text-lg font-black text-gray-800">{selectedCard.code}</span>
+                <button 
+                    onClick={() => { setIsEditingCode(true); setNewCodeInput(selectedCard.code); }}
+                    className="text-pink-500 hover:text-pink-600 text-xs font-bold uppercase"
+                >
+                    <i className="fas fa-edit mr-1"></i> Edit Code
+                </button>
+            </div>
+        )}
+         <hr className="border-gray-100" />
+               {/* BALANCE STATS GRID */}
+<div className="grid grid-cols-2 gap-4 mt-4">
+    <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+            Original Amount
+        </label>
+        <span className="text-xl font-black text-gray-500">
+            ${Number(selectedCard.amount || 0).toFixed(2)}
+        </span>
+    </div>
+    
+    <div className="p-4 bg-pink-50 rounded-xl border border-pink-100">
+        <label className="text-[10px] font-black text-pink-400 uppercase tracking-widest block mb-1">
+            Current Balance
+        </label>
+        <span className="text-2xl font-black text-pink-600">
+            ${Number(selectedCard.balance || 0).toFixed(2)}
+        </span>
+    </div>
+</div>
+               {/* 2. APPLY TRANSACTION (Redeem / Add Value) */}
+    <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Type</label>
+                <select 
+                    value={transaction.type}
+                    onChange={e => setTransaction({...transaction, type: e.target.value})}
+                    className="w-full p-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100"
+                >
+                    <option value="Redeem">Redeem (Minus)</option>
+                    <option value="Add Value">Add Value (Plus)</option>
+                </select>
+            </div>
+            <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Amount ($)</label>
+                <input 
+                    type="number" 
+                    value={transaction.amount}
+                    onChange={e => setTransaction({...transaction, amount: e.target.value})}
+                    placeholder="0.00"
+                    className="w-full p-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100"
+                />
+            </div>
+        </div>
 
-                <hr className="border-gray-100" />
+        <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Notes / Service (Optional)</label>
+            <textarea 
+                value={transaction.note}
+                onChange={e => setTransaction({...transaction, note: e.target.value})}
+                placeholder="e.g. Manicure service, Birthday bonus..."
+                className="w-full p-3 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100 h-20 resize-none"
+            />
+        </div>
+
+        <button 
+            onClick={handleApplyTransaction}
+            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all text-white shadow-lg ${
+                transaction.type === 'Redeem' ? 'bg-pink-500 hover:bg-pink-600' : 'bg-gray-800 hover:bg-black'
+            }`}
+        >
+            Confirm {transaction.type}
+        </button>
+    </div>
+
 
                 {/* EDIT FORM */}
-                <form onSubmit={handleUpdateCard} className="space-y-4">
-                  <div className="p-4 bg-gray-900 rounded-xl shadow-inner">
-                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-1">Total Balance ($)</label>
-                    <input 
-                        type="number" 
-                        step="0.01"
-                        value={selectedCard.balance} 
-                        onChange={e => setSelectedCard({...selectedCard, balance: e.target.value})}
-                        className="w-full bg-transparent border-none p-0 text-3xl font-black text-white focus:ring-0 outline-none" 
-                    />
-                  </div>
+              {/* <form onSubmit={handleUpdateCard} className="space-y-4">
+                 
 
                   <div className="space-y-3">
                     <div>
@@ -493,10 +771,10 @@ export default function GiftCardPage() {
                     </div>
                   </div>
 
-                  <button type="submit" className="w-full py-4 bg-pink-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-700 transition-all shadow-lg">
+                  <button type="submit" className="w-full py-4 bg-gray-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-700 transition-all shadow-lg">
                     Save Details
                   </button>
-                </form>
+                </form> */}
               </div>
 
               {/* Right Column: History */}
@@ -506,29 +784,35 @@ export default function GiftCardPage() {
                 </h4>
                 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                  {[...(selectedCard.history || [])].reverse().map((log, idx) => (
-                    <div key={idx} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex justify-between items-center group hover:border-pink-200 transition-colors">
-                      <div>
-                        <p className={`text-[10px] font-black uppercase ${log.type === 'Redemption' ? 'text-red-500' : (log.type === 'Created' ? 'text-green-600' : 'text-blue-500')}`}>
-                          {log.type}
-                        </p>
-                        <p className="text-[8px] text-gray-400 font-mono mt-0.5">{log.date}</p>
-                        {log.note && <p className="text-[9px] text-gray-500 mt-1 italic">"{log.note}"</p>}
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 justify-end">
-                          <span className="text-xs font-bold text-gray-400 line-through">${Number(log.oldBalance).toFixed(2)}</span>
-                          <i className="fas fa-chevron-right text-[10px] text-gray-300"></i>
-                          <span className="text-sm font-black text-gray-800">${Number(log.newBalance).toFixed(2)}</span>
-                        </div>
-                        {log.type === 'Redemption' && (
-                          <p className="text-[10px] font-bold text-red-600 mt-1">
-                            -{ (log.oldBalance - log.newBalance).toFixed(2) }
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+{selectedCard.history?.slice().reverse().map((log, index) => (
+  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+    <div className="flex flex-col flex-1">
+      <span className="text-[10px] font-black text-pink-500 uppercase tracking-wider">
+        {log.date && typeof log.date.toDate === 'function' 
+          ? log.date.toDate().toLocaleDateString() 
+          : "Initial"}
+      </span>
+      <p className="text-xs font-black text-gray-800 uppercase mt-0.5">{log.type || 'Transaction'}</p>
+      {log.note && (
+        <p className="text-[10px] font-bold text-gray-500 italic mt-1 leading-tight">
+          {log.note}
+        </p>
+      )}
+    </div>
+    
+    <div className="text-right ml-4">
+      <div className="flex items-center gap-2 justify-end">
+        {/* SAFETY: The (log.oldBalance || 0) prevents the 'undefined' crash */}
+        <span className="text-xs font-bold text-gray-400 line-through">
+          ${Number(log.oldBalance || 0).toFixed(2)}
+        </span>
+        <span className={`text-sm font-black ${log.type === 'Redeem' ? 'text-pink-600' : 'text-green-600'}`}>
+          ${Number(log.newBalance || 0).toFixed(2)}
+        </span>
+      </div>
+    </div>
+  </div>
+))}
                   
                   {(!selectedCard.history || selectedCard.history.length === 0) && (
                      <div className="h-full flex flex-col items-center justify-center text-gray-300 opacity-50 italic">
