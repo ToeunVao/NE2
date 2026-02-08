@@ -107,6 +107,49 @@ const handleCategoryClick = (id) => {
   setActiveCategory(activeCategory === id ? null : id);
 };
 
+// --- 1. STATE FOR REVIEWS ---
+const [reviews, setReviews] = useState([]);
+
+// --- 2. FETCH REVIEWS FROM FIREBASE ---
+useEffect(() => {
+  // 1. Connect to 'finished_clients'
+  // We remove the 'limit' temporarily to make sure we find YOUR test data
+  const q = query(collection(db, "finished_clients"));
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const rawData = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    console.log("RAW DATA FROM DB:", rawData); // Check this in console!
+
+    // 2. Filter: Keep ANY entry that has a rating OR a review comment
+    // We check multiple spelling variations found in your old app code
+    const validReviews = rawData.filter(item => {
+       const hasRating = (item.rating && Number(item.rating) > 0) || (item.stars && Number(item.stars) > 0);
+       const hasText = (item.review && item.review.length > 1) || (item.feedback && item.feedback.length > 1) || (item.comment && item.comment.length > 1);
+       
+       return hasRating || hasText;
+    });
+
+    // 3. Sort by Date (Newest First)
+    // We use 'checkOutTimestamp' which is what your script.js uses
+    validReviews.sort((a, b) => {
+      const dateA = a.checkOutTimestamp?.seconds || 0;
+      const dateB = b.checkOutTimestamp?.seconds || 0;
+      return dateB - dateA;
+    });
+
+    console.log("FINAL FILTERED REVIEWS:", validReviews);
+    setReviews(validReviews);
+  }, (error) => {
+    console.error("Error fetching reviews:", error);
+  });
+
+  return () => unsubscribe();
+}, []);
+
 
   return (
     <main className="min-h-screen bg-white">
@@ -423,6 +466,92 @@ const handleCategoryClick = (id) => {
     </div>
   </div>
 )}
+{/* WHAT OUR CLIENTS SAY SECTION */}
+<section className="py-20 bg-white">
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="text-center mb-16">
+      <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight">
+        What Our Clients Say
+      </h2>
+      <p className="text-gray-500 font-medium">Real stories from our recent visits</p>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {reviews.length > 0 ? reviews.slice(0, 6).map((client) => (
+        <div key={client.id} className="bg-gray-50 p-8 rounded-xl border border-gray-100 hover:shadow-xl transition-all">
+          {/* Star Rating */}
+          <div className="flex text-yellow-400 mb-4">
+            {[...Array(5)].map((_, i) => (
+              <svg key={i} className={`h-4 w-4 fill-current ${i < (client.rating || 5) ? 'text-yellow-400' : 'text-gray-200'}`} viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            ))}
+          </div>
+
+          <p className="text-gray-700 leading-relaxed mb-6 italic text-sm">
+            "{client.review || "Great service and friendly staff!"}"
+          </p>
+
+          <div className="flex items-center">
+            <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-bold mr-3 uppercase">
+              {(client.name || "G").substring(0, 1)}
+            </div>
+            <div>
+              <p className="font-black text-gray-900 text-sm">{client.name || "Valued Customer"}</p>
+              {/* Show date of visit if available */}
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                {client.checkOutTimestamp ? new Date(client.checkOutTimestamp.seconds * 1000).toLocaleDateString() : "Verified Visit"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )) : (
+        <div className="col-span-3 text-center py-10 text-gray-400 italic font-bold">
+          Waiting for new feedback...
+        </div>
+      )}
+    </div>
+  </div>
+</section>
+
+
+{/* --- BRAND SANCTUARY SECTION --- */}
+<section className="py-20 bg-gray-50">
+  <div className="max-w-4xl mx-auto px-6 text-center">
+    {/* Decorative element */}
+    <div className="flex justify-center mb-6">
+      <div className="h-1 w-12 bg-indigo-600 rounded-full"></div>
+    </div>
+    
+    <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 tracking-tight">
+      Your Sanctuary for Beauty & Relaxation
+    </h2>
+    
+    <div className="space-y-6">
+      <p className="text-lg text-gray-600 leading-relaxed">
+        Welcome to <span className="font-bold text-indigo-600">Nail Express</span>, 
+        your personal retreat for beauty and wellness in Danville. Our passionate team 
+        is dedicated to providing exceptional service in a clean, serene, and friendly environment.
+      </p>
+      
+      <p className="text-lg text-gray-600 leading-relaxed">
+        From classic manicures to luxurious spa pedicures, we use only high-quality 
+        products to ensure lasting results. Treat yourself to our signature pedicure 
+        experience that will leave you walking on air.
+      </p>
+    </div>
+
+    {/* Optional: Add a small button or link to your booking page here */}
+    <div className="mt-10">
+      <button 
+        onClick={() => router.push('/bookings')} 
+        className="text-sm font-black uppercase tracking-widest text-indigo-600 border-b-2 border-indigo-600 pb-1 hover:text-indigo-800 hover:border-indigo-800 transition-all"
+      >
+        Book Your Experience
+      </button>
+    </div>
+  </div>
+</section>
       {/* 6. FOOTER */}
       <footer className="bg-gray-900 text-white py-16 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">

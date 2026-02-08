@@ -20,6 +20,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 export default function SalonEarningPage() {
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [staffList, setStaffList] = useState([]);
@@ -229,9 +230,6 @@ const monthTotals = useMemo(() => {
       }
     });
 
-    console.log("📊 Debug: Monthly Tip Totals per Staff:", t.staffTips);
-    console.log("💰 Debug: Grand Total Tips for Month:", t.totalTips);
-
     return t;
 }, [mergedTableData, staffList, staffEntries, selectedMonth]);
   // Helper for Input Form Display
@@ -289,15 +287,29 @@ const handleSave = async () => {
     }
   };
 
-  const handleEdit = (report) => {
-    let dateStr = report.id;
-    if (report.date && report.date.seconds) {
-        dateStr = new Date(report.date.seconds * 1000).toISOString().split('T')[0];
-    }
-    setFormData({ ...initialFormState, ...report, date: dateStr });
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  };
+const handleEdit = (report) => {
+  let dateStr = report.id;
+  if (report.date && report.date.seconds) {
+    dateStr = new Date(report.date.seconds * 1000).toISOString().split('T')[0];
+  }
 
+  // Set the form data
+  setFormData({
+    date: dateStr,
+    sellGiftCard: report.sellGiftCard ?? "",
+    returnGiftCard: report.returnGiftCard ?? "",
+    check: report.check ?? "",
+    no_of_credit: report.no_of_credit ?? report.noOfCredit ?? "",
+    total_credit: report.total_credit ?? report.totalCredit ?? "",
+    venmo: report.venmo ?? "",
+    square: report.square ?? ""
+  });
+
+  // NEW: Enable editing mode
+  setIsEditing(true);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 
 
@@ -464,7 +476,26 @@ const inputFields = [
    <p className="text-xl font-black text-green-600">${currentInputTotals().cash.toFixed(2)}</p>
 </div>
             </div>
-            <button onClick={handleSave} className="bg-gray-900 text-white px-10 py-3 rounded-xl font-bold uppercase text-[10px] shadow-xl hover:bg-black transition-all tracking-widest">Save Daily Report</button>
+  <div className="flex gap-3 mt-6">
+  <button
+    onClick={handleSave}
+    className="pl-4 pr-4 flex-1 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+  >
+    {isEditing ? 'Update Daily Report' : 'Save Daily Report'}
+  </button>
+
+  {isEditing && (
+    <button
+      onClick={() => {
+        setFormData(initialFormState); // Reset form
+        setIsEditing(false);           // Exit edit mode
+      }}
+      className="px-6 bg-gray-100 text-gray-500 py-3 rounded-xl font-bold hover:bg-gray-200 transition-all"
+    >
+      Cancel
+    </button>
+  )}
+</div>
          </div>
       </div>
 
@@ -538,16 +569,8 @@ const inputFields = [
 
       {/* Actions */}
       <td className="px-4 py-4 text-center sticky right-0 bg-white border-l border-gray-100">
-        <button 
-  onClick={() => { 
-    // This ensures the date is set exactly as the dailyStaffTotals key (YYYY-MM-DD)
-    setFormData({
-      ...initialFormState, // Start with a clean state
-      ...day.rawReport, 
-      date: day.date 
-    }); 
-    window.scrollTo({top: 0, behavior: 'smooth'}); 
-  }} 
+       <button 
+  onClick={() => handleEdit(day.rawReport)} 
   className="text-blue-500 mr-3 hover:scale-110"
 >
   <i className="fas fa-edit"></i>
