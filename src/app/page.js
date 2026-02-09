@@ -19,7 +19,9 @@ const promotions = [
 ];
 
 export default function HomePage() {
-
+const [showLoginModal, setShowLoginModal] = useState(false);
+const [loginEmail, setLoginEmail] = useState("");
+const [loginPassword, setLoginPassword] = useState("");
 const [step, setStep] = useState(1);
 const [staff, setStaff] = useState([]); // To store technicians
 const [showPolicy, setShowPolicy] = useState(false); // Modal state
@@ -163,9 +165,13 @@ useEffect(() => {
           <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
           <Link href="/admin/gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
         </div>
-        <Link href="/login" className="bg-pink-600 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-pink-700 transition-all shadow-md shadow-pink-200">
-          Staff Portal
-        </Link>
+        {/* In your Header or Footer */}
+<button 
+  onClick={() => setShowLoginModal(true)}
+  className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm"
+>
+<i class="fas fa-user"></i> Login
+</button>
       </nav>
 
       {/* 2. REFINED HERO SECTION */}
@@ -203,43 +209,45 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* 3. ELEGANT SERVICES SECTION */}
-      <section id="services" className="py-24 px-6 max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <span className="text-pink-500 font-bold tracking-widest uppercase text-xs">Our Menu</span>
-          <h2 className="text-3xl md:text-4xl font-serif text-gray-900 mt-2">Signature Services</h2>
-          <div className="w-12 h-0.5 bg-pink-200 mx-auto mt-4"></div>
+{/* --- GIFT CARD SECTION --- */}
+<section className="py-20 bg-pink-50">
+  <div className="max-w-6xl mx-auto px-6">
+    <div className="bg-white rounded-xl overflow-hidden shadow-xl border border-indigo-100 flex flex-col md:flex-row items-center">
+      
+      {/* Visual Side */}
+      <div className="w-full md:w-1/2 p-12 bg-indigo-600 flex flex-col justify-center items-center text-center text-white space-y-4">
+        <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4">
+          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+          </svg>
         </div>
+        <h3 className="text-3xl font-black uppercase tracking-tighter">NailsXpress</h3>
+        <p className="text-indigo-100 font-bold tracking-[0.2em] uppercase text-xs">Digital Gift Card</p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
-          {[
-            { title: "Manicures", desc: "Precision shaping and premium gel finishes for elegant hands.", img: "https://images.unsplash.com/photo-1610992015732-2449b76344bc?q=80" },
-            { title: "Pedicures", desc: "Relaxing spa rituals with organic scrubs and soothing massage.", img: "https://images.unsplash.com/photo-1519415510236-85592ac59c97?q=80" },
-            { title: "Custom Art", desc: "Bespoke designs from minimalist accents to luxury artistry.", img: "https://images.unsplash.com/photo-1604902396830-aca29e19b067?q=80" }
-          ].map((service, i) => (
-            <div key={i} className="group text-center">
-              <div className="relative h-[450px] w-full mb-6 overflow-hidden rounded-xl shadow-sm">
-                <Image src={service.img} alt={service.title} fill className="object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors"></div>
-              </div>
-              <h3 className="text-xl font-serif text-gray-900 mb-2">{service.title}</h3>
-              <p className="text-gray-500 text-sm leading-relaxed max-w-[250px] mx-auto uppercase tracking-tighter">
-                {service.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-      <button 
+      {/* Content Side */}
+      <div className="w-full md:w-1/2 p-12">
+        <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 leading-tight">
+          Give the Gift of Glamour
+        </h2>
+        <p className="text-gray-600 text-lg leading-relaxed mb-8">
+          Treat your loved ones to a relaxing and beautifying experience with a 
+          <span className="font-bold text-indigo-600"> NailsXpress digital gift card</span>. 
+          Perfect for birthdays, holidays, or just because!
+        </p>
+        
+        <button 
   onClick={() => setStep('giftcard')}
-  className="w-full mt-4 p-4 border-2 border-pink-100 rounded-xl flex items-center justify-between hover:bg-pink-50 transition-all"
->
-  <div className="flex items-center gap-3">
-    <div className="p-2 bg-pink-100 rounded-lg text-[#d63384]">🎁</div>
-    <span className="font-black uppercase text-xs tracking-widest text-gray-700">Buy Gift Card Online</span>
+          className="inline-block bg-gray-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-indigo-600 hover:scale-105 transition-all shadow-lg shadow-gray-200"
+        >
+          Buy a Gift Card
+       </button>
+      </div>
+      
+    </div>
   </div>
-  <span className="text-[#d63384]">→</span>
-</button>
+</section>
+
 {/* GIFT CARD MODAL */}
 {step === 'giftcard' && (
   <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
@@ -423,31 +431,6 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* 5. PROMOTIONS SECTION */}
-      <section className="bg-white py-24 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-serif text-gray-900">Current Promotions</h2>
-            <p className="text-gray-500 mt-2 uppercase tracking-widest text-xs">Limited time offers</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {promotions.map((promo) => (
-              <div key={promo.id} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-pink-100">
-                <div className="p-8">
-                  <span className="text-pink-600 font-bold text-xs uppercase tracking-[0.2em]">{promo.category}</span>
-                  <h3 className="text-2xl font-bold text-gray-800 mt-4">{promo.title}</h3>
-                  <p className="text-gray-600 mt-3 text-sm leading-relaxed">{promo.description}</p>
-                  <div className="mt-8 pt-6 border-t border-pink-50 flex justify-between items-center">
-                    <span className="text-3xl font-serif font-bold text-pink-600">${promo.price}</span>
-                    <button className="text-gray-900 font-bold text-sm hover:text-pink-600 transition-colors uppercase tracking-widest">Details →</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 {showPolicy && (
   <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
     <div className="bg-white rounded-xl max-w-lg w-full p-8 shadow-2xl animate-in zoom-in-95 duration-200">
@@ -552,6 +535,62 @@ useEffect(() => {
     </div>
   </div>
 </section>
+{/* STAFF LOGIN MODAL */}
+{showLoginModal && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="p-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Staff Portal</h2>
+          <button 
+            onClick={() => setShowLoginModal(false)}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); /* Add login logic here */ }}>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+            <input 
+              type="email"
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+              placeholder="name@nailexpress.com"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
+            <input 
+              type="password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-pink-600 transition-all shadow-lg shadow-gray-200 mt-4 uppercase tracking-widest text-sm"
+          >
+            Sign In
+          </button>
+        </form>
+        
+        <p className="text-center text-xs text-gray-400 mt-6 font-medium">
+          Authorized personnel only. Access is monitored.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
       {/* 6. FOOTER */}
       <footer className="bg-gray-900 text-white py-16 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">

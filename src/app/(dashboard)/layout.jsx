@@ -50,6 +50,8 @@ const navLinks = [
     ]
   },
   { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift group-hover:text-white" },
+   { name: "Royalty", href: "/admin/royalty", icon: "fas fa-gift group-hover:text-white" },
+   { name: "Membership", href: "/admin/membership", icon: "fas fa-gift group-hover:text-white" },
   { name: "Inventory", href: "/admin/inventory", icon: "fas fa-boxes" },
   { name: "Service", href: "/admin/services", icon: "fas fa-concierge-bell" },
    { name: "Clients", href: "/admin/clients", icon: "fas fa-user-friends" },
