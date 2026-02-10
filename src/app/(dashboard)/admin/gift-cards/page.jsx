@@ -415,6 +415,20 @@ const handleUpdateCode = async () => {
     }
 };
 
+const handleActivate = async (id) => {
+  const confirm = window.confirm("Has the client paid for this gift card?");
+  if (!confirm) return;
+
+  const cardRef = doc(db, "gift_cards", id);
+  await updateDoc(cardRef, {
+    status: "active",
+    isActivated: true,
+    activatedAt: new Date().toISOString()
+  });
+  
+  alert("Gift Card is now ACTIVE and ready for use!");
+};
+
   return (
     <div className="max-w-[95%] mx-auto space-y-8 pb-20 pt-4">
       
@@ -544,6 +558,32 @@ const handleUpdateCode = async () => {
         <option key={index} value={name} />
     ))}
 </datalist>
+{/* NEW: PENDING ACTIVATIONS SECTION */}
+  {giftCards.filter(gc => gc.status === "pending").length > 0 && (
+    <div className="space-y-3">
+      <h3 className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] ml-1">
+        Needs Activation ({giftCards.filter(gc => gc.status === "pending").length})
+      </h3>
+      {giftCards.filter(gc => gc.status === "pending").map(card => (
+        <div key={card.id} className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex justify-between items-center shadow-sm animate-pulse-slow">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="bg-amber-200 text-amber-800 text-[9px] font-black px-2 py-0.5 rounded uppercase">Pending</span>
+              <p className="font-black text-gray-900 text-sm">{card.recipientName}</p>
+            </div>
+            <p className="text-[10px] text-gray-500 font-bold mt-0.5">Code: {card.code} • ${card.amount}</p>
+          </div>
+
+          <button 
+            onClick={() => handleActivate(card.id)}
+            className="bg-amber-600 text-white px-4 py-2 rounded-lg font-black uppercase tracking-widest text-[9px] hover:bg-green-600 transition-all shadow-sm"
+          >
+            Activate
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
 
       <hr className="border-gray-100" />
 

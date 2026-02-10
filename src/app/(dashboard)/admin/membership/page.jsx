@@ -17,6 +17,19 @@ export default function MembershipRewards() {
   const [rewardSettings, setRewardSettings] = useState({ threshold: 100, type: "fixed", value: 10 });
 const [redeemAmount, setRedeemAmount] = useState("");
 
+// 1. Get current date info
+const today = new Date();
+const currentMonth = today.getMonth(); // 0 = Jan, 1 = Feb, etc.
+
+// 2. Create the birthdayMembers list by filtering the main members list
+const birthdayMembers = (members || []).filter(m => {
+  if (!m.birthday) return false;
+  const bDay = new Date(m.birthday);
+  return bDay.getUTCMonth() === currentMonth;
+}).sort((a, b) => {
+  return new Date(a.birthday).getUTCDate() - new Date(b.birthday).getUTCDate();
+});
+
 // This turns "(714) 123-4567" into "7141234567"
 const cleanPhone = (phone) => {
   return phone ? phone.replace(/\D/g, '') : '';
@@ -194,6 +207,12 @@ const filteredMembers = members.filter(m => {
 
   return nameMatch || phoneMatch;
 });
+
+// Get Top 5 Spenders for the Leaderboard
+const topSpenders = [...members]
+  .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+  .slice(0, 5);
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen">
          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -205,7 +224,73 @@ const filteredMembers = members.filter(m => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LEFT COLUMN */}
+{/* BIRTHDAY CELEBRATIONS SECTION */}
+{birthdayMembers.length > 0 && (
+  <div className="mb-6 bg-gradient-to-br from-pink-500 to-rose-400 rounded-xl p-5 shadow-lg text-white">
+    <div className="flex items-center gap-2 mb-4">
+      <i className="fas fa-birthday-cake animate-bounce"></i>
+<h3 className="text-[10px] font-black uppercase tracking-[0.2em]">
+  {today.toLocaleString('default', { month: 'long' })} Birthdays
+</h3>
+    </div>
+    <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+      {birthdayMembers.map(member => (
+        <div key={member.id} className="min-w-[120px] bg-white/20 backdrop-blur-md p-3 rounded-xl text-center border border-white/30">
+          <p className="text-[10px] font-black uppercase truncate">{member.name || "Customer"}</p>
+          <p className="text-[9px] font-bold opacity-80 mt-1">
+            {/* Show the specific day */}
+            {new Date(member.birthday).getUTCDate()} {today.toLocaleString('default', { month: 'short' })}
+          </p>
+          <button 
+            onClick={() => setSelectedId(member.id)}
+            className="mt-2 bg-white text-pink-600 text-[8px] font-black px-3 py-1 rounded-full uppercase hover:bg-pink-50 transition-colors"
+          >
+            Give Gift
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
         <div className="lg:col-span-4 space-y-4">
+          {/* VIP LEADERBOARD SECTION */}
+<div className="mb-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-5 shadow-xl border border-gray-700">
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="text-[10px] font-black text-amber-400 uppercase tracking-[0.2em] flex items-center gap-2">
+      <i className="fas fa-crown"></i> VIP Top Spenders
+    </h3>
+    <span className="text-[10px] text-gray-500 font-bold uppercase">All Time</span>
+  </div>
+
+  <div className="space-y-3">
+    {topSpenders.map((member, index) => (
+      <div key={member.id} className="flex items-center justify-between group">
+        <div className="flex items-center gap-3">
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black 
+            ${index === 0 ? 'bg-amber-400 text-amber-900' : 'bg-gray-700 text-gray-400'}`}>
+            {index + 1}
+          </div>
+          <div>
+            <p className="text-xs font-black text-white uppercase tracking-tight group-hover:text-amber-400 transition-colors">
+              {member.name || "Unnamed"}
+            </p>
+            <p className="text-[9px] text-gray-500 font-bold uppercase">Member since {new Date(member.createdAt).getFullYear() || '2024'}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-black text-amber-400">${(member.totalSpent || 0).toFixed(2)}</p>
+          <div className="w-16 h-1 bg-gray-700 rounded-full mt-1 overflow-hidden">
+             <div 
+               className="h-full bg-amber-400" 
+               style={{ width: `${(member.totalSpent / (topSpenders[0].totalSpent || 1)) * 100}%` }}
+             ></div>
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
 <div className="relative w-full">
   <input 
     type="text"
@@ -224,21 +309,38 @@ const filteredMembers = members.filter(m => {
   )}
 </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
-            {filteredMembers.map(member => (
-              <button 
-    key={member.id}
-    onClick={() => setSelectedId(member.id)} 
-    className={`w-full border-gray-100 pl-4 p-2 text-left border-b transition-all ${selectedId === member.id ? 'bg-pink-50 border-l-4 border-l-pink-600' : 'hover:bg-gray-50'}`}
-  >
-    <p className="font-black text-gray-900 uppercase text-sm">{member.name || "Unnamed"}</p>
-    <p className="text-xs text-gray-400 font-bold tracking-widest mt-1">
-      {member.phone || "No Phone Number"}
-    </p>
-    <p className="mt-2 inline-block bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-[10px] font-black uppercase">
+            {filteredMembers.map(member => {
+  // 1. CALCULATE FOR THIS SPECIFIC MEMBER
+  const isVIP = topSpenders.some(vip => vip.id === member.id);
+  
+  // Get current date info for the check
+  const today = new Date();
+  const currentMonth = today.getMonth(); // 0 = Jan, 1 = Feb...
+  
+  // Safety check: if no birthday is set, it's false
+  const isBirthdayMonth = member.birthday && new Date(member.birthday).getUTCMonth() === currentMonth;
+  return (
+    <button 
+      key={member.id}
+      onClick={() => setSelectedId(member.id)} 
+      className={`w-full border-gray-100 pl-4 p-4 text-left border-b transition-all ${selectedId === member.id ? 'bg-pink-50 border-l-4 border-l-pink-600' : 'hover:bg-gray-50'}`}
+    >
+      <div className="flex items-center gap-2">
+        <p className="font-black text-gray-900 uppercase text-sm">{member.name || "Unnamed"}</p>
+        {isVIP && <i className="fas fa-crown text-amber-500 text-[10px]" title="VIP Client"></i>}
+      </div>
+      <p className="text-xs text-gray-400 font-bold tracking-widest mt-1">
+        {member.phone || "No Phone Number"}
+      </p>
+       <p className="mt-2 inline-block bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-[10px] font-black uppercase">
       ${(member.cashRewardBalance || 0).toFixed(2)} Reward
     </p>
-  </button>
-            ))}
+    <p className="font-black text-gray-900 uppercase text-sm">{member.name}</p>
+        {isVIP && <i className="fas fa-crown text-amber-500 text-[10px]"></i>}
+        {isBirthdayMonth && <i className="fas fa-birthday-cake text-pink-500 text-[10px]"></i>}
+    </button>
+  );
+})}
           </div>
         </div>
 
@@ -388,6 +490,22 @@ const filteredMembers = members.filter(m => {
            
         </div>
       </div>
+      <div className="space-y-1">
+  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Client Birthday</label>
+  <input 
+    type="date"
+    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-gray-700"
+    value={activeMember?.birthday || ""}
+   onChange={async (e) => {
+  if (!activeMember?.id) return; // Safety check
+  const bday = e.target.value;
+  const memberRef = doc(db, "clients", activeMember.id);
+  await updateDoc(memberRef, { birthday: bday });
+}}
+  />
+  <p className="text-[9px] text-gray-400 italic ml-1 mt-1">* Used to trigger birthday reward alerts</p>
+</div>
+
       {/* GLOBAL SETTINGS SECTION */}
           <div className="p-8 bg-white rounded-xl border border-gray-100 shadow-sm space-y-6">
             <h3 className="font-black uppercase tracking-widest text-sm text-pink-600">Reward Configuration</h3>

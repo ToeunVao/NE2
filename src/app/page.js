@@ -8,11 +8,16 @@ import {
   onSnapshot, 
   addDoc, 
   serverTimestamp,
-  Timestamp, // <--- Add this
-  orderBy, // Add this
+  Timestamp, 
+  orderBy, 
   where 
 } from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Ensure this path matches your project
+
+// FIXED: Combined auth and db into one line
+import { auth, db } from "@/lib/firebase"; 
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+
 const promotions = [
   { id: 1, category: "Special", title: "New Client Gel", description: "First time visit special for full set gel.", price: "45" },
   { id: 2, category: "Spa", title: "Luxury Pedi", description: "Organic scrub and extended massage.", price: "60" }
@@ -47,8 +52,11 @@ const [giftData, setGiftData] = useState({ toName: '', toEmail: '', message: '' 
 
 const handleGiftPurchase = async () => {
   try {
-    const cardCode = "G-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-    const amountNum = Number(giftAmount); // Force to Number
+  // Generates a random number between 1 and 999999 and pads it to 6 digits
+    const randomNum = Math.floor(Math.random() * 999999) + 1;
+    const digitCode = randomNum.toString().padStart(6, '0');
+    const cardCode = `GC-${digitCode}`; // Result: GC-000001
+    const amountNum = Number(giftAmount);
 
     const newGiftCard = {
       code: cardCode,
@@ -56,24 +64,27 @@ const handleGiftPurchase = async () => {
       recipientEmail: giftData.toEmail,
       amount: amountNum, 
       balance: amountNum,
-      status: "pending", 
+      status: "pending", // This ensures Admin sees it as 'Pending'
+      isActivated: false, // Explicit flag for admin filtering
       message: giftData.message || "",
       createdAt: serverTimestamp(),
       lastUsed: serverTimestamp(),
-      // EXACT STRUCTURE required by script.js line 11196
       history: [{
         date: Timestamp.fromDate(new Date()), 
-        type: 'Purchase',
+        type: 'Purchase Request',
         amount: amountNum,
-        oldBalance: 0,         // MUST be number 0
-        newBalance: amountNum, // MUST be number
-        note: 'Online Order'
+        oldBalance: 0,
+        newBalance: amountNum,
+        note: 'Online Order - Waiting for Payment'
       }]
     };
 
     await addDoc(collection(db, "gift_cards"), newGiftCard);
-    alert(`Order Submitted! Code: ${cardCode}`);
+    alert(`Order Submitted! Your code is: ${cardCode}. Please complete payment to activate.`);
     setStep(1);
+    // Reset form
+    setGiftAmount(0);
+    setGiftData({ toName: '', toEmail: '', message: '' });
   } catch (error) {
     console.error("Save Error:", error);
   }
@@ -153,6 +164,32 @@ useEffect(() => {
 }, []);
 
 
+const router = useRouter();
+
+const handleLogin = async (e) => {
+  e.preventDefault();
+  try {
+    // 1. Authenticate with Firebase
+    const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+    const user = userCredential.user;
+
+    // 2. Success! Redirect to the Admin Dashboard
+    // You can change this path to wherever you want them to go first
+    router.push("/admin"); 
+    
+    setShowLoginModal(false);
+  } catch (error) {
+    console.error("Login Error:", error.code);
+    
+    // 3. Handle Errors (Wrong password, etc.)
+    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+      alert("Invalid email or password. Please try again.");
+    } else {
+      alert("Login failed. Please contact your administrator.");
+    }
+  }
+};
+
   return (
     <main className="min-h-screen bg-white">
       {/* 1. ELEGANT NAVIGATION */}
@@ -170,7 +207,7 @@ useEffect(() => {
   onClick={() => setShowLoginModal(true)}
   className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm"
 >
-<i class="fas fa-user"></i> Login
+<i className="fas fa-user"></i> Login
 </button>
       </nav>
 
@@ -254,31 +291,62 @@ useEffect(() => {
     <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100">
       <div className="bg-[#d63384] p-6 text-center">
         <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Purchase Gift Card</h2>
-        <p className="text-pink-100 text-[10px] font-bold uppercase tracking-widest mt-1">Pending Admin Activation</p>
+        <p className="text-pink-100 text-[10px] font-bold uppercase tracking-widest mt-1">Order Online • Pay to Activate</p>
       </div>
 
       <div className="p-6 space-y-5">
-        <div>
-          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Amount</label>
-          <div className="grid grid-cols-4 gap-2">
-            {[25, 50, 100, 200].map((amt) => (
-              <button key={amt} onClick={() => setGiftAmount(amt)}
-                className={`py-3 rounded-xl border-2 font-black text-sm transition-all ${
-                  giftAmount === amt ? 'border-[#d63384] bg-pink-50 text-[#d63384]' : 'border-gray-50 bg-gray-50 text-gray-400'
-                }`}>${amt}</button>
-            ))}
-          </div>
-        </div>
+     <div>
+  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Select Amount</label>
+  <div className="grid grid-cols-5 gap-2">
+    {[25, 50, 100, 200].map((amt) => (
+      <button key={amt} onClick={() => setGiftAmount(amt)}
+        className={`py-3 rounded-xl border-2 font-black text-sm transition-all ${
+          giftAmount === amt ? 'border-[#d63384] bg-pink-50 text-[#d63384]' : 'border-gray-50 bg-gray-50 text-gray-400'
+        }`}>${amt}</button>
+    ))}
+    {/* CUSTOM BUTTON */}
+    <button 
+      onClick={() => setGiftAmount('custom')}
+      className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${
+        giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)
+          ? 'border-[#d63384] bg-pink-50 text-[#d63384]' 
+          : 'border-gray-50 bg-gray-50 text-gray-400'
+      }`}>Custom</button>
+  </div>
+
+  {/* CUSTOM INPUT FIELD - Shows up if Custom is selected */}
+  {(giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)) && (
+    <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
+      <input 
+        type="number"
+        placeholder="Enter custom amount ($)"
+        onChange={(e) => setGiftAmount(Number(e.target.value))}
+        className="w-full p-4 bg-pink-50 border border-pink-100 rounded-xl outline-none focus:ring-2 focus:ring-[#d63384] font-bold text-[#d63384]"
+      />
+    </div>
+  )}
+</div>
 
         <InputItem label="Recipient Name" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
         <InputItem label="Recipient Email" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
 
-        <div className="pt-4 space-y-3">
+        {/* --- ADDED PAYMENT GUIDE BLOCK --- */}
+        <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-xl space-y-2">
+          <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">How to Pay</h4>
+          <p className="text-[11px] text-blue-700 leading-tight font-medium">
+            1. Submit this order to generate your code.<br/>
+            2. Please send payment to our Venmo <br/>
+            <span className="font-black text-blue-900 underline">@nailsexpress or Call us (859) 236-2873</span><br/>
+            3. Your card will be activated once payment is confirmed.
+          </p>
+        </div>
+
+        <div className="pt-2 space-y-3">
           <button onClick={handleGiftPurchase} disabled={!giftAmount || !giftData.toEmail}
-            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg ${
-              giftAmount && giftData.toEmail ? 'bg-[#d63384] text-white' : 'bg-gray-200 text-gray-400'
-            }`}>Submit Order</button>
-          <button onClick={() => setStep(1)} className="w-full text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest">Cancel</button>
+            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all ${
+              giftAmount && giftData.toEmail ? 'bg-[#d63384] text-white hover:bg-pink-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}>Confirm & Submit Order</button>
+          <button onClick={() => setStep(1)} className="w-full text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest hover:text-gray-600">Cancel</button>
         </div>
       </div>
     </div>
@@ -552,36 +620,38 @@ useEffect(() => {
           </button>
         </div>
 
-        <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); /* Add login logic here */ }}>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
-            <input 
-              type="email"
-              value={loginEmail}
-              onChange={(e) => setLoginEmail(e.target.value)}
-              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-              placeholder="name@nailexpress.com"
-            />
-          </div>
+<form className="space-y-4" onSubmit={handleLogin}>
+  <div className="space-y-1">
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
+    <input 
+      type="email"
+      required
+      value={loginEmail}
+      onChange={(e) => setLoginEmail(e.target.value)}
+      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+      placeholder="name@nailexpress.com"
+    />
+  </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
-            <input 
-              type="password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-              placeholder="••••••••"
-            />
-          </div>
+  <div className="space-y-1">
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
+    <input 
+      type="password"
+      required
+      value={loginPassword}
+      onChange={(e) => setLoginPassword(e.target.value)}
+      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+      placeholder="••••••••"
+    />
+  </div>
 
-          <button 
-            type="submit"
-            className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-pink-600 transition-all shadow-lg shadow-gray-200 mt-4 uppercase tracking-widest text-sm"
-          >
-            Sign In
-          </button>
-        </form>
+  <button 
+    type="submit"
+    className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-pink-600 transition-all shadow-lg shadow-gray-200 mt-4 uppercase tracking-widest text-sm"
+  >
+    Sign In
+  </button>
+</form>
         
         <p className="text-center text-xs text-gray-400 mt-6 font-medium">
           Authorized personnel only. Access is monitored.
