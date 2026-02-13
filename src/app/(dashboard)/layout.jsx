@@ -8,7 +8,10 @@ import { signOut } from "firebase/auth";
 import Sidebar from "@/components/Sidebar";
 import GlobalBookingModal from "@/components/GlobalBookingModal";
 import NotificationCenter from "@/components/NotificationCenter";
+import { useConfirm } from "@/context/ConfirmContext"; // Add this import
+
 export default function DashboardLayout({ children }) {
+  const { ask } = useConfirm();
   const [isCollapsed, setIsCollapsed] = useState(false); // New Stat
   const pathname = usePathname();
   const router = useRouter();
@@ -16,24 +19,39 @@ export default function DashboardLayout({ children }) {
   const [time, setTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+
+
   useEffect(() => {
     setMounted(true);
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      if (window.confirm("Are you sure you want to logout?")) {
-        await signOut(auth);
-        router.push("/login");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  };
+
+
+const handleLogout = async () => {
+  try {
+    // Using your new useConfirm hook for a premium feel
+    ask("Logout?", "Are you sure you want to exit?", async () => {
+      await signOut(auth);
+      router.push("/"); // Back to the home page landing
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
+};
+
+
 const [reportOpen, setReportOpen] = useState(false);
-const navLinks = [
+// Add a check for role (you can use a context or state for this)
+const isStaffPath = pathname.startsWith('/staff');
+
+
+const navLinks = isStaffPath ? [
+  { name: "My Dashboard", href: "/staff/dashboard", icon: "fa-th-large" },
+  { name: "My Schedule", href: "/staff/schedule", icon: "fa-calendar-alt" },
+] : [
+  
   { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
   { name: "Booking", href: "/admin/appointments/book", icon: "fa-calendar-alt" },
   

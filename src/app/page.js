@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
+  getDoc, doc,
   collection, 
   query, 
   onSnapshot, 
@@ -12,10 +13,10 @@ import {
   orderBy, 
   where 
 } from "firebase/firestore";
-
+import { useToast } from "@/context/ToastContext"; // Your new context
 // FIXED: Combined auth and db into one line
 import { auth, db } from "@/lib/firebase"; 
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth"; // Add it here!
 import { useRouter } from "next/navigation";
 
 const promotions = [
@@ -24,6 +25,8 @@ const promotions = [
 ];
 
 export default function HomePage() {
+  const { showToast } = useToast();
+  const router = useRouter();
 const [showLoginModal, setShowLoginModal] = useState(false);
 const [loginEmail, setLoginEmail] = useState("");
 const [loginPassword, setLoginPassword] = useState("");
@@ -39,6 +42,7 @@ useEffect(() => {
   });
   return () => unsubscribe();
 }, []);
+
 
 // Inside your HomePage Component:
 const [categories, setCategories] = useState([]);
@@ -163,33 +167,34 @@ useEffect(() => {
   return () => unsubscribe();
 }, []);
 
-
-const router = useRouter();
-
 const handleLogin = async (e) => {
   e.preventDefault();
   try {
-    // 1. Authenticate with Firebase
     const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
     const user = userCredential.user;
 
-    // 2. Success! Redirect to the Admin Dashboard
-    // You can change this path to wherever you want them to go first
-    router.push("/admin"); 
-    
-    setShowLoginModal(false);
-  } catch (error) {
-    console.error("Login Error:", error.code);
-    
-    // 3. Handle Errors (Wrong password, etc.)
-    if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
-      alert("Invalid email or password. Please try again.");
-    } else {
-      alert("Login failed. Please contact your administrator.");
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      const role = userData.role?.toLowerCase(); 
+
+      setShowLoginModal(false);
+      showToast(`Welcome, ${userData.name}!`, "success");
+
+      // REDIRECTION LOGIC
+      if (role === "admin") {
+        router.push("/admin"); 
+      } else if (role === "staff" || role === "technician") {
+        // Both roles go to the staff dashboard
+        router.push("/staff/dashboard"); 
+      } else {
+        showToast("Access Denied: Role not recognized.", "error");
+      }
     }
+  } catch (error) {
+    showToast("Invalid credentials.", "error");
   }
 };
-
   return (
     <main className="min-h-screen bg-white">
       {/* 1. ELEGANT NAVIGATION */}

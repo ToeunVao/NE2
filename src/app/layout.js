@@ -1,5 +1,7 @@
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/context/ToastContext";
+import { ConfirmProvider } from "@/context/ConfirmContext";
 
 // 1. Setup Playfair
 const playfair = Playfair_Display({
@@ -13,9 +15,10 @@ const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+
 export const metadata = {
-  title: "Salon Management",
-  description: "Management System",
+  title: "Nails Express - Management System",
+  description: "A management system for Nails Express salon.",
 };
 export default function RootLayout({ children }) {
   return (
@@ -28,7 +31,11 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="font-sans"> 
+        <ToastProvider>
+          <ConfirmProvider>
         {children}
+        </ConfirmProvider>
+        </ToastProvider>
       </body>
     </html>
   );

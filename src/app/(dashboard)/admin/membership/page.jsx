@@ -5,7 +5,7 @@ import {
   collection, setDoc, getDoc, query, onSnapshot, doc, updateDoc, 
   arrayUnion, increment 
 } from "firebase/firestore";
-
+import { useToast } from "@/context/ToastContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable"; // Import the function directly
 
@@ -224,7 +224,10 @@ const topSpenders = [...members]
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* LEFT COLUMN */}
-{/* BIRTHDAY CELEBRATIONS SECTION */}
+
+        <div className="lg:col-span-4 space-y-4">
+          
+          {/* BIRTHDAY CELEBRATIONS SECTION */}
 {birthdayMembers.length > 0 && (
   <div className="mb-6 bg-gradient-to-br from-pink-500 to-rose-400 rounded-xl p-5 shadow-lg text-white">
     <div className="flex items-center gap-2 mb-4">
@@ -252,8 +255,23 @@ const topSpenders = [...members]
     </div>
   </div>
 )}
+ <div className="space-y-1">
+  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Client Birthday</label>
+  <input 
+    type="date"
+    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-gray-700"
+    value={activeMember?.birthday || ""}
+   onChange={async (e) => {
+  if (!activeMember?.id) return; // Safety check
+  const bday = e.target.value;
+  const memberRef = doc(db, "clients", activeMember.id);
+  await updateDoc(memberRef, { birthday: bday });
+}}
+  />
+  <p className="text-[9px] text-gray-400 italic ml-1 mt-1">* Used to trigger birthday reward alerts</p>
+</div>
 
-        <div className="lg:col-span-4 space-y-4">
+
           {/* VIP LEADERBOARD SECTION */}
 <div className="mb-8 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-5 shadow-xl border border-gray-700">
   <div className="flex items-center justify-between mb-4">
@@ -308,6 +326,7 @@ const topSpenders = [...members]
     </button>
   )}
 </div>
+
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
             {filteredMembers.map(member => {
   // 1. CALCULATE FOR THIS SPECIFIC MEMBER
@@ -490,22 +509,7 @@ const topSpenders = [...members]
            
         </div>
       </div>
-      <div className="space-y-1">
-  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Client Birthday</label>
-  <input 
-    type="date"
-    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-gray-700"
-    value={activeMember?.birthday || ""}
-   onChange={async (e) => {
-  if (!activeMember?.id) return; // Safety check
-  const bday = e.target.value;
-  const memberRef = doc(db, "clients", activeMember.id);
-  await updateDoc(memberRef, { birthday: bday });
-}}
-  />
-  <p className="text-[9px] text-gray-400 italic ml-1 mt-1">* Used to trigger birthday reward alerts</p>
-</div>
-
+     
       {/* GLOBAL SETTINGS SECTION */}
           <div className="p-8 bg-white rounded-xl border border-gray-100 shadow-sm space-y-6">
             <h3 className="font-black uppercase tracking-widest text-sm text-pink-600">Reward Configuration</h3>
