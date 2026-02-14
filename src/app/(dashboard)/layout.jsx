@@ -49,7 +49,7 @@ const isStaffPath = pathname.startsWith('/staff');
 
 const navLinks = isStaffPath ? [
   { name: "My Dashboard", href: "/staff/dashboard", icon: "fa-th-large" },
-  { name: "My Schedule", href: "/staff/schedule", icon: "fa-calendar-alt" },
+  { name: "Report", href: "/staff/matrix", icon: "fa-calendar-alt" },
 ] : [
   
   { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
