@@ -217,12 +217,12 @@ const summaryStats = useMemo(() => {
 
         {/* Matrix Table */}
         <div className="overflow-x-auto border border-gray-100 rounded-xl">
-          <table className="w-full text-left border-collapse table-fixed min-w-[1500px]">
+          <table className="min-w-full text-xs text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-pink-600 text-white text-[10px] font-black uppercase">
-                <th className="p-3 border-r border-pink-500 sticky left-0 bg-pink-600 z-10 w-[120px]">Month</th>
+                <th className="p-1 border-r border-pink-500 sticky left-0 bg-pink-600 z-10 w-20">Month</th>
                 {DAYS.map(d => (
-                  <th key={d} className="p-1 text-center border-r border-pink-500 w-[45px]">{d}</th>
+                  <th key={d} className="p-1 text-center border-r border-pink-500 w-8">{d}</th>
                 ))}
                 {/* 32nd Column for Total */}
                 <th className="p-1 text-center bg-gray-800 text-white w-[80px]">Total</th>
