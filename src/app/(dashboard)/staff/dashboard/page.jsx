@@ -5,10 +5,16 @@ import {
   collection, onSnapshot, query, where, orderBy, doc, getDoc 
 } from "firebase/firestore";
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, Cell 
+  ComposedChart, 
+  Line, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Legend 
 } from 'recharts';
-
 const COLORS = {
   pink: "#F9D5E5", pinkText: "#D63384",
   green: "#D5F9DE", greenText: "#198754",
@@ -19,7 +25,10 @@ const COLORS = {
   orange: "#FFE5B4", orangeText: "#D97706",
   red: "#FADBD8", redText: "#DC3545"
 };
-
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 export default function StaffPersonalDashboard() {
   const [allLogs, setAllLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +120,40 @@ useEffect(() => {
     });
   }, [allLogs, startDate, endDate]);
 
+const chartData = useMemo(() => {
+  // Use the year from the selected date (or current year)
+  const currentYear = new Date(startDate).getFullYear();
+  const commissionRate = 0.70;
+
+  // Map through all 12 months to build the full year trend
+  return MONTHS.map((name, index) => {
+    // Filter logs for THIS specific month index across the whole year
+    const logsInMonth = allLogs.filter(log => {
+      const d = log.date?.toDate ? log.date.toDate() : new Date(log.date);
+      return d.getMonth() === index && d.getFullYear() === currentYear;
+    });
+
+    const monthlyEarning = logsInMonth.reduce((sum, log) => sum + (Number(log.earning) || 0), 0);
+    const monthlyTips = logsInMonth.reduce((sum, log) => sum + (Number(log.tip) || 0), 0);
+
+    // Apply your 70/30 card math
+    const totalCommission = monthlyEarning * commissionRate;
+    const checkPayout = totalCommission * 0.70; 
+    const cashPayout = (totalCommission - checkPayout) + monthlyTips;
+
+    return {
+      name: name.substring(0, 3), // "Jan", "Feb", etc.
+      cash: Number(cashPayout.toFixed(2)),
+      check: Number(checkPayout.toFixed(2)),
+      tips: Number(monthlyTips.toFixed(2)),
+      total: Number((totalCommission + monthlyTips).toFixed(2)),
+    };
+  });
+  // Removed the .filter() so all 12 months show up
+}, [allLogs, startDate]);
+
+
+
 const report = useMemo(() => {
     // 1. Basic Sums
     const totalEarning = filteredData.reduce((sum, log) => sum + (parseFloat(log.earning) || 0), 0);
@@ -130,9 +173,17 @@ const report = useMemo(() => {
 
     // Total Payout (Combined for display)
     const totalPayout = totalCommission + totalTips;
-
+const totalAppointments = filteredData.filter(log => 
+    log.bookingId || 
+    log.type === "booking" || 
+    log.source === "dashboard" || 
+    log.source === "online"
+  ).length;
     // 4. Unique Clients Count
-    const uniqueClients = new Set(filteredData.map(log => log.clientName || log.id)).size;
+const uniqueClients = new Set(filteredData.map(log => 
+      (log.clientName || log.id).toString().toLowerCase().trim()
+    )).size;
+
 
     // 5. Chart Grouping
    const chartMap = {};
@@ -151,6 +202,7 @@ const report = useMemo(() => {
     const chartData = Object.values(chartMap).sort((a, b) => a.time - b.time);
 
     return { 
+      totalAppointments,
       totalEarning, 
       totalTips, 
       totalPayout,
@@ -240,47 +292,59 @@ const report = useMemo(() => {
 
   <PastelCard label="Check Payout" value={`$${report.checkPayout.toFixed(2)}`} bg={COLORS.orange} text={COLORS.orangeText} />
   <PastelCard label="Total Tips" value={`$${report.totalTips.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
-  <PastelCard label="Total Appointments" value={report.count} bg={COLORS.blue} text={COLORS.blueText} />
+  <PastelCard label="Total Appointments" value={report.totalAppointments} bg={COLORS.blue} text={COLORS.blueText} />
   <PastelCard label="Total Clients" value={report.uniqueClients} bg={COLORS.purple} text={COLORS.purpleText} />
 </div>
 
       {/* CHART */}
-<div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-  <h2 className="text-[10px] font-black uppercase text-gray-400 mb-6 tracking-widest">Earnings Trend</h2>
+<div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
+  <div className="mb-6">
+    <h3 className="text-lg font-black text-gray-800 tracking-tighter uppercase">Annual Earnings Trend</h3>
+    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+      Full 12-Month Performance for {new Date(startDate).getFullYear()}
+    </p>
+  </div>
+
+  <div className="h-[400px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+        <XAxis 
+          dataKey="name" 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{fontSize: 10, fontWeight: '900', fill: '#9CA3AF'}} 
+        />
+        <YAxis 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{fontSize: 10, fontWeight: 'bold', fill: '#9CA3AF'}} 
+          tickFormatter={(v) => `$${v}`} 
+        />
+        <Tooltip 
+          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+          formatter={(value) => `$${Number(value).toFixed(2)}`}
+        />
+        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold' }} />
+
+        {/* Stacked Bars */}
+        
+        {/* Total Payout Bar (Optional: if you want to see the pink bar from your earlier reference) */}
+        <Bar dataKey="total" name="Total Payout" fill="#EC4899" fillOpacity={0.1} barSize={20} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="cash" name="Cash Payout" stackId="a" fill="#F43F5E" barSize={20} />
+        <Bar dataKey="check" name="Check Payout" stackId="a" fill="#3B82F6" barSize={20} radius={[4, 4, 0, 0]} />
   
-  {/* Added a fixed height and a check for data */}
-  <div className="h-[300px] w-full" style={{ minHeight: '300px' }}>
-    {report.chartData.length > 0 ? (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={report.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
-          <XAxis 
-            dataKey="name" 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{fontSize: 10, fontWeight: 900, fill: '#9CA3AF'}} 
-          />
-          <YAxis 
-            axisLine={false} 
-            tickLine={false} 
-            tick={{fontSize: 10, fontWeight: 900, fill: '#9CA3AF'}} 
-          />
-          <Tooltip 
-            cursor={{fill: '#F9FAFB'}} 
-            contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} 
-          />
-          <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={35}>
-            {report.chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS.pinkText} fillOpacity={0.8} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    ) : (
-      <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-50 rounded-xl">
-        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No chart data available</p>
-      </div>
-    )}
+        {/* Tip Line */}
+        <Line 
+          type="monotone" 
+          dataKey="tips" 
+          name="Tips Trend" 
+          stroke="#10B981" 
+          strokeWidth={3} 
+          dot={{ r: 3, fill: '#10B981' }} 
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   </div>
 </div>
 
@@ -343,10 +407,19 @@ const report = useMemo(() => {
 }
 // --- SUB COMPONENTS ---
 function PastelCard({ label, value, bg, text }) {
+  // Check if the label is for a count rather than money
+  const isCount = label.toLowerCase().includes("appointments") || 
+                  label.toLowerCase().includes("clients");
+
   return (
     <div style={{ backgroundColor: bg }} className="p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm">
-      <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">{label}</span>
-      <span style={{ color: text }} className="font-black text-2xl tracking-tight">{value}</span>
+      <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
+        {label}
+      </span>
+      <span style={{ color: text }} className="font-black text-2xl tracking-tight">
+        {/* If it's a count, show the raw number. If it's money, show the $ sign. */}
+        {isCount ? value : value} 
+      </span>
     </div>
   );
 }
