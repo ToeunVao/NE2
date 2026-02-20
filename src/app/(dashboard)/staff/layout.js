@@ -16,6 +16,11 @@ useEffect(() => {
       router.push("/");
       return;
     }
+const handleStartPractice = () => {
+  sessionStorage.setItem("theory_auth", "true");
+  sessionStorage.setItem("access_mode", "staff");
+  router.push("/theory-test/live");
+};
 
     const userDoc = await getDoc(doc(db, "users", user.uid));
     const role = userDoc.data()?.role?.toLowerCase();

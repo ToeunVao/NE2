@@ -33,7 +33,7 @@ export default function LoginPage() {
         if (userData.role === "admin") {
           router.push("/admin");
         } else {
-          router.push("/staff-dashboard"); // You can create this later
+          router.push("/staff/dashboard"); // You can create this later
         }
       } else {
         // If no role is found, default to admin for your first user

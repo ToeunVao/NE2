@@ -28,7 +28,6 @@ export default function DashboardLayout({ children }) {
   }, []);
 
 
-
 const handleLogout = async () => {
   try {
     // Using your new useConfirm hook for a premium feel
@@ -40,7 +39,11 @@ const handleLogout = async () => {
     console.error("Logout error:", error);
   }
 };
-
+const handleStartPractice = () => {
+  sessionStorage.setItem("theory_auth", "true");
+  sessionStorage.setItem("access_mode", "staff");
+  router.push("/theory-test/live");
+};
 
 const [reportOpen, setReportOpen] = useState(false);
 // Add a check for role (you can use a context or state for this)
@@ -54,6 +57,7 @@ const navLinks = isStaffPath ? [
   
   { name: "Check-in", href: "/staff/check-in", icon: "fa-user-check" },
   { name: "Booking", href: "/staff/appointments/book", icon: "fa-calendar-alt" },
+  { name: "Theory Examination", href: "/theory-test/live", icon: "fa-book" },
   ] : [
   // Report is now a dropdown toggle
   { 
@@ -74,6 +78,16 @@ const navLinks = isStaffPath ? [
   { name: "Service", href: "/admin/services", icon: "fas fa-concierge-bell" },
    { name: "Clients", href: "/admin/clients", icon: "fas fa-user-friends" },
   { name: "User", href: "/admin/users", icon: "fa-user" },
+  { 
+    name: "State Board Exam", 
+    icon: "fa-book",
+    isDropdown: true,
+    subItems: [
+      { name: "Theory Examination", href: "/admin/theory-manager", icon: "fa-book" },
+      { name: "Access Codes", href: "/admin/access-codes", icon: "fa-key" },
+    ]
+  },
+
   { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
 ];
 
