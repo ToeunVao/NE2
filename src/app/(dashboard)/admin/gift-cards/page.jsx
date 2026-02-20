@@ -797,10 +797,11 @@ const handleActivate = async (id) => {
 
 
                 {/* EDIT FORM */}
-              {/* <form onSubmit={handleUpdateCard} className="space-y-4">
+               <form onSubmit={handleUpdateCard} className="space-y-4">
                  
 
-                  <div className="space-y-3">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Recipient</label>
                         <input type="text" value={selectedCard.recipientName} onChange={e => setSelectedCard({...selectedCard, recipientName: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl text-xs font-bold border-none" />
@@ -810,11 +811,11 @@ const handleActivate = async (id) => {
                         <input type="text" value={selectedCard.senderName} onChange={e => setSelectedCard({...selectedCard, senderName: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl text-xs font-bold border-none" />
                     </div>
                   </div>
-
+                  </div>
                   <button type="submit" className="w-full py-4 bg-gray-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-pink-700 transition-all shadow-lg">
                     Save Details
                   </button>
-                </form> */}
+                </form> 
               </div>
 
               {/* Right Column: History */}
