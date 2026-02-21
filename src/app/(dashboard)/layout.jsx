@@ -59,6 +59,9 @@ const navLinks = isStaffPath ? [
   { name: "Booking", href: "/staff/appointments/book", icon: "fa-calendar-alt" },
   { name: "Theory Examination", href: "/theory-test/live", icon: "fa-book" },
   ] : [
+ { name: "Dashboard", href: "/admin", icon: "fa-th-large" },
+  { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
+  { name: "Booking", href: "/admin/booking", icon: "fa-calendar-alt" },
   // Report is now a dropdown toggle
   { 
     name: "Report", 

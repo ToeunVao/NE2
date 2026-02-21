@@ -46,9 +46,9 @@ useEffect(() => {
 
 // Inside your HomePage Component:
 const [categories, setCategories] = useState([]);
-const [services, setServices] = useState([]);
-const [activeCategory, setActiveCategory] = useState(null);
-const [selectedServices, setSelectedServices] = useState([]);
+const [services, setServices] = useState([]); // To store all salon services
+const [serviceSearch, setServiceSearch] = useState(""); // The text user types
+const [showDropdown, setShowDropdown] = useState(false); // To toggle results
 
 // Add these inside your HomePage function
 const [giftAmount, setGiftAmount] = useState(0);
@@ -94,35 +94,18 @@ const handleGiftPurchase = async () => {
   }
 };
 
+
+// SINGLE SOURCE OF TRUTH FOR SERVICES
 useEffect(() => {
-  console.log("Starting Firebase Sync...");
-
-  // Try fetching "Categories" (Capital C) as per your old app structure
-  const qCat = query(collection(db, "Categories")); 
-  
-  const unsubCat = onSnapshot(qCat, (snapshot) => {
-    console.log("Categories snapshot size:", snapshot.size);
-    if (snapshot.size === 0) {
-      console.warn("Categories is empty. Check if collection name is 'categories' (lowercase) instead.");
-    }
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Sort manually in the browser to avoid Index Permission errors
-    setCategories(data.sort((a, b) => (a.order || 0) - (b.order || 0)));
-  }, (err) => {
-    console.error("Category Permission Error:", err.message);
-  });
-
   const qServ = query(collection(db, "services"));
   const unsubServ = onSnapshot(qServ, (snapshot) => {
-    setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-  }, (err) => console.error("Service Error:", err.message));
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    console.log("Services loaded:", data.length); // Debug check
+    setServices(data);
+  }, (err) => console.error("Service Fetch Error:", err.message));
 
-  return () => { unsubCat(); unsubServ(); };
+  return () => unsubServ();
 }, []);
-// Function to handle the accordion toggle
-const handleCategoryClick = (id) => {
-  setActiveCategory(activeCategory === id ? null : id);
-};
 
 // --- 1. STATE FOR REVIEWS ---
 const [reviews, setReviews] = useState([]);
@@ -195,8 +178,60 @@ const handleLogin = async (e) => {
     showToast("Invalid credentials.", "error");
   }
 };
+// Add this if it is missing or replace your old booking state
+const [bookingData, setBookingData] = useState({
+  name: "",
+  phone: "",
+  serviceId: "",
+  serviceName: "",
+  price: 0,
+  groupSize: 1, // <--- Add this back
+  staffId: "anyone",
+  staffName: "Any Technician",
+  date: "",
+  time: ""
+});
 
+const filteredServices = services.filter(s => 
+  s.name?.toLowerCase().includes(serviceSearch.toLowerCase()) ||
+  s.category?.toLowerCase().includes(serviceSearch.toLowerCase())
+);
+const handleBookingSubmit = async () => {
+  try {
+    if (!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.date || !bookingData.time) {
+      showToast("Please fill in all fields", "error");
+      return;
+    }
 
+    // Combine Date and Time for the Calendar
+    const [hours, mins] = bookingData.time.split(":");
+    const appointmentDate = new Date(bookingData.date);
+    appointmentDate.setHours(parseInt(hours), parseInt(mins));
+
+    await addDoc(collection(db, "appointments"), {
+      name: bookingData.name,
+      phone: bookingData.phone,
+      service: bookingData.serviceName, // Uses exactly what's in the box
+      price: Number(bookingData.price || 0),
+      technician: bookingData.staffName || "Any Technician",
+      appointmentTimestamp: Timestamp.fromDate(appointmentDate), // Calendar needs this
+      bookingType: "Online",
+      status: "confirmed",
+      createdAt: serverTimestamp(),
+      isRead: false
+    });
+
+    showToast("Booking Confirmed!", "success");
+    
+    // CLEAR FORM
+    setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", date: "", time: "" });
+    setServiceSearch("");
+    
+  } catch (err) {
+    console.error(err);
+    showToast("Error booking. Try again.", "error");
+  }
+};
   return (
     <main className="min-h-screen bg-white">
       {/* 1. ELEGANT NAVIGATION */}
@@ -361,150 +396,166 @@ const handleLogin = async (e) => {
 )}
 
 {/* BOOKING SECTION */}
-      <section id="book" className="py-20 px-4">
-        <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100">
-          <div className="p-8 md:p-12">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-[#d63384] mb-2 font-serif tracking-tight">Book a New Appointment</h2>
+
+
+<div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100 max-w-4xl mt-10 mb-20 mx-auto">
+  <div className="text-center mb-10">
+  <h2 className="text-3xl font-bold text-[#d63384] mb-2 font-serif tracking-tight">Book a New Appointment</h2>
               <p className="text-gray-500 italic">Your moment of relaxation is just a few clicks away.</p>
-            </div>
+              </div>
 
-{step === 1 && (
-  <div className="space-y-6 animate-in fade-in duration-500">
-    <h3 className="text-xl font-bold text-gray-800 border-b pb-4 mb-6 text-[#d63384]">Step 1: Your Information</h3>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Client Name</label>
-        <input type="text" className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pink-500" placeholder="Full Name" />
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Phone</label>
-        <input type="tel" className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pink-500" placeholder="(555) 000-0000" />
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Email (Optional)</label>
-        <input type="email" className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pink-500" placeholder="email@example.com" />
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Group Size</label>
-        <select className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none">
-          {[1, 2, 3, 4, 5, 6].map(num => <option key={num} value={num}>{num} Person(s)</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Technician Request</label>
-        <select className="w-full p-3 border border-gray-200 rounded-xl bg-white outline-none">
-          <option value="any">Any Technician</option>
-          {staff.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Date & Time</label>
-        <input type="datetime-local" className="w-full p-3 border border-gray-200 rounded-xl outline-none focus:ring-1 focus:ring-pink-500" />
-      </div>
-    </div>
-    <div>
-      <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Notes (Optional)</label>
-      <textarea className="w-full p-3 border border-gray-200 rounded-xl outline-none h-24" placeholder="Share any special requests..."></textarea>
-    </div>
-    <div className="text-center pt-6">
-      <button onClick={() => setStep(2)} className="bg-[#d63384] text-white px-12 py-4 rounded-xl font-bold shadow-lg hover:opacity-90">
-        Next: Select Services
-      </button>
-    </div>
-  </div>
-)}
-{step === 2 && (
-  <div className="space-y-4 animate-in fade-in duration-500">
-    <h2 className="text-2xl font-black text-[#d63384] mb-8 text-center uppercase tracking-widest">
-      Select Services
-    </h2>
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
     
-    {categories.length === 0 && (
-      <div className="text-center py-10">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#d63384] mx-auto mb-4"></div>
-        <p className="text-gray-400 text-xs font-bold uppercase">Syncing with Salon...</p>
-      </div>
-    )}
+    {/* LEFT COLUMN: WHO & WHAT */}
+    <div className="space-y-8">
+      <section>
+        <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">1</span>
+          Your Information
+        </h4>
+       {/* CHANGE grid-cols-1 TO grid-cols-2 */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <InputItem 
+      label="Full Name" 
+      value={bookingData.name} 
+      onChange={v => setBookingData({...bookingData, name: v})} 
+      placeholder="Enter your name" 
+    />
+    <InputItem 
+      label="Phone Number" 
+      value={bookingData.phone} 
+      onChange={v => setBookingData({...bookingData, phone: v})} 
+      placeholder="(000) 000-0000" 
+    />
+  </div>
+      </section>
 
-    {categories.map((cat) => {
-      // Matches services where categoryId equals the Category's Document ID
-      const catServices = services.filter(s => s.categoryId === cat.id);
+{/* ROW 2: SERVICE AND GROUP SIZE */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  
+  {/* SELECT SERVICE (Autocomplete) */}
+  <section className="relative">
+    <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">2</span>
+      Select Service
+    </h4>
+    <div className="relative">
+      <i className="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-300"></i>
+      <input 
+        type="text"
+        placeholder="Type any service..."
+        className="w-full p-4 pl-12 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm"
+        value={serviceSearch}
+        onChange={(e) => { 
+            const val = e.target.value;
+            setServiceSearch(val);
+            setShowDropdown(true);
+            setBookingData(prev => ({ ...prev, serviceName: val, serviceId: "custom", price: 0 }));
+        }}
+        onFocus={() => setShowDropdown(true)}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+      />
+      {/* ... keep your dropdown code here ... */}
+    </div>
+  </section>
 
-      return (
-        <div key={cat.id} className="border border-gray-100 rounded-xl overflow-hidden shadow-sm bg-white">
-          <button 
-            onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
-            className={`w-full p-5 text-left font-black flex justify-between items-center transition-all ${
-              activeCategory === cat.id ? 'bg-pink-50 text-[#d63384]' : 'bg-gray-50 text-gray-500'
-            }`}
-          >
-            <span className="uppercase tracking-widest text-[11px]">{cat.name}</span>
-            <span className="text-xl">{activeCategory === cat.id ? "−" : "+"}</span>
-          </button>
-          
-          {activeCategory === cat.id && (
-            <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3 bg-white border-t border-pink-50 animate-in slide-in-from-top-2">
-              {catServices.length > 0 ? catServices.map(service => {
-                const isSelected = selectedServices.some(s => s.id === service.id);
-                return (
-                  <div 
-                    key={service.id} 
-                    onClick={() => setSelectedServices(isSelected 
-                      ? selectedServices.filter(s => s.id !== service.id) 
-                      : [...selectedServices, service]
-                    )}
-                    className={`p-4 border rounded-xl cursor-pointer transition-all flex flex-col justify-between min-h-[100px] ${
-                      isSelected ? 'border-[#d63384] bg-pink-50 ring-2 ring-[#d63384]' : 'border-gray-100 hover:border-pink-200 shadow-sm'
-                    }`}
-                  >
-                    <p className={`font-black text-[11px] leading-tight uppercase ${isSelected ? 'text-[#d63384]' : 'text-gray-700'}`}>
-                      {service.name}
-                    </p>
-                    <p className="text-[#d63384] font-black mt-2 text-sm">${service.price}</p>
-                  </div>
-                );
-              }) : (
-                <p className="col-span-full text-center text-gray-300 text-[10px] py-4 uppercase font-bold">No services in this category</p>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    })}
+  {/* GROUP SIZE DROPDOWN */}
+  <section>
+    <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">3</span>
+      Group Size
+    </h4>
+    <select 
+      value={bookingData.groupSize}
+      onChange={(e) => setBookingData({...bookingData, groupSize: Number(e.target.value)})}
+      className="w-full text-gray-400 p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm uppercase h-[54px]"
+    >
+      {[1, 2, 3, 4, 5, 6].map(num => (
+        <option key={num} value={num}>{num} {num === 1 ? 'Person' : 'People'}</option>
+      ))}
+    </select>
+  </section>
 
-    {/* Price Summary Panel */}
-    {selectedServices.length > 0 && (
-      <div className="mt-8 p-6 bg-gray-900 rounded-xl text-white flex justify-between items-center animate-in slide-in-from-bottom-4">
-        <div>
-          <p className="text-[10px] font-black uppercase text-pink-400 tracking-widest">Selected</p>
-          <p className="text-sm font-bold">{selectedServices.length} Item(s)</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-black uppercase text-pink-400 tracking-widest">Estimated Total</p>
-          <p className="text-2xl font-black">${selectedServices.reduce((acc, s) => acc + Number(s.price || 0), 0)}</p>
-        </div>
-      </div>
-    )}
+</div>
+    </div>
 
-    {/* Navigation */}
-    <div className="flex gap-4 mt-10">
-      <button onClick={() => setStep(1)} className="flex-1 bg-gray-100 py-4 rounded-xl font-bold text-gray-400 uppercase text-xs">Back</button>
+    {/* RIGHT COLUMN: WHEN & WHO */}
+ <div className="   space-y-8">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+  
+  {/* PREFERRED STAFF */}
+  <section>
+    <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">4</span>
+      Preferred Staff
+    </h4>
+    <select 
+      className="w-full text-gray-400  p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm uppercase h-[54px]"
+      value={bookingData.staffId}
+      onChange={(e) => {
+        const s = staff.find(x => x.id === e.target.value);
+        setBookingData({...bookingData, staffId: e.target.value, staffName: s ? s.name : "Any Technician"});
+      }}
+    >
+      <option value="anyone">Any Technician</option>
+      {staff.map(member => (
+        <option key={member.id} value={member.id}>{member.name}</option>
+      ))}
+    </select>
+  </section>
+
+  {/* APPOINTMENT DATE */}
+  <section>
+    <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">5</span>
+      Appointment Date
+    </h4>
+    <input 
+      type="date" 
+      className="w-full text-gray-400 p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm h-[54px]"
+      value={bookingData.date}
+      onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
+    />
+  </section>
+</div>
+<section className="mt-4">
+  <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
+    <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">6</span>
+    Available Time
+  </h4>
+  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+    {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00','15:30', '16:00', '17:00'].map(t => (
       <button 
-        disabled={selectedServices.length === 0}
-        onClick={() => setStep(3)}
-        className={`flex-[2] py-4 rounded-xl font-bold shadow-lg uppercase text-xs transition-all ${
-          selectedServices.length > 0 ? 'bg-[#d63384] text-white' : 'bg-gray-200 text-gray-400'
+        key={t}
+        type="button"
+        onClick={() => setBookingData({...bookingData, time: t})}
+        className={`p-3 text-[10px] font-black rounded-xl border-2 transition-all ${
+          bookingData.time === t 
+            ? 'bg-pink-500 border-pink-500 text-white shadow-md' 
+            : 'bg-white border-gray-100 text-gray-400 hover:border-pink-200'
         }`}
       >
-        Next: Booking Details
+        {t}
       </button>
-    </div>
+    ))}
   </div>
-)}
-          </div>
-        </div>
-      </section>
+</section>
+</div>
+
+  </div>
+  {/* 2. PLACE THE BUTTON HERE (OUTSIDE THE GRID) */}
+  <div className="mt-12 flex justify-center">
+    <button 
+      disabled={!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.time || !bookingData.date}
+      onClick={handleBookingSubmit}
+      className="w-full md:w-2/3 py-6 bg-black text-white rounded-2xl font-black uppercase tracking-widest hover:bg-pink-600 disabled:bg-gray-100 disabled:text-gray-300 transition-all shadow-l shadow-gray-200"
+    >
+      Confirm Appointment
+    </button>
+  </div>
+</div>
+
+
 
 {showPolicy && (
   <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -696,13 +747,13 @@ const handleLogin = async (e) => {
     </main>
   );
 }
-// Add this at the bottom of your file, outside of the HomePage function
+// Ensure your InputItem looks like this in page.js
 function InputItem({ label, value, onChange, placeholder }) {
   return (
     <div className="space-y-1.5">
       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">{label}</label>
       <input 
-        value={value} 
+        value={value || ""} // This ensures it becomes empty when state is reset
         onChange={e => onChange(e.target.value)} 
         className="w-full p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm" 
         placeholder={placeholder} 
