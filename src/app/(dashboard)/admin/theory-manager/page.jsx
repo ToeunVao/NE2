@@ -3,10 +3,13 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, addDoc, serverTimestamp, onSnapshot, 
-  query, orderBy, deleteDoc, doc, updateDoc 
+  query, orderBy, deleteDoc, doc, updateDoc, 
+  setDoc, getDoc // <-- Add these
 } from "firebase/firestore";
 
 export default function AdminTheoryManager() {
+  // Add this with your other states
+const [questionLimit, setQuestionLimit] = useState(100);
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", "", "", ""]);
   const [correctAnswer, setCorrectAnswer] = useState(0);
@@ -62,6 +65,31 @@ export default function AdminTheoryManager() {
     setCorrectAnswer(q.correctAnswer);
     window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to the form
   };
+
+  // Load current settings when page opens
+useEffect(() => {
+  const loadSettings = async () => {
+    const docSnap = await getDoc(doc(db, "settings", "live-exam"));
+    if (docSnap.exists()) {
+      setQuestionLimit(docSnap.data().questionLimit || 100);
+    }
+  };
+  loadSettings();
+}, []);
+
+// Function to save the limit to the global settings
+const saveLiveSettings = async () => {
+  try {
+    await setDoc(doc(db, "settings", "live-exam"), {
+      questionLimit: Number(questionLimit),
+      updatedAt: serverTimestamp()
+    });
+    alert("Live Test Settings Updated! ✅");
+  } catch (err) {
+    console.error(err);
+    alert("Error saving settings.");
+  }
+};
 
   const handleBulkImport = async () => {
     if (!bulkText.trim()) return alert("Please paste text first!");
@@ -160,6 +188,45 @@ export default function AdminTheoryManager() {
             {isImporting ? "Processing..." : "Process & Import Questions"}
         </button>
       </section>
+
+{/* LIVE TEST CONFIGURATION PANEL */}
+<div className="mb-10 p-6 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h3 className="text-sm font-black uppercase text-blue-900 tracking-tight">Live Test Engine Settings</h3>
+            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-1">
+                Currently controlling the /theory-test/live page
+            </p>
+        </div>
+
+        <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-blue-100">
+            <div className="pl-2">
+                <label className="text-[9px] font-black uppercase text-gray-400 block leading-none">Question Limit</label>
+                <input 
+                    type="number" 
+                    value={questionLimit}
+                    onChange={(e) => setQuestionLimit(e.target.value)}
+                    className="w-16 pt-1 bg-transparent font-black text-blue-900 outline-none text-lg"
+                />
+            </div>
+            <button 
+                onClick={saveLiveSettings}
+                className="bg-blue-900 text-white px-5 py-3 rounded-xl font-black uppercase text-[10px] hover:bg-blue-800 transition-all shadow-md active:scale-95"
+            >
+                Save Changes
+            </button>
+        </div>
+    </div>
+    
+    <div className="flex gap-2 mt-4">
+       <div className="px-3 py-1.5 bg-white/60 rounded-lg border border-blue-100">
+          <span className="text-[9px] font-black text-blue-900 uppercase">Total Pool: {existingQuestions.length} Qs</span>
+       </div>
+       <div className="px-3 py-1.5 bg-green-500/10 rounded-lg border border-green-200">
+          <span className="text-[9px] font-black text-green-600 uppercase">Active Exam: {Math.min(questionLimit, existingQuestions.length)} Qs</span>
+       </div>
+    </div>
+</div>
 
       {/* EXISTING QUESTIONS LIST WITH EDIT BUTTON */}
       <section className="space-y-4">

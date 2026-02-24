@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, getDoc, query, where, deleteDoc, doc } from "firebase/firestore";
 
 export default function LiveTest() {
   const router = useRouter();
-  
+  const { testId } = useParams(); // <--- Add this line
+  const [reviewMode, setReviewMode] = useState(false);
   // 1. AUTHENTICATION STATES
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -75,20 +76,36 @@ export default function LiveTest() {
   }, [loading, isFinished, isAuthorized]);
 
   // --- DATA FETCHING ---
-  useEffect(() => {
-    if (!isAuthorized) return;
+useEffect(() => {
+  if (!isAuthorized) return;
 
-    const fetchQuestions = async () => {
-      try {
-        const snap = await getDocs(collection(db, "nail-theory-tests"));
-        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const shuffled = all.sort(() => 0.5 - Math.random());
-        setQuestions(shuffled.slice(0, EXAM_LIMIT));
-      } catch (err) { console.error(err); } 
-      finally { setLoading(false); }
-    };
-    fetchQuestions();
-  }, [isAuthorized]);
+  const loadExam = async () => {
+    try {
+      // 1. Fetch the Global Limit set in /admin/theory-manager
+      const settingsSnap = await getDoc(doc(db, "settings", "live-exam"));
+      let activeLimit = 100; // Default fallback
+      
+      if (settingsSnap.exists()) {
+        activeLimit = settingsSnap.data().questionLimit;
+      }
+
+      // 2. Fetch all questions from your 'nail-theory-tests' collection
+      const snap = await getDocs(collection(db, "nail-theory-tests"));
+      const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // 3. Shuffle and apply the limit from Admin Manager
+      const shuffled = all.sort(() => 0.5 - Math.random());
+      setQuestions(shuffled.slice(0, Number(activeLimit)));
+      
+    } catch (err) {
+      console.error("Error loading exam:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  loadExam();
+}, [isAuthorized]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -129,7 +146,13 @@ export default function LiveTest() {
 
   if (loading) return <div className="p-20 text-center font-black uppercase text-blue-900 animate-pulse">Initializing Exam...</div>;
 
-  const currentQ = questions[currentIndex];
+// This determines which questions the user actually sees
+const visibleQuestions = reviewMode 
+  ? questions.filter((_, idx) => flagged[idx]) 
+  : questions;
+
+// We also need to map the current view index to the ACTUAL question index
+const currentQ = visibleQuestions[currentIndex];
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8 font-sans">
@@ -182,27 +205,53 @@ export default function LiveTest() {
           </div>
         </div>
 
-        <div className="p-6 bg-gray-50 border-t flex justify-between">
-          <button 
-            onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-            disabled={currentIndex === 0}
-            className="px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold uppercase text-xs disabled:opacity-30"
-          >
-            Previous
-          </button>
-          <button 
-            onClick={() => {
-              if (currentIndex === questions.length - 1) {
-                if (confirm("Submit Exam?")) setIsFinished(true);
-              } else {
-                setCurrentIndex(currentIndex + 1);
-              }
-            }}
-            className="px-10 py-3 bg-blue-900 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-blue-900/20"
-          >
-            {currentIndex === questions.length - 1 ? "Finish" : "Next"}
-          </button>
-        </div>
+
+<div className="p-6 bg-gray-50 border-t flex justify-between items-center">
+ 
+      <button 
+      onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+      disabled={currentIndex === 0}
+      className="px-6 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold uppercase text-xs disabled:opacity-30"
+    >
+      Previous
+    </button>
+    {/* ONLY SHOW BUTTON IF THERE ARE FLAGS */}
+    {Object.values(flagged).filter(Boolean).length > 0 && (
+      <button 
+        onClick={() => {
+          setCurrentIndex(0); 
+          setReviewMode(!reviewMode);
+        }}
+        className={`px-4 py-3 rounded-xl font-black uppercase text-[10px] transition-all border-2 ${
+          reviewMode 
+            ? 'bg-orange-500 border-orange-500 text-white shadow-inner' 
+            : 'bg-white border-orange-200 text-orange-500 hover:bg-orange-50'
+        }`}
+      >
+        <i className="fas fa-flag mr-2"></i>
+        {reviewMode ? "Show All" : `Review Flagged (${Object.values(flagged).filter(Boolean).length})`}
+      </button>
+    )}
+    
+<button 
+  onClick={() => {
+    if (currentIndex === visibleQuestions.length - 1) {
+      if (reviewMode) {
+        setReviewMode(false);
+        setCurrentIndex(0);
+      } else if (confirm("Submit Exam?")) {
+        setIsFinished(true); // Changed from finishExam() to match your state
+      }
+    } else {
+      setCurrentIndex(currentIndex + 1);
+    }
+  }}
+  className="px-10 py-3 bg-blue-900 text-white rounded-xl font-black uppercase text-xs shadow-lg"
+>
+  {currentIndex === visibleQuestions.length - 1 ? (reviewMode ? "Exit Review" : "Finish") : "Next"}
+</button>
+</div>
+
       </div>
     </div>
   );

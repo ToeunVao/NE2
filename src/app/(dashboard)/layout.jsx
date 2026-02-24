@@ -87,6 +87,7 @@ const navLinks = isStaffPath ? [
     isDropdown: true,
     subItems: [
       { name: "Theory Examination", href: "/admin/theory-manager", icon: "fa-book" },
+      { name: "Group Fun Test", href: "/admin/theory-manager/group-test", icon: "fas fa-user-friends" },
       { name: "Access Codes", href: "/admin/access-codes", icon: "fa-key" },
     ]
   },
