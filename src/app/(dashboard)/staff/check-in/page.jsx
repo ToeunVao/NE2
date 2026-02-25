@@ -285,6 +285,31 @@ const handlePhoneChange = (val) => {
   }
 };
 
+
+const triggerCheckInNotification = async (clientName, staffId) => {
+  await addDoc(collection(db, "notifications"), {
+    assignedTo: staffId,
+    type: "checkin",
+    title: "Client Arrived! 📍",
+    message: `${clientName} is here and waiting for you.`,
+    status: "unread",
+    link: "/staff/dashboard",
+    createdAt: serverTimestamp()
+  });
+};
+const triggerReviewNotification = async (reviewData) => {
+  await addDoc(collection(db, "notifications"), {
+    assignedTo: reviewData.staffId,
+    type: "review",
+    title: "New 5-Star Review! ⭐",
+    message: `A client left you great feedback: "${reviewData.comment.substring(0, 30)}..."`,
+    status: "unread",
+    link: "/staff/reviews",
+    createdAt: serverTimestamp()
+  });
+};
+
+
 // Add this above your return (around line 260)
 const renderSubCategoryOverlay = () => {
   if (!activeCategory) return null;

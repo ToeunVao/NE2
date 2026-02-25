@@ -188,6 +188,19 @@ const handleCheckIn = async () => {
     alert("Failed to check in: " + error.message);
   }
 };
+
+const triggerBookingNotification = async (bookingData) => {
+  await addDoc(collection(db, "notifications"), {
+    assignedTo: bookingData.staffId, // The specific Technician's ID
+    type: "booking",
+    title: "New Booking Assigned",
+    message: `You have a new ${bookingData.serviceName} at ${bookingData.time}`,
+    status: "unread",
+    link: "/staff/appointments/book", // Where the staff clicks to see details
+    createdAt: serverTimestamp()
+  });
+};
+
   return (
     <div className="p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
       

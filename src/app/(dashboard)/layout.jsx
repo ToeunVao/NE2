@@ -99,7 +99,7 @@ const navLinks = isStaffPath ? [
     <div className="flex min-h-screen bg-gray-50">
       
       {/* --- LEFT SIDEBAR --- */}
- <aside className={`bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
+ <aside className={`hidden md:block w-64 border-slate-200 bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
     isCollapsed ? "w-20" : "w-64"
   }`}>
     
@@ -196,9 +196,24 @@ const navLinks = isStaffPath ? [
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar for Notifications/User Profile if needed */}
-   <header className="h-20 bg-white/50 backdrop-blur-md border-b border-gray-100 px-10 flex items-center justify-end">
-  {/* REPLACE IT WITH THIS */}
-  <NotificationCenter />
+<header className="h-20 bg-white/50 backdrop-blur-md border-b border-gray-100 px-6 md:px-10 flex items-center justify-between md:justify-end">
+  {/* MOBILE LOGO: Visible only on small screens, hidden on md and up */}
+  <div className="flex items-center gap-2 md:hidden">
+ 
+    <div className="flex flex-col">
+      <span className="logo-style text-pink-700 block transition-all text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
+        Nails Express
+      </span>
+      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">
+        Salon Management System
+      </span>
+    </div>
+  </div>
+
+  {/* RIGHT SIDE: Notifications */}
+  <div className="flex items-center gap-4">
+    <NotificationCenter />
+  </div>
 </header>
 
         <div className="p-8 overflow-y-auto">
@@ -207,7 +222,7 @@ const navLinks = isStaffPath ? [
         {/* GLOBAL FLOATING BUTTON */}
         <button 
           onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-10 right-10 bg-[#db2777] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white hover:scale-110 transition-all z-50 print:hidden"
+          className="fixed bottom-[28px] left-1/2 -translate-x-1/2 z-[110] w-14 h-14 text-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all md:bottom-10 md:right-10 md:left-auto md:translate-x-0 bg-[#db2777] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white hover:scale-110 transition-all z-50 print:hidden"
         >
           <i className="fas fa-plus text-2xl"></i>
         </button>

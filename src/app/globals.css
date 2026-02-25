@@ -65,3 +65,50 @@
     @apply flex items-center gap-2 p-4 border-b border-gray-50 bg-gray-50/30;
   }
 }
+
+
+
+/* mobile app Prevent accidental text selection on buttons and icons */
+body.modal-open {
+  overflow: hidden;
+  height: 100vh;
+}
+button, i, svg {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Make sure the app feels like a native mobile app */
+body {
+  touch-action: manipulation;
+  overscroll-behavior-y: contain; /* Prevents "pull to refresh" glitching the UI */
+}
+
+/* Ensure all buttons have enough space for a thumb (Mobile Friendly) */
+.rounded-xl {
+  min-height: 44px; /* Apple's minimum recommended touch size */
+}
+/* Prevents the "blue highlight" when tapping buttons on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevents users from accidentally zooming in when they tap fast */
+input, button {
+  font-size: 16px !important; /* iOS fix: prevents auto-zoom on focus */
+}
+@layer components {
+  .mobile-nav-shadow {
+    box-shadow: 0 -4px 20px -5px rgba(30, 58, 138, 0.15);
+  }
+}
+
+/* Hide Sidebar on Mobile */
+@media (max-width: 768px) {
+  .sidebar-container {
+    display: none;
+  }
+  body {
+    padding-bottom: 80px; /* Space for the bottom nav */
+  }
+}

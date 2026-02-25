@@ -1,8 +1,9 @@
+import ClientWrapper from "@/components/ClientWrapper";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/context/ToastContext";
 import { ConfirmProvider } from "@/context/ConfirmContext";
-
+import StaffMobileNav from "@/components/StaffMobileNav";
 // 1. Setup Playfair
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -31,11 +32,13 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="font-sans"> 
+        <ClientWrapper>
         <ToastProvider>
           <ConfirmProvider>
         {children}
         </ConfirmProvider>
         </ToastProvider>
+        </ClientWrapper>
       </body>
     </html>
   );
