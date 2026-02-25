@@ -18,11 +18,14 @@ export default function ClientWrapper({ children }) {
     return () => unsubscribe();
   }, []);
 
-  return (
-    <>
+return (
+  <div className="flex flex-col min-h-screen">
+    {/* This container holds your pages */}
+    <div className="flex-1 px-4 md:px-0"> 
       {children}
-      {/* Only show the Nav if we have a staff ID */}
-      {currentStaffId && <StaffMobileNav currentStaffId={currentStaffId} />}
-    </>
-  );
+    </div>
+    
+    {currentStaffId && <StaffMobileNav currentStaffId={currentStaffId} />}
+  </div>
+);
 }
