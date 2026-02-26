@@ -76,36 +76,50 @@ export default function LiveTest() {
   }, [loading, isFinished, isAuthorized]);
 
   // --- DATA FETCHING ---
-useEffect(() => {
-  if (!isAuthorized) return;
+// --- DATA FETCHING (Corrected & Defensive) ---
+  useEffect(() => {
+    if (!isAuthorized) return;
 
-  const loadExam = async () => {
-    try {
-      // 1. Fetch the Global Limit set in /admin/theory-manager
-      const settingsSnap = await getDoc(doc(db, "settings", "live-exam"));
-      let activeLimit = 100; // Default fallback
-      
-      if (settingsSnap.exists()) {
-        activeLimit = settingsSnap.data().questionLimit;
+    const loadExam = async () => {
+      try {
+        setLoading(true);
+        
+        // 1. Fetch the Global Limit from Admin settings
+        const settingsSnap = await getDoc(doc(db, "settings", "live-exam"));
+        let activeLimit = 100; // Fallback
+        
+        if (settingsSnap.exists()) {
+          const dbLimit = settingsSnap.data().questionLimit;
+          // Ensure it's a valid number and not 0
+          activeLimit = (dbLimit && Number(dbLimit) > 0) ? Number(dbLimit) : 100;
+        }
+
+        // 2. Fetch all questions
+        const snap = await getDocs(collection(db, "nail-theory-tests"));
+        // FIXED: Changed 'd.id' to 'doc.id' to match the map variable
+        const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        if (all.length === 0) {
+          console.error("No questions found in 'nail-theory-tests'");
+          setLoading(false);
+          return;
+        }
+
+        // 3. Shuffle and apply the limit (whichever is smaller)
+        const shuffled = all.sort(() => 0.5 - Math.random());
+        const limitToUse = Math.min(activeLimit, all.length);
+        
+        setQuestions(shuffled.slice(0, limitToUse));
+        
+      } catch (err) {
+        console.error("Error loading exam:", err);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // 2. Fetch all questions from your 'nail-theory-tests' collection
-      const snap = await getDocs(collection(db, "nail-theory-tests"));
-      const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // 3. Shuffle and apply the limit from Admin Manager
-      const shuffled = all.sort(() => 0.5 - Math.random());
-      setQuestions(shuffled.slice(0, Number(activeLimit)));
-      
-    } catch (err) {
-      console.error("Error loading exam:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  loadExam();
-}, [isAuthorized]);
+    loadExam();
+  }, [isAuthorized]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);

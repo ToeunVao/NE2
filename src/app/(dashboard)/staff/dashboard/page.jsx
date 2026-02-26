@@ -217,13 +217,13 @@ const uniqueClients = new Set(filteredData.map(log =>
   if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-6xl mx-auto p-4 space-y-4">
       
       {/* HEADER & DATE FILTER (IMAGE STYLE) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-800 uppercase tracking-tighter">My Performance</h1>
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{realName}</p>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Welcome {realName} !</p>
         </div>
 
         {/* --- DATE FILTER BAR (MATCHES IMAGE) --- */}

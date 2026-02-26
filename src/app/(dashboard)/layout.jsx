@@ -216,7 +216,7 @@ const navLinks = isStaffPath ? [
   </div>
 </header>
 
-        <div className="min-h-screen px-4 md:px-0 pb-24 md:pb-0 overflow-y-auto">
+        <div className="min-h-screen px-0 md:px-0 pb-24 md:pb-0 overflow-y-auto">
           {children}
         </div>
         {/* GLOBAL FLOATING BUTTON */}

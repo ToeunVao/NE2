@@ -1,163 +1,97 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react"; // <--- Add this line
 import { useRouter, usePathname } from "next/navigation";
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  getDocs, 
-  writeBatch, 
-  serverTimestamp 
-} from "firebase/firestore";
-import { db } from "@/lib/firebase"; // Ensure this path matches your firebase config
-import { auth } from "@/lib/firebase"; 
-import { signOut } from "firebase/auth";
+// Import icons from lucide-react (or your preferred icon library)
+import { Home, BarChart3, Bell, Calendar, BookOpen, Plus } from "lucide-react";
+// Add these Firebase imports
+import { db } from "@/lib/firebase"; 
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 
-const StaffMobileNav = ({ currentStaffId }) => {
+export default function StaffMobileNav({ unreadCount }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push("/login"); // Redirect to login after signing out
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  };
-
-  // 1. Listen for real-time notification badge updates
-  useEffect(() => {
-    if (!currentStaffId) return;
-
-    const q = query(
-      collection(db, "notifications"),
-      where("assignedTo", "==", currentStaffId),
-      where("status", "==", "unread")
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setUnreadCount(snapshot.size);
-    });
-
-    return () => unsubscribe();
-  }, [currentStaffId]);
-
-  // 2. Function to navigate and clear alerts
-const handleOpenAlerts = async () => {
-  // 1. Force navigation first so the user sees the page immediately
-  router.push("/staff/notifications");
-
-  // 2. If there are no unread messages, stop here
-  if (unreadCount === 0) return;
-
-  // 3. Clear the badges in the background
-  try {
-    const q = query(
-      collection(db, "notifications"),
-      where("assignedTo", "==", currentStaffId),
-      where("status", "==", "unread")
-    );
-    const snapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    snapshot.forEach((docSnap) => {
-      batch.update(docSnap.ref, { 
-        status: "read", 
-        readAt: serverTimestamp() 
-      });
-    });
-    await batch.commit();
-  } catch (err) {
-    console.error("Link working, but failed to clear badge:", err);
-  }
-};
-  // Helper to highlight active link
+const [bookingCount, setBookingCount] = useState(0);
+// Replace this with your actual logic to get the logged-in staff ID
+  const currentStaffId = "tech_01";
   const isActive = (path) => pathname === path;
+useEffect(() => {
+  const today = new Date().toISOString().split('T')[0];
+  const q = query(
+    collection(db, "bookings"),
+    where("staffId", "==", currentStaffId),
+    where("date", "==", today),
+    where("status", "in", ["pending", "checked-in"]) // Only count active ones
+  );
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    setBookingCount(snapshot.size);
+  });
+  return () => unsubscribe();
+}, [currentStaffId]);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 h-20 px-6 z-[100] shadow-[0_-4px_20px_-5px_rgba(30,58,138,0.1)]">
-      <div className="flex items-center justify-between h-full relative">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100]">
+      {/* THE NAV CONTAINER */}
+      <div className="relative bg-white/90 backdrop-blur-lg h-20 flex justify-around items-center px-2 shadow-[0_-5px_25px_rgba(0,0,0,0.05)] border-t border-slate-100">
         
-        {/* HOME LINK */}
-        <button 
-          onClick={() => router.push("/staff/dashboard")} 
-          className="flex flex-col items-center gap-1 transition-all active:scale-90"
-        >
-          <span className={`text-xl ${isActive("/staff/dashboard") ? "opacity-100" : "opacity-40"}`}>🏠</span>
-          <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive("/staff/dashboard") ? "text-blue-900" : "text-gray-400"}`}>
-            Home
-          </span>
-        </button>
+        {/* Left Side: Home & Reports */}
+        <div className="flex w-1/2 justify-around pr-4">
+          <button onClick={() => router.push('/staff/dashboard')} className="flex flex-col items-center gap-1 group">
+            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/dashboard') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+              <Home size={22} strokeWidth={isActive('/staff/dashboard') ? 2.5 : 2} />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/dashboard') ? 'text-pink-600' : 'text-slate-400'}`}>Home</span>
+          </button>
 
-        {/* REPORTS LINK */}
-        <button 
-          onClick={() => router.push("/staff/matrix")} 
-          className="flex flex-col items-center gap-1 transition-all active:scale-90"
-        >
-          <span className={`text-xl ${isActive("/staff/matrix") ? "opacity-100" : "opacity-40"}`}>📊</span>
-          <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive("/staff/matrix") ? "text-blue-900" : "text-gray-400"}`}>
-            Report
-          </span>
-        </button>
-
-        {/* --- MIDDLE SLOT FOR YOUR EXISTING QUICK APPOINTMENT BUTTON --- */}
-        <div className="relative w-16 flex justify-center">
-          <div className="absolute -top-12 w-16 h-16 bg-slate-50 border-[6px] border-white rounded-full flex items-center justify-center shadow-inner">
-             {/* NOTE: Ensure your Global Quick Appointment Button 
-                is CSS-positioned to sit exactly here 
-             */}
-          </div>
-          <span className="text-[7px] font-black text-blue-900 absolute top-4 uppercase tracking-widest">
-            Booking
-          </span>
+          <button onClick={() => router.push('/staff/matrix')} className="flex flex-col items-center gap-1">
+            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/matrix') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+              <BarChart3 size={22} strokeWidth={isActive('/staff/matrix') ? 2.5 : 2} />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/matrix') ? 'text-pink-600' : 'text-slate-400'}`}>Matrix</span>
+          </button>
         </div>
-        {/* ----------------------------------------------------------- */}
 
-       
-        {/* NOTIFICATIONS / ALERTS */}
-        <button 
-          onClick={handleOpenAlerts} 
-          className="flex flex-col items-center gap-1 relative transition-all active:scale-90"
-        >
-          <span className={`text-xl ${isActive("/staff/notifications") ? "opacity-100" : "opacity-40"}`}>🔔</span>
-          
-          {/* THE NATIVE APP BADGE */}
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-2 min-w-[18px] h-[18px] bg-red-600 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center px-1 shadow-sm animate-pulse">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
+        {/* THE CENTER PINK BUTTON (Quick Appointment) */}
+        
 
-          <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive("/staff/notifications") ? "text-blue-900" : "text-gray-400"}`}>
-            Alerts
-          </span>
-        </button>
-{/* LOGOUT BUTTON (REPLACED ALERTS) 
-        <button 
-          onClick={handleLogout} 
-          className="flex flex-col items-center gap-1 transition-all active:scale-90 group"
-        >
-          <span className="text-xl opacity-60 group-active:text-red-600 transition-colors">🚪</span>
-          <span className="text-[8px] font-black uppercase tracking-tighter text-gray-400 group-active:text-red-600">
-            Logout
-          </span>
-        </button>*/}
-         {/* EXAM LINK */}
-        <button 
-          onClick={() => router.push("/theory-test/live")} 
-          className="flex flex-col items-center gap-1 transition-all active:scale-90"
-        >
-          <span className={`text-xl ${isActive("/theory-test/live") ? "opacity-100" : "opacity-40"}`}>📝</span>
-          <span className={`text-[8px] font-black uppercase tracking-tighter ${isActive("/theory-test/live") ? "text-blue-900" : "text-gray-400"}`}>
-            State Exam
-          </span>
-        </button>
+        {/* Right Side: Exams & Alerts */}
+        <div className="flex w-1/2 justify-around pl-4">
+         
+<button onClick={() => router.push('/staff/bookings')} className="flex flex-col items-center gap-1 relative">
+  <div className={`p-2 rounded-xl transition-all ${isActive('/staff/bookings') ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
+    <Calendar size={22} strokeWidth={isActive('/staff/bookings') ? 2.5 : 2} />
+  </div>
+  
+  {/* LIVE BOOKING COUNT BADGE */}
+  {bookingCount > 0 && (
+    <span className="absolute top-2 right-2 min-w-[16px] h-4 bg-red-600 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center px-1">
+      {bookingCount}
+    </span>
+  )}
+  
+  <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/bookings') ? 'text-blue-600' : 'text-slate-400'}`}>My Booking</span>
+</button>
+ {/* Right Side: Exams & Alerts
+          <button onClick={() => router.push('/staff/notifications')} className="flex flex-col items-center gap-1">
+            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/notifications') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+              <Bell size={22} strokeWidth={isActive('/staff/notifications') ? 2.5 : 2} />
+            </div>
+            {unreadCount > 0 && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
+            )}
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/notifications') ? 'text-pink-600' : 'text-slate-400'}`}>Notification</span>
+          </button>
+           */}
+           <button onClick={() => router.push('/staff/board-exam')} className="flex flex-col items-center gap-1  relative">
+            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/board-exam') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+              <BookOpen size={22} strokeWidth={isActive('/staff/board-exam') ? 2.5 : 2} />
+            </div>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/board-exam') ? 'text-pink-600' : 'text-slate-400'}`}>Exams</span>
+          </button>
+
+        </div>
 
       </div>
-    </nav>
+    </div>
   );
-};
-
-export default StaffMobileNav;
+}
