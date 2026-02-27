@@ -51,13 +51,10 @@ const isStaffPath = pathname.startsWith('/staff');
 
 
 const navLinks = isStaffPath ? [
-  { name: "My Dashboard", href: "/staff/dashboard", icon: "fa-th-large" },
+  { name: "Dashboard", href: "/staff/dashboard", icon: "fa-th-large" },
   { name: "Report", href: "/staff/matrix", icon: "fa-chart-line" },
-
-  
-  { name: "Check-in", href: "/staff/check-in", icon: "fa-user-check" },
   { name: "Booking", href: "/staff/appointments/book", icon: "fa-calendar-alt" },
-  { name: "Theory Examination", href: "/theory-test/live", icon: "fa-book" },
+  { name: "State Board Portal", href: "/staff/board-exam", icon: "fa-book" },
   ] : [
  { name: "Dashboard", href: "/admin", icon: "fa-th-large" },
   { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
