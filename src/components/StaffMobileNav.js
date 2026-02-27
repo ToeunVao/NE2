@@ -6,16 +6,35 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { Home, BarChart3, Bell, Calendar, BookOpen, Plus } from "lucide-react";
 // Add these Firebase imports
 import { db } from "@/lib/firebase"; 
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
 
 export default function StaffMobileNav({ unreadCount }) {
   const router = useRouter();
   const { staffId, loading } = useStaffAuth();
   const pathname = usePathname();
-const [bookingCount, setBookingCount] = useState(0);
+  const [bookingCount, setBookingCount] = useState(0);
+  const [futureCount, setFutureCount] = useState(0);
 // Replace this with your actual logic to get the logged-in staff ID
   const currentStaffId = "tech_01";
   const isActive = (path) => pathname === path;
+
+  useEffect(() => {
+    // Only fetch bookings from today onwards
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const q = query(
+      collection(db, "appointments"),
+      where("appointmentTimestamp", ">=", Timestamp.fromDate(today))
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setFutureCount(snapshot.size);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
 useEffect(() => {
   const today = new Date().toISOString().split('T')[0];
   const q = query(
@@ -72,19 +91,20 @@ if (!staffId || pathname === "/" || pathname === "/staff/login") {
         {/* Right Side: Exams & Alerts */}
         <div className="flex w-1/2 justify-around pl-4">
          
-<button onClick={() => router.push('/staff/bookings')} className="flex flex-col items-center gap-1 relative">
-  <div className={`p-2 rounded-xl transition-all ${isActive('/staff/bookings') ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
-    <Calendar size={22} strokeWidth={isActive('/staff/bookings') ? 2.5 : 2} />
+<button onClick={() => router.push('/staff/appointments/book')} className="flex flex-col items-center gap-1 relative">
+  <div className={`p-2 rounded-xl transition-all ${isActive('/staff/appointments/book') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+    <Calendar size={22} strokeWidth={isActive('/staff/appointments/book') ? 2.5 : 2} />
   </div>
   
   {/* LIVE BOOKING COUNT BADGE */}
-  {bookingCount > 0 && (
-    <span className="absolute top-2 right-2 min-w-[16px] h-4 bg-red-600 text-white text-[9px] font-black rounded-full border-2 border-white flex items-center justify-center px-1">
-      {bookingCount}
-    </span>
-  )}
+ {/* THE NOTIFICATION BADGE */}
+    {futureCount > 0 && (
+      <span className="absolute -top-2 -right-2 bg-[#db2777] text-white text-[9px] font-black w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm animate-in zoom-in duration-300">
+        {futureCount > 99 ? '99+' : futureCount}
+      </span>
+    )}
   
-  <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/bookings') ? 'text-blue-600' : 'text-slate-400'}`}>My Booking</span>
+  <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/appointments/book') ? 'text-pink-600' : 'text-slate-400'}`}>My Booking</span>
 </button>
  {/* Right Side: Exams & Alerts
           <button onClick={() => router.push('/staff/notifications')} className="flex flex-col items-center gap-1">

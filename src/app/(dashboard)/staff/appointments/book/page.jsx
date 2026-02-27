@@ -5,7 +5,8 @@ import { db } from "@/lib/firebase";
 import { collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, Timestamp, query, where } from "firebase/firestore";
 import Calendar from "react-calendar";
 import 'react-calendar/dist/Calendar.css';
-
+// ADD THIS LINE AT THE TOP
+import { ChevronRight } from "lucide-react";
 export default function CompleteAdminCalendar() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [viewDate, setViewDate] = useState(new Date());
@@ -16,6 +17,8 @@ export default function CompleteAdminCalendar() {
   const [techFilter, setTechFilter] = useState("all");
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+// ADD this near your other useState hooks
+const [viewMode, setViewMode] = useState("calendar"); // calendar or list
 
   const [bookingForm, setBookingForm] = useState({
     name: "", phone: "", email: "", time: "09:00", service: "",
@@ -23,6 +26,13 @@ export default function CompleteAdminCalendar() {
     technician: "Any Technician", 
     notes: ""
   });
+// ADD this useEffect
+useEffect(() => {
+  // Check if screen width is mobile (less than 768px)
+  if (window.innerWidth < 768) {
+    setViewMode("list");
+  }
+}, []);
 
   useEffect(() => {
 
@@ -208,9 +218,15 @@ const triggerBookingNotification = async (bookingData) => {
       <div className="bg-white shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
         <div className="p-4 flex flex-wrap items-center justify-between border-b border-gray-100 gap-4">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="bg-[#db2777] text-white px-4 py-2 text-[11px] font-bold flex items-center gap-2 rounded-lg">
-              List all Booking <span className="bg-[#9d174d] px-2 py-0.5 rounded-md">{futureBookingsCount}</span>
-            </div>
+         
+{/* REPLACE the div with this button */}
+<button 
+  onClick={() => setViewMode(viewMode === 'calendar' ? 'list' : 'calendar')}
+  className="bg-[#db2777] text-white px-4 py-2 text-[11px] font-bold flex items-center gap-2 rounded-lg active:scale-95 transition-transform hover:bg-[#9d174d]"
+>
+  {viewMode === 'calendar' ? 'List all Booking' : 'Show Calendar'}
+  <span className="bg-[#9d174d] px-2 py-0.5 rounded-md">{futureBookingsCount}</span>
+</button>
             <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
               <button onClick={() => setTechFilter("all")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "all" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>All</button>
               <button onClick={() => setTechFilter("Any Technician")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "Any Technician" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>Any Tech</button>
@@ -228,8 +244,10 @@ const triggerBookingNotification = async (bookingData) => {
             <div className="bg-gray-100 px-3 py-2 rounded-md text-[10px] font-black text-gray-500 uppercase">Month Total: <span className="text-pink-600 ml-1">{monthlyCount}</span></div>
           </div>
         </div>
-        <div className="w-full">
-<Calendar 
+{/* REPLACE the <div className="w-full"> containing the Calendar with this: */}
+<div className="w-full">
+  {viewMode === "calendar" ? (
+   <Calendar 
   onChange={(d) => { setSelectedDate(d); setIsModalOpen(true); }} 
   value={selectedDate} 
   activeStartDate={viewDate} 
@@ -281,6 +299,42 @@ const dailyAppts = filteredAppointments.filter(app => {
   return null;
 }}
 />
+  ) : (
+    /* LIST VIEW FOR MOBILE */
+    <div className="p-4 space-y-3 bg-gray-50 min-h-[500px] animate-in fade-in duration-500">
+      {filteredAppointments.length === 0 ? (
+        <div className="p-20 text-center">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No Bookings Found</p>
+        </div>
+      ) : (
+        filteredAppointments
+          .sort((a, b) => b.appointmentTimestamp?.toMillis() - a.appointmentTimestamp?.toMillis())
+          .map((appt) => (
+            <div 
+              key={appt.id} 
+              onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
+              className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
+            >
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-black text-pink-600 uppercase">
+                  {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })} @ {appt.appointmentTimestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+                <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">{appt.name}</h3>
+                <p className="text-[10px] font-bold text-slate-400 italic">
+                  {appt.service || "No service specified"}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className="bg-slate-100 px-2 py-1 rounded text-[8px] font-black text-slate-500 uppercase">
+                  {appt.technician}
+                </span>
+                <ChevronRight size={16} className="text-slate-300" />
+              </div>
+            </div>
+          ))
+      )}
+    </div>
+  )}
 </div>
       </div>
 
@@ -395,14 +449,14 @@ const dailyAppts = filteredAppointments.filter(app => {
         
         <div className="space-y-4">
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Client Details</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-100 pb-1 mb-2">Client Details</h3>
             <p className="text-sm"><strong>Name:</strong> {selectedBooking.name}</p>
             <p className="text-sm"><strong>Phone:</strong> {selectedBooking.phone}</p>
             <p className="text-sm"><strong>Group Size:</strong> {selectedBooking.groupSize || "1"}</p>
           </section>
 
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Appointment Details</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-100 pb-1 mb-2">Appointment Details</h3>
             <p className="text-sm"><strong>Date:</strong> {selectedBooking.appointmentTimestamp?.toDate().toLocaleString()}</p>
             <p className="text-sm"><strong>Services:</strong> {selectedBooking.service || selectedBooking.services || "No service selected"}</p>
             <p className="text-sm"><strong>Technician:</strong> {selectedBooking.technician}</p>
@@ -410,7 +464,7 @@ const dailyAppts = filteredAppointments.filter(app => {
           </section>
 
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Next Appointment</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-100 pb-1 mb-2">Next Appointment</h3>
             <p className="text-pink-500 font-bold">Not scheduled</p>
           </section>
         </div>
