@@ -151,7 +151,7 @@ const summaryStats = useMemo(() => {
   return (
     <div className="max-w-full mx-auto p-4 space-y-6">
         {/* TOP SUMMARY CARDS */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
   
   {/* Today Card */}
   <div className="bg-pink-100 p-5 rounded-xl border border-pink-100 shadow-sm">

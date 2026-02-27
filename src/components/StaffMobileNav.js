@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react"; // <--- Add this line
 import { useRouter, usePathname } from "next/navigation";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
 // Import icons from lucide-react (or your preferred icon library)
 import { Home, BarChart3, Bell, Calendar, BookOpen, Plus } from "lucide-react";
 // Add these Firebase imports
@@ -9,6 +10,7 @@ import { collection, query, where, onSnapshot } from "firebase/firestore";
 
 export default function StaffMobileNav({ unreadCount }) {
   const router = useRouter();
+  const { staffId, loading } = useStaffAuth();
   const pathname = usePathname();
 const [bookingCount, setBookingCount] = useState(0);
 // Replace this with your actual logic to get the logged-in staff ID
@@ -28,6 +30,19 @@ useEffect(() => {
   });
   return () => unsubscribe();
 }, [currentStaffId]);
+
+// 1. Hide while checking auth status
+  if (loading) return null;
+
+  // 2. Hide if no staff is logged in
+  if (!staffId) return null;
+
+  // 3. Optional: Hide on specific public pages (like the login page)
+  const publicPages = ["/login", "/"];
+  if (publicPages.includes(pathname)) return null;
+if (!staffId || pathname === "/" || pathname === "/staff/login") {
+  return null;
+}
 
   return (
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100]">

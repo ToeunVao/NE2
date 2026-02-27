@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/context/ToastContext";
 import { ConfirmProvider } from "@/context/ConfirmContext";
 import StaffMobileNav from "@/components/StaffMobileNav";
+import PWAInstaller from "@/components/PWAInstaller";
 // 1. Setup Playfair
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
         <ToastProvider>
           <ConfirmProvider>
         {children}
+        <PWAInstaller />
         </ConfirmProvider>
         </ToastProvider>
         </ClientWrapper>

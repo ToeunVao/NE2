@@ -201,12 +201,14 @@ const navLinks = isStaffPath ? [
   <div className="flex items-center gap-2 md:hidden">
  
     <div className="flex flex-col">
-      <span className="logo-style text-pink-700 block transition-all text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
+       <Link href="/staff/dashboard" >
+       <span className="logo-style text-pink-700 block transition-all text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
         Nails Express
       </span>
       <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">
         Salon Management System
       </span>
+      </Link>
     </div>
   </div>
 
