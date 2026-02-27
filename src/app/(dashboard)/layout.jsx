@@ -116,7 +116,7 @@ const navLinks = isStaffPath ? [
 ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-slate-950">
       
       {/* --- LEFT SIDEBAR --- */}
  <aside className={`hidden md:block w-64 border-slate-200 bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
@@ -216,7 +216,7 @@ const navLinks = isStaffPath ? [
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar for Notifications/User Profile if needed */}
-<header className="h-20 bg-white/50 backdrop-blur-md border-b border-gray-100 px-6 md:px-10 flex items-center justify-between md:justify-end">
+<header className="h-20 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 md:px-10 flex items-center justify-between md:justify-end transition-colors duration-300">
   {/* MOBILE LOGO: Visible only on small screens, hidden on md and up */}
   <div className="flex items-center gap-2 md:hidden">
  
