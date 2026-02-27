@@ -67,7 +67,7 @@
 }
 
 
-
+@custom-variant dark (&:is(.dark *));
 /* mobile app Prevent accidental text selection on buttons and icons */
 body.modal-open {
   overflow: hidden;

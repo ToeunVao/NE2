@@ -9,6 +9,7 @@ import Sidebar from "@/components/Sidebar";
 import GlobalBookingModal from "@/components/GlobalBookingModal";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useConfirm } from "@/context/ConfirmContext"; // Add this import
+import { Sun, Moon } from "lucide-react"; // Import icons
 
 export default function DashboardLayout({ children }) {
   const { ask } = useConfirm();
@@ -18,8 +19,30 @@ export default function DashboardLayout({ children }) {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+const [isDark, setIsDark] = useState(false);
 
+// Sync with system preference or local storage on load
+  useEffect(() => {
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    } else {
+      document.documentElement.classList.remove('dark');
+      setIsDark(false);
+    }
+  }, []);
 
+  const toggleTheme = () => {
+    if (isDark) {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setIsDark(false);
+    } else {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setIsDark(true);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -211,6 +234,13 @@ const navLinks = isStaffPath ? [
 
   {/* RIGHT SIDE: Notifications */}
   <div className="flex items-center gap-4">
+    <button 
+          onClick={toggleTheme}
+          className="p-2.5 text-slate-600 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all"
+          aria-label="Toggle Dark Mode"
+        >
+          {isDark ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
     <NotificationCenter />
   </div>
 </header>
