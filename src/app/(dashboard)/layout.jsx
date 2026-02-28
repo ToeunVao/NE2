@@ -119,7 +119,7 @@ const navLinks = isStaffPath ? [
     <div className="flex min-h-screen bg-gray-50 dark:bg-slate-950">
       
       {/* --- LEFT SIDEBAR --- */}
- <aside className={`hidden md:block w-64 border-slate-200 bg-white border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
+ <aside className={`hidden md:block w-64 border-slate-200 bg-white dark:bg-slate-950 border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
     isCollapsed ? "w-20" : "w-64"
   }`}>
     

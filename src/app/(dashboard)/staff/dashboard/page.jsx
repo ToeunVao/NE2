@@ -297,7 +297,7 @@ const uniqueClients = new Set(filteredData.map(log =>
 </div>
 
       {/* CHART */}
-<div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
+<div className="dark:bg-slate-950 bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
   <div className="mb-6">
     <h3 className="text-lg font-black text-gray-800 tracking-tighter uppercase">Annual Earnings Trend</h3>
     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -349,7 +349,7 @@ const uniqueClients = new Set(filteredData.map(log =>
 </div>
 
       {/* TABLE */}
-<div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+<div className="dark:bg-slate-950 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
 <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
   {/* Left Side: Title and Count */}
   <h3 className="text-[11px] font-black uppercase text-gray-600 tracking-tight">
@@ -392,7 +392,7 @@ const uniqueClients = new Set(filteredData.map(log =>
 
   {/* LOAD MORE BUTTON */}
   {filteredData.length > visibleCount && (
-    <div className="p-4 bg-white border-t border-gray-50 flex justify-center">
+    <div className="p-4 bg-white dark:bg-slate-950 border-t border-gray-50 flex justify-center">
       <button 
         onClick={() => setVisibleCount(prev => prev + 5)}
         className="px-8 py-2 bg-gray-50 hover:bg-pink-50 text-gray-400 hover:text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-100"

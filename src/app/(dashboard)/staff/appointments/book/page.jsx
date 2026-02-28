@@ -225,7 +225,7 @@ const pastAppointments = filteredAppointments
   .sort((a, b) => b.appointmentTimestamp?.toMillis() - a.appointmentTimestamp?.toMillis());
 
   return (
-    <div className="p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
+    <div className="dark:bg-slate-950 p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
       
       {/* UNIFIED CALENDAR BOX */}
       <div className="bg-white dark:bg-slate-950 shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
@@ -240,7 +240,7 @@ const pastAppointments = filteredAppointments
   {viewMode === 'calendar' ? 'List all Booking' : 'Show Calendar'}
   <span className="bg-[#9d174d] px-2 py-0.5 rounded-md">{futureBookingsCount}</span>
 </button>
-            <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
+            <div className="dark:bg-slate-950 flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
               <button onClick={() => setTechFilter("all")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "all" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>All</button>
               <button onClick={() => setTechFilter("Any Technician")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "Any Technician" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>Any Tech</button>
               {technicians.map(t => (
@@ -283,7 +283,7 @@ const dailyAppts = filteredAppointments.filter(app => {
 
     if (dailyAppts.length > 0) {
       return (
-        <div className="dark:bg-slate-950 flex flex-col gap-1 mt-1 w-full px-1">
+        <div className="flex flex-col gap-1 mt-1 w-full px-1">
           {dailyAppts.map((appt) => (
             <div 
               key={appt.id} 
@@ -314,7 +314,7 @@ const dailyAppts = filteredAppointments.filter(app => {
 />
   ) : (
     /* LIST VIEW FOR MOBILE */
-   <div className="dark:bg-slate-950 p-4 space-y-6 bg-gray-50 min-h-[500px] animate-in fade-in duration-500 pb-32">
+   <div className="dark:bg-slate-950 p-4 space-y-6 bg-gray-50 min-h-[500px] pb-32">
     {filteredAppointments.length === 0 ? (
       <div className="p-20 text-center">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No Bookings Found</p>
