@@ -64,9 +64,9 @@ if (!staffId || pathname === "/" || pathname === "/staff/login") {
 }
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100]">
+    <div className="dark:bg-slate-950 md:hidden fixed bottom-0 left-0 right-0 z-[100]">
       {/* THE NAV CONTAINER */}
-      <div className="relative bg-white/90 backdrop-blur-lg h-20 flex justify-around items-center px-2 shadow-[0_-5px_25px_rgba(0,0,0,0.05)] border-t border-slate-100">
+      <div className="relative dark:bg-slate-950 bg-white/90 backdrop-blur-lg h-20 flex justify-around items-center px-2 shadow-[0_-5px_25px_rgba(0,0,0,0.05)] border-t border-slate-100">
         
         {/* Left Side: Home & Reports */}
         <div className="flex w-1/2 justify-around pr-4">

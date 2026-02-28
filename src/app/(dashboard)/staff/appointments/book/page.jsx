@@ -20,6 +20,8 @@ export default function CompleteAdminCalendar() {
 // ADD this near your other useState hooks
 const [viewMode, setViewMode] = useState("calendar"); // calendar or list
 
+
+
   const [bookingForm, setBookingForm] = useState({
     name: "", phone: "", email: "", time: "09:00", service: "",
     groupSize: 1, bookingType: "Calendar", price: 0, 
@@ -210,12 +212,23 @@ const triggerBookingNotification = async (bookingData) => {
     createdAt: serverTimestamp()
   });
 };
+const now = Date.now();
+
+// Upcoming: Sort soonest first (ascending)
+const upcomingAppointments = filteredAppointments
+  .filter(appt => appt.appointmentTimestamp?.toMillis() >= now)
+  .sort((a, b) => a.appointmentTimestamp?.toMillis() - b.appointmentTimestamp?.toMillis());
+
+// Past: Sort most recent first (descending)
+const pastAppointments = filteredAppointments
+  .filter(appt => appt.appointmentTimestamp?.toMillis() < now)
+  .sort((a, b) => b.appointmentTimestamp?.toMillis() - a.appointmentTimestamp?.toMillis());
 
   return (
     <div className="p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
       
       {/* UNIFIED CALENDAR BOX */}
-      <div className="bg-white shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
+      <div className="bg-white dark:bg-slate-950 shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
         <div className="p-4 flex flex-wrap items-center justify-between border-b border-gray-100 gap-4">
           <div className="flex items-center gap-3 flex-wrap">
          
@@ -245,7 +258,7 @@ const triggerBookingNotification = async (bookingData) => {
           </div>
         </div>
 {/* REPLACE the <div className="w-full"> containing the Calendar with this: */}
-<div className="w-full">
+<div className="w-full dark:bg-slate-950">
   {viewMode === "calendar" ? (
    <Calendar 
   onChange={(d) => { setSelectedDate(d); setIsModalOpen(true); }} 
@@ -270,7 +283,7 @@ const dailyAppts = filteredAppointments.filter(app => {
 
     if (dailyAppts.length > 0) {
       return (
-        <div className="flex flex-col gap-1 mt-1 w-full px-1">
+        <div className="dark:bg-slate-950 flex flex-col gap-1 mt-1 w-full px-1">
           {dailyAppts.map((appt) => (
             <div 
               key={appt.id} 
@@ -301,39 +314,85 @@ const dailyAppts = filteredAppointments.filter(app => {
 />
   ) : (
     /* LIST VIEW FOR MOBILE */
-    <div className="p-4 space-y-3 bg-gray-50 min-h-[500px] animate-in fade-in duration-500">
-      {filteredAppointments.length === 0 ? (
-        <div className="p-20 text-center">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No Bookings Found</p>
-        </div>
-      ) : (
-        filteredAppointments
-          .sort((a, b) => b.appointmentTimestamp?.toMillis() - a.appointmentTimestamp?.toMillis())
-          .map((appt) => (
-            <div 
-              key={appt.id} 
-              onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
-              className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
-            >
-              <div className="flex flex-col gap-1">
-                <p className="text-[10px] font-black text-pink-600 uppercase">
-                  {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })} @ {appt.appointmentTimestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">{appt.name}</h3>
-                <p className="text-[10px] font-bold text-slate-400 italic">
-                  {appt.service || "No service specified"}
-                </p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <span className="bg-slate-100 px-2 py-1 rounded text-[8px] font-black text-slate-500 uppercase">
-                  {appt.technician}
-                </span>
-                <ChevronRight size={16} className="text-slate-300" />
-              </div>
+   <div className="dark:bg-slate-950 p-4 space-y-6 bg-gray-50 min-h-[500px] animate-in fade-in duration-500 pb-32">
+    {filteredAppointments.length === 0 ? (
+      <div className="p-20 text-center">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No Bookings Found</p>
+      </div>
+    ) : (
+      <>
+        {/* ==========================================
+            1. UPCOMING SECTION
+           ========================================== */}
+        {upcomingAppointments.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Upcoming Appointments</h2>
             </div>
-          ))
-      )}
-    </div>
+            {upcomingAppointments.map((appt) => (
+              <div 
+                key={appt.id} 
+                onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
+                className="bg-white p-4 rounded-xl border border-pink-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
+              >
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-black text-pink-600 uppercase">
+                    {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })} @ {appt.appointmentTimestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                  <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">{appt.name}</h3>
+                  <p className="text-[10px] font-bold text-slate-400 italic">
+                    {appt.service || "No service specified"}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="bg-pink-50 px-2 py-1 rounded-lg text-[8px] font-black text-pink-600 uppercase border border-pink-100">
+                    {appt.technician}
+                  </span>
+                  <ChevronRight size={16} className="text-slate-300" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ==========================================
+            2. PAST SECTION
+           ========================================== */}
+        {pastAppointments.length > 0 && (
+          <div className="space-y-3 pt-4">
+            <div className="flex items-center gap-2 px-1 opacity-50">
+              <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Past History</h2>
+            </div>
+            {pastAppointments.map((appt) => (
+              <div 
+                key={appt.id} 
+                onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
+                className="bg-white/60 p-4 rounded-xl border border-slate-100 shadow-none flex items-center justify-between active:scale-[0.98] transition-transform opacity-70"
+              >
+                <div className="flex flex-col gap-1 text-slate-500">
+                  <p className="text-[10px] font-black uppercase text-slate-400">
+                    {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                  </p>
+                  <h3 className="font-bold text-slate-600 text-sm uppercase tracking-tight">{appt.name}</h3>
+                  <p className="text-[9px] font-medium italic">
+                    {appt.service}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className="bg-slate-50 px-2 py-1 rounded text-[8px] font-black text-slate-400 uppercase border border-slate-200">
+                    {appt.technician}
+                  </span>
+                  <ChevronRight size={14} className="text-slate-300" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )}
+  </div>
   )}
 </div>
       </div>
