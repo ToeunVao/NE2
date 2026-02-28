@@ -21,7 +21,12 @@ const inter = Inter({
 export const metadata = {
   title: "Nails Express - Management System",
   description: "A management system for Nails Express salon.",
+  // ADD THIS: This helps browsers recognize it's a PWA
+  manifest: "/manifest.json", 
+  themeColor: "#db2777",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
