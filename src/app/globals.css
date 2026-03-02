@@ -23,7 +23,16 @@
           background: white;
         }
         .old-app-input:focus { border-color: #be185d; ring: 2px; ring-color: #fce4ec; }
-      
+ html, body {
+  /* Prevents the 'bounce' effect on iOS and extra zooming */
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+/* Prevents iOS from zooming in when clicking on Input fields */
+input, textarea, select {
+  font-size: 16px !important; 
+}     
 .logo-style {
     /* Using the CSS variable from our Next.js font setup */
     font-family: var(--font-playfair), 'Playfair Display', serif;

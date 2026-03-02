@@ -299,15 +299,15 @@ export default function BoardExamDashboard() {
   if (loading) return <div className="p-20 text-center font-black text-pink-500 animate-pulse text-xs tracking-widest uppercase">Syncing Dashboard...</div>;
 
   return (
-    <div className="min-h-screen bg-[#fafafa] pb-32 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen dark:bg-slate-950  bg-[#fafafa] pb-32 font-sans relative overflow-x-hidden">
       {activeModal === 'learn' && <LearnTheoryModal onClose={() => setActiveModal(null)} />}
       {activeModal === 'live' && <LiveExamModal staffId={staffId} onClose={() => setActiveModal(null)} />}
 
       {/* STICKY APP HEADER */}
-      <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 p-6">
+      <div className="sticky top-0 z-40 dark:bg-slate-900/80 dark:border-slate-800 bg-white/80 backdrop-blur-md border-b border-slate-100 p-6">
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tighter">Exam Prep</h1>
+            <h1 className="text-2xl font-black dark:text-white text-slate-900 tracking-tighter">Exam Prep</h1>
             <p className="text-[10px] font-black text-[#db2777] uppercase tracking-widest">State Board Portal</p>
           </div>
           <div className="bg-pink-50 px-3 py-1 rounded-lg border border-pink-100">
@@ -320,42 +320,42 @@ export default function BoardExamDashboard() {
         
         {/* NATIVE STYLE STATS CARDS */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="bg-white dark:bg-slate-900/80 dark:border-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
             <div className="w-10 h-10 bg-pink-50 rounded-lg flex items-center justify-center text-[#db2777] flex-shrink-0">
               <Award size={20} />
             </div>
             <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight leading-none">Avg Score</p>
-              <p className="text-xl font-black text-slate-900 mt-1 leading-none">{stats.avg}%</p>
+              <p className="text-[8px] dark:text-white font-black text-slate-400 uppercase tracking-tight leading-none">Avg Score</p>
+              <p className="text-xl font-black dark:text-white text-slate-900 mt-1 leading-none">{stats.avg}%</p>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
+          <div className="bg-white dark:bg-slate-900/80 dark:border-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 flex-shrink-0">
               <ClipboardList size={20} />
             </div>
             <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-tight leading-none">Tests Taken</p>
-              <p className="text-xl font-black text-slate-900 mt-1 leading-none">{stats.count}</p>
+              <p className="text-[8px] dark:text-white font-black text-slate-400 uppercase tracking-tight leading-none">Tests Taken</p>
+              <p className="text-xl font-black dark:text-white text-slate-900 mt-1 leading-none">{stats.count}</p>
             </div>
           </div>
         </div>
 
         {/* MAIN ACTIONS */}
         <div className="space-y-3">
-          <button onClick={() => setActiveModal('learn')} className="w-full bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 active:scale-95 transition-all">
+          <button onClick={() => setActiveModal('learn')} className="w-full dark:bg-slate-900/80 dark:border-slate-800 bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 active:scale-95 transition-all">
             <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600"><BookOpen size={24}/></div>
             <div className="text-left flex-1">
-              <h3 className="font-black text-slate-900 uppercase text-xs tracking-tight">Learn Theory</h3>
+              <h3 className="font-black  dark:text-white text-slate-900 uppercase text-xs tracking-tight">Learn Theory</h3>
               <p className="text-[10px] font-bold text-slate-400">Study mode with instant answers</p>
             </div>
             <ChevronRight size={16} className="text-slate-300" />
           </button>
 
-          <button onClick={() => setActiveModal('live')} className="w-full bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 active:scale-95 transition-all">
+          <button onClick={() => setActiveModal('live')} className="w-full dark:bg-slate-900/80 dark:border-slate-800 bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 active:scale-95 transition-all">
             <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center text-[#db2777]"><Timer size={24}/></div>
             <div className="text-left flex-1">
-              <h3 className="font-black text-slate-900 uppercase text-xs tracking-tight">Live Exam Test</h3>
+              <h3 className="font-black  dark:text-white text-slate-900 uppercase text-xs tracking-tight">Live Exam Test</h3>
               <p className="text-[10px] font-bold text-slate-400">Timed simulation for state board</p>
             </div>
             <ChevronRight size={16} className="text-slate-300" />
@@ -369,14 +369,14 @@ export default function BoardExamDashboard() {
             <div className="h-[1px] flex-1 bg-slate-100 mx-4"></div>
           </div>
           
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden mb-10">
+          <div className="bg-white rounded-xl border dark:bg-slate-900/80 dark:border-slate-800 border-slate-100 shadow-sm divide-y divide-slate-50 overflow-hidden mb-10">
             {history.length === 0 ? (
               <div className="p-10 text-center">
                 <p className="text-[10px] font-bold text-slate-300 uppercase italic">No activity recorded</p>
               </div>
             ) : (
               history.map((item, i) => (
-                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div key={i} className="p-4 flex items-center dark:border-slate-8 justify-between hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.score >= 75 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
                       {item.score >= 75 ? <CheckCircle2 size={18}/> : <X size={18}/>}

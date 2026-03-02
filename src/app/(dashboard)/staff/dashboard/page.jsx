@@ -222,12 +222,12 @@ const uniqueClients = new Set(filteredData.map(log =>
       {/* HEADER & DATE FILTER (IMAGE STYLE) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-gray-800 uppercase tracking-tighter">My Performance</h1>
+          <h1 className="text-2xl font-black text-gray-800 uppercase tracking-tighter dark:text-white">My Performance</h1>
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Welcome {realName} !</p>
         </div>
 
         {/* --- DATE FILTER BAR (MATCHES IMAGE) --- */}
-        <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 dark:bg-slate-900/80 dark:border-slate-800 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 px-2">
             <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
             <input 
@@ -297,7 +297,7 @@ const uniqueClients = new Set(filteredData.map(log =>
 </div>
 
       {/* CHART */}
-<div className="dark:bg-slate-950 bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
+<div className="dark:bg-slate-900/80 dark:border-slate-800 bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
   <div className="mb-6">
     <h3 className="text-lg font-black text-gray-800 tracking-tighter uppercase">Annual Earnings Trend</h3>
     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -349,8 +349,8 @@ const uniqueClients = new Set(filteredData.map(log =>
 </div>
 
       {/* TABLE */}
-<div className="dark:bg-slate-950 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-<div className="p-4 bg-gray-50/50 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
+<div className="dark:bg-slate-900/80 dark:border-slate-800 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+<div className="p-4 bg-gray-50/50 border-b dark:bg-slate-900/80 dark:border-slate-800 border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-2">
   {/* Left Side: Title and Count */}
   <h3 className="text-[11px] font-black uppercase text-gray-600 tracking-tight">
     My Earning Details <span className="ml-2 text-pink-500 font-black">({report.count} Clients)</span>
@@ -369,7 +369,7 @@ const uniqueClients = new Set(filteredData.map(log =>
   </div>
 </div>
   <table className="w-full text-left">
-    <thead className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 bg-white">
+    <thead className="text-[10px] font-black text-gray-400 uppercase dark:bg-slate-900/80 dark:border-slate-80 border-b border-gray-50 bg-white">
       <tr>
         <th className="px-6 py-4">Date</th>
         <th className="px-6 py-4">Service</th>
@@ -377,7 +377,7 @@ const uniqueClients = new Set(filteredData.map(log =>
         <th className="px-6 py-4 text-right">Tip</th>
       </tr>
     </thead>
-    <tbody className="divide-y divide-gray-50 font-bold text-gray-600">
+    <tbody className="divide-y divide-gray-50 font-bold text-gray-600 dark:border-slate-800">
       {/* We slice the data here to only show the visibleCount */}
       {filteredData.slice().reverse().slice(0, visibleCount).map((log) => (
         <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">

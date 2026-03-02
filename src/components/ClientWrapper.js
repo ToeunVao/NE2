@@ -1,4 +1,6 @@
 "use client";
+import { AuthProvider } from "@/context/AuthContext";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase"; 
@@ -22,10 +24,11 @@ return (
   <div className="flex flex-col min-h-screen">
     {/* This container holds your pages */}
     <div className="flex-1 px-4 md:px-0"> 
+      <AuthProvider>
       {children}
+      </AuthProvider>
     </div>
-    
-    {currentStaffId && <StaffMobileNav currentStaffId={currentStaffId} />}
+    {/*currentStaffId && <StaffMobileNav currentStaffId={currentStaffId} /> */}
   </div>
 );
 }

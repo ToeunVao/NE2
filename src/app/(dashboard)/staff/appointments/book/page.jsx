@@ -228,8 +228,8 @@ const pastAppointments = filteredAppointments
     <div className="dark:bg-slate-950 p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
       
       {/* UNIFIED CALENDAR BOX */}
-      <div className="bg-white dark:bg-slate-950 shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
-        <div className="p-4 flex flex-wrap items-center justify-between border-b border-gray-100 gap-4">
+      <div className="bg-white dark:bg-slate-950 dark:border-slate-800 shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
+        <div className="p-4 flex flex-wrap items-center justify-between border-b border-gray-100 dark:border-slate-800 gap-4">
           <div className="flex items-center gap-3 flex-wrap">
          
 {/* REPLACE the div with this button */}
@@ -334,13 +334,13 @@ const dailyAppts = filteredAppointments.filter(app => {
               <div 
                 key={appt.id} 
                 onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
-                className="bg-white p-4 rounded-xl border border-pink-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
+                className="bg-white dark:bg-slate-900/80  dark:border-slate-800 p-4 rounded-xl border border-pink-100 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform"
               >
                 <div className="flex flex-col gap-1">
                   <p className="text-[10px] font-black text-pink-600 uppercase">
                     {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })} @ {appt.appointmentTimestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <h3 className="font-black text-slate-900 text-sm uppercase tracking-tight">{appt.name}</h3>
+                  <h3 className="font-black dark:text-white  text-slate-900 text-sm uppercase tracking-tight">{appt.name}</h3>
                   <p className="text-[10px] font-bold text-slate-400 italic">
                     {appt.service || "No service specified"}
                   </p>
@@ -369,13 +369,13 @@ const dailyAppts = filteredAppointments.filter(app => {
               <div 
                 key={appt.id} 
                 onClick={() => { setSelectedBooking(appt); setIsDetailModalOpen(true); }}
-                className="bg-white/60 p-4 rounded-xl border border-slate-100 shadow-none flex items-center justify-between active:scale-[0.98] transition-transform opacity-70"
+                className="bg-white/60 dark:bg-slate-900/80 dark:border-slate-800 p-4 rounded-xl border border-slate-100 shadow-none flex items-center justify-between active:scale-[0.98] transition-transform opacity-70"
               >
                 <div className="flex flex-col gap-1 text-slate-500">
                   <p className="text-[10px] font-black uppercase text-slate-400">
                     {appt.appointmentTimestamp?.toDate().toLocaleDateString([], { month: 'short', day: 'numeric' })}
                   </p>
-                  <h3 className="font-bold text-slate-600 text-sm uppercase tracking-tight">{appt.name}</h3>
+                  <h3 className="font-bold  dark:text-white text-slate-600 text-sm uppercase tracking-tight">{appt.name}</h3>
                   <p className="text-[9px] font-medium italic">
                     {appt.service}
                   </p>

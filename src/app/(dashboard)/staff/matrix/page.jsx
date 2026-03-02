@@ -184,7 +184,7 @@ const summaryStats = useMemo(() => {
 
 </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white dark:bg-slate-950 dark:border-slate-800 p-6 rounded-xl shadow-sm border border-gray-100">
         
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -192,8 +192,8 @@ const summaryStats = useMemo(() => {
             Individual Earning Matrix
           </h1>
 
-          <div className="flex flex-wrap items-center gap-4 bg-gray-50 p-2 rounded-xl border border-gray-100">
-            <div className="flex items-center gap-1 bg-white p-1 rounded-lg shadow-sm">
+          <div className="flex flex-wrap items-center dark:bg-slate-900/80 dark:border-slate-800 gap-4 bg-gray-50 p-2 rounded-xl border border-gray-100">
+            <div className="flex items-center gap-1 bg-white p-1 dark:bg-slate-900/80 dark:border-slate-800 rounded-lg shadow-sm">
               <span className="text-[10px] font-black uppercase text-gray-400 px-2">Show:</span>
               <button
                 onClick={() => setViewType("earning")}
@@ -216,7 +216,7 @@ const summaryStats = useMemo(() => {
         </div>
 
         {/* Matrix Table */}
-        <div className="overflow-x-auto border border-gray-100 rounded-xl">
+        <div className="overflow-x-auto border border-gray-100  dark:border-slate-800 rounded-xl">
           <table className="min-w-full text-xs text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-pink-600 text-white text-[10px] font-black uppercase">
@@ -236,8 +236,8 @@ const summaryStats = useMemo(() => {
                 const monthlyTotal = matrixData[monthIdx].reduce((acc, curr) => acc + curr, 0);
 
                 return (
-                  <tr key={monthName} className="border-b border-gray-50">
-                    <td className="p-3 font-black text-gray-700 bg-white sticky left-0 border-r border-gray-100 shadow-sm z-10 uppercase">
+                  <tr key={monthName} className="border-b  border-gray-50 dark:border-slate-800">
+                    <td className="p-3 font-black text-gray-700 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white bg-white sticky left-0 border-r border-gray-100 shadow-sm z-10 uppercase">
                       {monthName}
                     </td>
                     
@@ -245,7 +245,7 @@ const summaryStats = useMemo(() => {
                       const val = matrixData[monthIdx][dayNum];
                       
                       // Base classes for every td
-                      let tdClass = "p-1 border-r border-gray-50 text-center ";
+                      let tdClass = "p-1 border-r dark:border-slate-800 border-gray-50 text-center dark:bg-slate-900/80 ";
                       
                       // Add specific classes to TD if value exists
                       if (val > 0) {
@@ -262,7 +262,7 @@ const summaryStats = useMemo(() => {
                     })}
 
                     {/* Total Column Cell */}
-                    <td className="p-1 text-center bg-gray-50 font-black text-gray-800 border-l-2 border-gray-200">
+                    <td className="p-1 text-center bg-gray-50 font-black text-gray-800 border-l-2 border-gray-200 dark:bg-slate-900/80 dark:text-white dark:border-slate-800">
   {monthlyTotal > 0 ? `$${monthlyTotal.toFixed(2)}` : "$0.00"}
 </td>
                   </tr>

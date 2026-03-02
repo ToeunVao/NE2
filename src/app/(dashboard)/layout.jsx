@@ -7,7 +7,7 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import Sidebar from "@/components/Sidebar";
 import GlobalBookingModal from "@/components/GlobalBookingModal";
-import NotificationCenter from "@/components/NotificationCenter";
+import Header from "@/components/Header";
 import { useConfirm } from "@/context/ConfirmContext"; // Add this import
 import { Sun, Moon } from "lucide-react"; // Import icons
 
@@ -19,31 +19,6 @@ export default function DashboardLayout({ children }) {
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
-const [isDark, setIsDark] = useState(false);
-
-// Sync with system preference or local storage on load
-  useEffect(() => {
-    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    if (isDark) {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-      setIsDark(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-      setIsDark(true);
-    }
-  };
-
   useEffect(() => {
     setMounted(true);
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -216,34 +191,7 @@ const navLinks = isStaffPath ? [
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar for Notifications/User Profile if needed */}
-<header className="h-20 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 md:px-10 flex items-center justify-between md:justify-end transition-colors duration-300">
-  {/* MOBILE LOGO: Visible only on small screens, hidden on md and up */}
-  <div className="flex items-center gap-2 md:hidden">
- 
-    <div className="flex flex-col">
-       <Link href="/staff/dashboard" >
-       <span className="logo-style text-pink-700 block transition-all text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
-        Nails Express
-      </span>
-      <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">
-        Salon Management System
-      </span>
-      </Link>
-    </div>
-  </div>
-
-  {/* RIGHT SIDE: Notifications */}
-  <div className="flex items-center gap-4">
-    <button 
-          onClick={toggleTheme}
-          className="p-2.5 text-slate-600 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all"
-          aria-label="Toggle Dark Mode"
-        >
-          {isDark ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-    <NotificationCenter />
-  </div>
-</header>
+<Header />
 
         <div className="min-h-screen px-0 md:px-0 pb-24 md:pb-0 overflow-y-auto">
           {children}

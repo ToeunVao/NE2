@@ -189,10 +189,10 @@ const handleCheckIn = async () => {
   }
 };
   return (
-    <div className="p-4 max-w-[1400px] mx-auto min-h-screen relative bg-[#f9fafb]">
+    <div className="p-4 max-w-[1400px] mx-auto min-h-screen relative dark:bg-slate-900/80 bg-[#f9fafb]">
       
       {/* UNIFIED CALENDAR BOX */}
-      <div className="bg-white shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
+      <div className="bg-white dark:bg-slate-900/80 dark:border-slate-800 shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={br}>
         <div className="p-4 flex flex-wrap items-center justify-between border-b border-gray-100 gap-4">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="bg-[#db2777] text-white px-4 py-2 text-[11px] font-bold flex items-center gap-2 rounded-lg">

@@ -436,7 +436,7 @@ const handleActivate = async (id) => {
     SIMPLE GIFT CARD CREATOR 
 ======================= */}
 <div className="mx-auto mb-12">
-    <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+    <div className="bg-white p-8 rounded-xl shadow-sm border dark:bg-slate-900/80 dark:border-slate-800 border-gray-100">
         <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center">
                 <i className="fas fa-plus text-pink-500 text-xl"></i>
@@ -446,7 +446,7 @@ const handleActivate = async (id) => {
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Enter details to generate new cards</p>
             </div>
         </div>
- <hr className="mb-3 border-gray-100" />
+ <hr className="mb-3 border-gray-100 dark:border-slate-800" />
       {/* Redesigned Input Grid */}
 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
       {/* Row 1: Names with Autocomplete */}
@@ -458,7 +458,7 @@ const handleActivate = async (id) => {
             value={form.recipient} 
             onChange={e => setForm({...form, recipient: e.target.value})} 
             placeholder="To clients"
-            className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+            className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
         />
     </div>
     <div className="space-y-1.5">
@@ -469,7 +469,7 @@ const handleActivate = async (id) => {
             value={form.sender} 
             onChange={e => setForm({...form, sender: e.target.value})} 
             placeholder="From clients"
-            className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+            className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
         />
     </div>
 
@@ -477,11 +477,11 @@ const handleActivate = async (id) => {
     {/* Row 2: Qty & Amount */}
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
-        <input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
+        <input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
     </div>
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Amount ($)</label>
-        <input type="number" placeholder="50"  value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
+        <input type="number" placeholder="50"  value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
     </div>
 
 
@@ -500,7 +500,7 @@ const handleActivate = async (id) => {
             setForm({...form, code: val});
         }} 
         placeholder="000001"
-        className="w-full p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+        className="w-full p-4 bg-gray-50 rounded-xl dark:bg-slate-900/80 dark:border-slate-800 text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
     />
     {giftCards.some(c => c.code.toLowerCase() === form.code.trim().toLowerCase()) && form.code !== "" && (
         <p className="text-[10px] text-red-500 font-bold ml-1 uppercase">
@@ -585,7 +585,7 @@ const handleActivate = async (id) => {
     </div>
   )}
 
-      <hr className="border-gray-100" />
+      <hr className="border-gray-100 dark:border-slate-800" />
 
       {/* =======================
           REGISTRY TABLE 
@@ -593,12 +593,12 @@ const handleActivate = async (id) => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-black text-gray-800 uppercase italic">Gift Card Registry</h2>
-            <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white border rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
+            <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white dark:bg-slate-900/80 dark:border-slate-80 border rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden text-nowrap overflow-x-auto">
+        <div className="bg-white rounded-xl border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 shadow-sm overflow-hidden text-nowrap overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-400">
+            <thead className="bg-gray-50 text-[10px] uppercase dark:bg-slate-900/80 font-black text-gray-400">
               <tr>
                 <th className="px-6 py-4">Created</th>
                 <th className="px-6 py-4">Code</th>
@@ -613,7 +613,7 @@ const handleActivate = async (id) => {
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs font-bold text-gray-600">
               {filteredCards.length > 0 ? filteredCards.map((card) => (
-                <tr key={card.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={card.id} className="hover:bg-gray-50 transition-colors dark:border-slate-800">
                   <td className="px-6 py-4">{card.createdAt?.seconds ? new Date(card.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-6 py-4 font-mono text-pink-600">{card.code}</td>
                   <td className="px-6 py-4 text-gray-900 font-black">${Number(card.balance).toFixed(2)}</td>
@@ -680,7 +680,7 @@ const handleActivate = async (id) => {
       ======================= */}
       {selectedCard && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+          <div className="bg-white dark:border-slate-800 w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
             
             {/* Header */}
             <div className="bg-gray-900 p-6 text-white flex justify-between items-center shrink-0">
@@ -704,7 +704,7 @@ const handleActivate = async (id) => {
             <div className="flex flex-col lg:flex-row overflow-hidden flex-1">
               
               {/* Left Column: Quick Redeem & Edit Form */}
-              <div className="p-6 space-y-6 lg:w-2/5 border-r border-gray-100 overflow-y-auto">
+              <div className="dark:bg-slate-900/80 p-6 space-y-6 lg:w-2/5 border-r border-gray-100 overflow-y-auto">
                 
                 {isEditingCode ? (
             <div className="flex gap-2">
@@ -719,7 +719,7 @@ const handleActivate = async (id) => {
             </div>
         ) : (
             <div className="flex justify-between items-center">
-                <span className="text-lg font-black text-gray-800">{selectedCard.code}</span>
+                <span className="text-lg font-black text-gray-800 dark:text-white">{selectedCard.code}</span>
                 <button 
                     onClick={() => { setIsEditingCode(true); setNewCodeInput(selectedCard.code); }}
                     className="text-pink-500 hover:text-pink-600 text-xs font-bold uppercase"
@@ -819,7 +819,7 @@ const handleActivate = async (id) => {
               </div>
 
               {/* Right Column: History */}
-              <div className="p-6 lg:w-3/5 bg-gray-50 flex flex-col overflow-hidden">
+              <div className="p-6 lg:w-3/5 bg-gray-50 flex flex-col overflow-hidden dark:bg-slate-900/80 border">
                 <h4 className="text-[10px] font-black text-gray-400 uppercase mb-4 flex items-center gap-2">
                   <i className="fas fa-history text-pink-500"></i> Transaction History
                 </h4>

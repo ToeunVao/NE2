@@ -3,8 +3,10 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/context/ToastContext";
 import { ConfirmProvider } from "@/context/ConfirmContext";
+import MobileNavApp from "@/components/MobileNavApp";
 import PWAInstaller from "@/components/PWAInstaller";
 import PWAHandler from "@/components/PWAHandler";
+import { ThemeProvider } from "@/context/ThemeContext";
 // 1. Setup Playfair
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -26,6 +28,14 @@ export const metadata = {
   themeColor: "#db2777",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
+// Add this exported viewport configuration
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1, // Prevents zooming in
+  userScalable: false, // Disables pinch-to-zoom
+  viewportFit: "cover", // Ensures content fills the screen (good for iPhones with notches)
+};
 
 export default function RootLayout({ children }) {
   return (
@@ -42,15 +52,18 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className="font-sans bg-white dark:bg-slate-950 transition-colors duration-500"> 
+        <ThemeProvider>
         <PWAHandler />
         <ClientWrapper>
         <ToastProvider>
           <ConfirmProvider>
         {children}
         <PWAInstaller />
+        <MobileNavApp />
         </ConfirmProvider>
         </ToastProvider>
         </ClientWrapper>
+          </ThemeProvider>
       </body>
     </html>
   );

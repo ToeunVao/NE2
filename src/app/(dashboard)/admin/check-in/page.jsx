@@ -357,10 +357,10 @@ const renderSubCategoryOverlay = () => {
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 font-sans">
-      <div className="bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900/80 dark:border-slate-800 border border-gray-100 rounded-lg shadow-sm overflow-hidden">
         
 {/* INNER NAV */}
-<div className="flex bg-gray-50/50 p-3 gap-2 border-b border-gray-100">
+<div className="flex dark:bg-slate-900/80 dark:border-slate-800 bg-gray-50/50 p-3 gap-2 border-b border-gray-100">
   {["Check In", "Active Queue", "Processing", "Finished Clients", "Waitlist"].map((tab) => {
     // Calculate counts based on status
     const waitingCount = queue.filter(i => i.status === "waiting").length;
@@ -439,7 +439,7 @@ const renderSubCategoryOverlay = () => {
 
               {/* SECTION 2: CATEGORIES */}
               <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-gray-50 pb-2">
+                <div className="flex items-center dark:border-slate-800 justify-between border-b border-gray-50 pb-2">
                   <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Select Your Services</h3>
                   <div className="flex flex-wrap gap-1">
                     {selectedServices.map((s, i) => (
@@ -456,7 +456,7 @@ const renderSubCategoryOverlay = () => {
       const fullCategory = categories.find(c => c.id === cat.id);
       setActiveCategory(fullCategory);
     }} 
-    className="relative p-5 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
+    className="relative p-5 dark:border-slate-800 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
   >
                         {getSelectedCountForCategory(cat) > 0 && (
                           <div className="absolute top-2 right-2 w-5 h-5 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-md" style={{ backgroundColor: brandColor }}>
@@ -471,7 +471,7 @@ const renderSubCategoryOverlay = () => {
               </div>
 
               {/* SECTION 3: POLICY & CHECK IN */}
-              <div className="flex flex-col items-center gap-6 pt-6 border-t border-gray-50">
+              <div className="flex dark:border-slate-800 flex-col items-center gap-6 pt-6 border-t border-gray-50">
                 <div className="flex items-center gap-3">
                   <input 
                     type="checkbox" 
@@ -1062,7 +1062,7 @@ const renderSubCategoryOverlay = () => {
       const fullCategory = categories.find(c => c.id === cat.id);
       setActiveCategory(fullCategory);
     }} 
-    className="relative p-5 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
+    className="relative p-5 dark:border-slate-800 border border-gray-100 rounded-xl text-center cursor-pointer hover:bg-gray-50 transition-all group"
   >
                   {getSelectedCountForCategory(cat) > 0 && (
                     <div className="absolute top-2 right-2 w-5 h-5 bg-pink-600 text-white rounded-lg flex items-center justify-center text-[9px] font-black shadow-md">
@@ -1154,7 +1154,7 @@ function InputItem({ label, value, onChange, placeholder }) {
       <input 
         value={value} 
         onChange={e => onChange(e.target.value)} 
-        className="w-full p-4 bg-gray-50 border border-transparent rounded-lg text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100" 
+        className="w-full p-4 bg-gray-50 border dark:bg-slate-900/80 dark:border-slate-800 border-transparent rounded-lg text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100" 
         placeholder={placeholder} 
       />
     </div>
@@ -1168,7 +1168,7 @@ function SelectItem({ label, value, onChange, options }) {
       <select 
         value={value} 
         onChange={e => onChange(e.target.value)} 
-        className="w-full p-4 bg-gray-50 border border-transparent rounded-lg text-sm font-bold text-gray-700 outline-none cursor-pointer"
+        className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 border border-transparent rounded-lg text-sm font-bold text-gray-700 outline-none cursor-pointer"
       >
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
