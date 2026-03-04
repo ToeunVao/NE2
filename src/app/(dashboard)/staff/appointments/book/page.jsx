@@ -266,7 +266,7 @@ const pastAppointments = filteredAppointments
   activeStartDate={viewDate} 
   onActiveStartDateChange={({ activeStartDate }) => setViewDate(activeStartDate)} 
   showNavigation={false} 
-  className="unified-salon-calendar"
+  className="unified-salon-calendar "
   
 // ... inside your Calendar component
 tileContent={({ date, view }) => {
@@ -283,7 +283,7 @@ const dailyAppts = filteredAppointments.filter(app => {
 
     if (dailyAppts.length > 0) {
       return (
-        <div className="flex flex-col gap-1 mt-1 w-full px-1">
+        <div className="flex flex-col gap-1 mt-1 w-full px-1 ">
           {dailyAppts.map((appt) => (
             <div 
               key={appt.id} 
@@ -292,7 +292,7 @@ const dailyAppts = filteredAppointments.filter(app => {
                 setSelectedBooking(appt);
                 setIsDetailModalOpen(true);
               }}
-              className="bg-blue-50 text-blue-700 border border-blue-100 p-1 rounded text-[9px] font-bold cursor-pointer hover:bg-blue-100"
+              className="bg-blue-50  text-blue-700 border border-blue-100 p-1 rounded text-[9px] font-bold cursor-pointer hover:bg-blue-100"
             >
               {/* Line 1: Time and Name */}
               <div className="truncate">

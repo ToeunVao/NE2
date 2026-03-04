@@ -94,14 +94,14 @@ const navLinks = isStaffPath ? [
     <div className="flex min-h-screen bg-gray-50 dark:bg-slate-950">
       
       {/* --- LEFT SIDEBAR --- */}
- <aside className={`hidden md:block w-64 border-slate-200 bg-white dark:bg-slate-950 border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
+ <aside className={`hidden md:block border-slate-200 dark:border-slate-800  bg-white dark:bg-slate-950 border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
     isCollapsed ? "w-20" : "w-64"
   }`}>
     
     {/* Toggle Button */}
     <button 
       onClick={() => setIsCollapsed(!isCollapsed)}
-      className="absolute -right-3 top-10 bg-white border border-gray-100 rounded-full w-6 h-6 flex items-center justify-center text-[10px] text-pink-600 shadow-sm cursor-pointer hover:bg-pink-50 z-50"
+      className="absolute -right-3 top-10 bg-white border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 rounded-full w-6 h-6 flex items-center justify-center text-[10px] text-pink-600 shadow-sm cursor-pointer hover:bg-pink-50 z-50"
     >
       <i className={`fas ${isCollapsed ? "fa-chevron-right" : "fa-chevron-left"}`}></i>
     </button> 
@@ -165,7 +165,7 @@ const navLinks = isStaffPath ? [
           } ${
             pathname === link.href 
             ? "bg-pink-600 text-white shadow-lg shadow-pink-100" 
-            : "text-gray-400 hover:bg-gray-50 hover:text-pink-600"
+            : "text-gray-400 hover:bg-gray-50 hover:text-pink-600 "
           }`}
         >
           <i className={`fas ${link.icon} text-lg`}></i>
@@ -176,7 +176,7 @@ const navLinks = isStaffPath ? [
   ))}
 </nav>
        {/* Footer (Logout) */}
-    <div className={`p-4 border-t border-gray-50 space-y-4 ${isCollapsed ? "items-center" : ""}`}>
+    <div className={`p-4 border-t border-gray-50 space-y-4 dark:border-slate-800  ${isCollapsed ? "items-center" : ""}`}>
       <button 
         onClick={handleLogout}
         className={`flex items-center transition-all border-none cursor-pointer font-bold text-sm text-gray-400 hover:text-red-600 bg-transparent ${
