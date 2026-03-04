@@ -146,7 +146,7 @@ const summaryStats = useMemo(() => {
     return grid;
   }, [allLogs, viewType]);
 
-  if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading Matrix...</div>;
+  //if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading Report...</div>;
 
   return (
     <div className="max-w-full mx-auto p-4 space-y-6">
@@ -276,11 +276,12 @@ const summaryStats = useMemo(() => {
 
       </div>
       {/* YEARLY TREND GRAPH */}
-<div className="mt-8 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+<div className="mt-8 bg-white dark:bg-slate-900/80 dark:border-slate-800 dark:text-white
+ p-6 rounded-xl border border-gray-100 shadow-sm">
   <div className="flex items-center justify-between mb-8">
     <div>
       <h2 className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Yearly Performance Trend</h2>
-      <p className="text-lg font-black text-gray-800 tracking-tighter">Earnings vs Tips</p>
+      <p className="text-lg font-black text-gray-800 dark:text-white tracking-tighter">Earnings vs Tips</p>
     </div>
     <div className="flex gap-4">
       <div className="flex items-center gap-2">

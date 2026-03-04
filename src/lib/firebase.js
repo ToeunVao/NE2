@@ -1,7 +1,11 @@
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAGZBJFVi_o1HeGDmjcSsmCcWxWOkuLc_4",
@@ -12,9 +16,18 @@ const firebaseConfig = {
     appId: "1:1015991996673:web:b6e8888abae83906d34b00"
 };
 
-// Next.js specific: prevents initializing Firebase twice during hot reloads
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// 1. Initialize Firebase App
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+// 2. Initialize Firestore with Persistent Cache (The PWA Fix)
+// This allows the app to load even when "Could not reach Cloud Firestore backend" occurs.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  }),
+  // ADD THIS LINE BELOW
+  experimentalForceLongPolling: true, 
+});
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 export const storage = getStorage(app);

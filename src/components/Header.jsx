@@ -1,24 +1,58 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation"; // Ensure this is corre
+
+import { signOut } from "firebase/auth";
 import { useAuth } from "@/context/AuthContext";
+import { auth } from "@/lib/firebase";
 import { useTheme } from "@/context/ThemeContext";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import NotificationCenter from "./NotificationCenter"; // Ensure path is correct
+import NotificationCenter from "./NotificationCenter";
 import { 
-  MoreVertical, X, Sun, Moon, ChevronDown, ChevronUp,
+  Menu, // The 3-dash icon
+  X, Sun, Moon, ChevronDown, ChevronUp,
   LayoutDashboard, UserCheck, Calendar, ChartLine, 
   Gift, Crown, CreditCard, Boxes, Bell, Users, 
   UserCircle, Book, Settings, LogOut
 } from "lucide-react";
 
+
 export default function Header() {
+  const router = useRouter();
   const { role, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [openSub, setOpenSub] = useState(null);
 
+  // Prevent background scrolling when menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+  }, [isMenuOpen]);
+const handleLogout = async () => {
+  try {
+    // 1. Tell Firebase to clear the local storage session
+    await signOut(auth);
+    
+    // 2. Clear all local storage manually just in case
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 3. Force a full browser reload to the landing page
+    // This stops the "still rendering" admin state
+    window.location.href = "/"; 
+    
+  } catch (error) {
+    console.error("Logout Error:", error.message);
+    // Fallback if everything fails
+    window.location.reload();
+  }
+};
   const adminLinks = [
     { name: "Dashboard", href: "/admin", icon: <LayoutDashboard size={18}/> },
     { name: "Check-in", href: "/admin/check-in", icon: <UserCheck size={18}/> },
@@ -52,22 +86,24 @@ export default function Header() {
     { name: "Setting", href: "/admin/settings", icon: <Settings size={18}/> },
   ];
 
-  return (
+return (
     <>
-      <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0  transition-colors duration-300">
+      <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-[60] transition-colors duration-300">
         
-        {/* LEFT: Logo + More Icon (Admin Mobile Only) */}
-        <div className="flex items-center gap-2">
+        {/* LEFT: Logo + 3-Dash Menu Icon */}
+        <div className="flex items-center gap-3">
           {role === "admin" && (
             <button 
               onClick={() => setIsMenuOpen(true)}
               className="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+              aria-label="Open Admin Menu"
             >
-              <MoreVertical size={24} />
+              {/* Changed from MoreVertical to Menu (3 dashes) */}
+              <Menu size={24} strokeWidth={2.5} /> 
             </button>
           )}
           
-          <Link href="/admin" className="md:hidden flex flex-col no-underline">
+          <Link href="/admin" className="flex flex-col no-underline">
             <span className="logo-style text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
               Nails Express
             </span>
@@ -77,76 +113,83 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* RIGHT: Theme Toggle + Notifications */}
-        <div className="flex items-center gap-2 md:gap-4">
-          <button 
-            onClick={toggleTheme} 
-            className="p-2.5 text-slate-600 dark:text-yellow-400 hover:scale-110 active:scale-95 transition-all"
-          >
+        {/* RIGHT: Theme + Notifications */}
+        <div className="flex items-center gap-2">
+          <button onClick={toggleTheme} className="p-2.5 text-slate-600 dark:text-yellow-400">
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
-          
-          {/* NotificationCenter is back! */}
           <NotificationCenter />
         </div>
       </header>
 
-      {/* ADMIN FULL MENU OVERLAY */}
+      {/* ADMIN FULL MENU OVERLAY (Scrollable, Not Fixed Position Content) */}
       {isMenuOpen && (
-        <div className="fixed inset-0 z-[100] md:hidden">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsMenuOpen(false)} />
+        <div className="fixed inset-0 z-[100] md:hidden overflow-hidden">
+          {/* Backdrop layer */}
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsMenuOpen(false)} />
           
-          {/* Drawer Content */}
-          <div className="absolute left-0 top-0 bottom-0 w-4/5 max-w-xs bg-white dark:bg-slate-950 p-6 shadow-2xl overflow-y-auto animate-in slide-in-from-left duration-300">
-            <div className="flex justify-between items-center mb-8">
+          {/* Menu Drawer - Content scrolls naturally here */}
+          <div className="absolute left-0 top-0 bottom-0 w-[85%] max-w-xs bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto flex flex-col animate-in slide-in-from-left duration-300">
+            
+            {/* Sticky Header inside the Menu */}
+            <div className="sticky top-0 z-20 bg-white dark:bg-slate-950 p-6 flex justify-between items-center border-b border-slate-50 dark:border-slate-900">
               <span className="text-[10px] font-black uppercase tracking-widest text-pink-600">Admin Control</span>
-              <button onClick={() => setIsMenuOpen(false)} className="p-2 text-slate-400"><X size={24} /></button>
+              <button onClick={() => setIsMenuOpen(false)} className="p-2 bg-slate-50 dark:bg-white/5 rounded-xl text-slate-400">
+                <X size={24} />
+              </button>
             </div>
 
-            <nav className="space-y-1 pb-10">
+            {/* Scrollable List */}
+            <nav className="p-4 space-y-1">
               {adminLinks.map((link) => (
-                <div key={link.name}>
-                  {link.subItems ? (
-                    <>
-                      <button 
-                        onClick={() => setOpenSub(openSub === link.name ? null : link.name)}
-                        className="w-full flex items-center justify-between p-3 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+               <div key={link.name}>
+            {link.subItems ? (
+              <div className="mb-1">
+                <button 
+                  onClick={() => setOpenSub(openSub === link.name ? null : link.name)}
+                  className="w-full flex items-center justify-between p-4 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-pink-600/70">{link.icon}</span> 
+                    {link.name}
+                  </div>
+                  {openSub === link.name ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                </button>
+                
+                {openSub === link.name && (
+                  <div className="ml-6 mt-1 space-y-1 border-l-2 border-slate-100 dark:border-slate-800">
+                    {link.subItems.map(sub => (
+                      <Link 
+                        key={sub.name} 
+                        href={sub.href} 
+                        onClick={() => setIsMenuOpen(false)}
+                        className="block p-3 pl-6 text-[11px] font-bold text-slate-500 dark:text-slate-500 hover:text-pink-600 transition-colors"
                       >
-                        <div className="flex items-center gap-3">{link.icon} {link.name}</div>
-                        {openSub === link.name ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                      </button>
-                      {openSub === link.name && (
-                        <div className="ml-9 mt-1 space-y-1 border-l-2 border-pink-100 dark:border-pink-900/30">
-                          {link.subItems.map(sub => (
-                            <Link 
-                              key={sub.name} href={sub.href} onClick={() => setIsMenuOpen(false)}
-                              className="block p-2 pl-4 text-[11px] font-bold text-slate-400 dark:text-slate-500 hover:text-pink-600 transition-colors"
-                            >
-                              {sub.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <Link 
-                      href={link.href} onClick={() => setIsMenuOpen(false)}
-                      className={`flex items-center gap-3 p-3 rounded-xl font-bold text-xs transition-all ${
-                        pathname === link.href 
-                          ? "bg-pink-600 text-white shadow-lg shadow-pink-200 dark:shadow-none" 
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      {link.icon} {link.name}
-                    </Link>
-                  )}
-                </div>
+                        {sub.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link 
+                href={link.href} 
+                onClick={() => setIsMenuOpen(false)}
+                className={`flex items-center gap-3 p-4 rounded-xl font-bold text-xs transition-all ${
+                  pathname === link.href 
+                    ? "bg-pink-600 text-white shadow-lg shadow-pink-200 dark:shadow-none" 
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
+                }`}
+              >
+                {link.icon} {link.name}
+              </Link>
+            )}
+          </div>
               ))}
-
+              
               <button 
-                onClick={logout}
-                className="w-full flex items-center gap-3 p-3 mt-6 rounded-xl font-bold text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 p-4 mt-8 mb-10 rounded-xl font-bold text-xs text-red-500 bg-red-50/50 dark:bg-red-500/5 transition-all border border-red-100 dark:border-red-900/20"
               >
                 <LogOut size={18}/> Logout
               </button>

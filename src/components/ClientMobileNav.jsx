@@ -14,4 +14,24 @@ export default function ClientMobileNav() {
   );
 }
 
-// (You can reuse the same NavLink function from above)
+// --- ADD THIS HELPER COMPONENT HERE ---
+function NavLink({ href, icon, label }) {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+
+  return (
+    <Link 
+      href={href} 
+      className={`flex flex-col items-center gap-1 transition-colors ${
+        isActive 
+          ? "text-pink-600 " 
+          : "text-slate-400 dark:text-slate-500"
+      }`}
+    >
+      {icon}
+      <span className="text-[10px] font-bold  uppercase tracking-tighter">
+        {label}
+      </span>
+    </Link>
+  );
+}

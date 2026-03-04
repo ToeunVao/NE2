@@ -16,7 +16,11 @@ import {
 import { useToast } from "@/context/ToastContext"; // Your new context
 // FIXED: Combined auth and db into one line
 import { auth, db } from "@/lib/firebase"; 
-import { signInWithEmailAndPassword } from "firebase/auth"; // Add it here!
+import { 
+  signInWithEmailAndPassword, 
+  setPersistence, 
+  browserLocalPersistence 
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 const promotions = [
@@ -27,13 +31,19 @@ const promotions = [
 export default function HomePage() {
   const { showToast } = useToast();
   const router = useRouter();
-const [showLoginModal, setShowLoginModal] = useState(false);
-const [loginEmail, setLoginEmail] = useState("");
-const [loginPassword, setLoginPassword] = useState("");
+  // --- ADD THESE STATES HERE ---
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  // -----------------------------
 const [step, setStep] = useState(1);
 const [staff, setStaff] = useState([]); // To store technicians
 const [showPolicy, setShowPolicy] = useState(false); // Modal state
 
+  const openModal = () => setIsLoginModalOpen(true);
+  const closeModal = () => setIsLoginModalOpen(false);
 // Fetch Technicians (Users with role 'technician' or 'staff')
 useEffect(() => {
   const q = query(collection(db, "users"), where("role", "==", "technician"));
@@ -100,7 +110,7 @@ useEffect(() => {
   const qServ = query(collection(db, "services"));
   const unsubServ = onSnapshot(qServ, (snapshot) => {
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    console.log("Services loaded:", data.length); // Debug check
+    //console.log("Services loaded:", data.length); // Debug check
     setServices(data);
   }, (err) => console.error("Service Fetch Error:", err.message));
 
@@ -122,7 +132,7 @@ useEffect(() => {
       ...doc.data()
     }));
 
-    console.log("RAW DATA FROM DB:", rawData); // Check this in console!
+   // console.log("RAW DATA FROM DB:", rawData); // Check this in console!
 
     // 2. Filter: Keep ANY entry that has a rating OR a review comment
     // We check multiple spelling variations found in your old app code
@@ -141,7 +151,7 @@ useEffect(() => {
       return dateB - dateA;
     });
 
-    console.log("FINAL FILTERED REVIEWS:", validReviews);
+    //console.log("FINAL FILTERED REVIEWS:", validReviews);
     setReviews(validReviews);
   }, (error) => {
     console.error("Error fetching reviews:", error);
@@ -152,30 +162,29 @@ useEffect(() => {
 
 const handleLogin = async (e) => {
   e.preventDefault();
+  setLoading(true);
+  setError("");
+
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+    // 1. SET PERSISTENCE BEFORE LOGIN
+    // This is the key to staying logged in until logout
+    await setPersistence(auth, browserLocalPersistence);
+
+    // 2. Perform the sign in
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
+    // 3. Fetch role and redirect
     const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      const role = userData.role?.toLowerCase(); 
-
-      setShowLoginModal(false);
-      showToast(`Welcome, ${userData.name}!`, "success");
-
-      // REDIRECTION LOGIC
-      if (role === "admin") {
-        router.push("/admin"); 
-      } else if (role === "staff" || role === "technician") {
-        // Both roles go to the staff dashboard
-        router.push("/staff/dashboard"); 
-      } else {
-        showToast("Access Denied: Role not recognized.", "error");
-      }
+    if (userDoc.exists() && userDoc.data().role === "admin") {
+      router.push("/admin");
+    } else {
+      router.push("/staff/dashboard");
     }
-  } catch (error) {
-    showToast("Invalid credentials.", "error");
+  } catch (err) {
+    setError("Invalid credentials. Please try again.");
+  } finally {
+    setLoading(false);
   }
 };
 // Add this if it is missing or replace your old booking state
@@ -245,8 +254,7 @@ const handleBookingSubmit = async () => {
           <Link href="/admin/gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
         </div>
         {/* In your Header or Footer */}
-<button 
-  onClick={() => setShowLoginModal(true)}
+<button onClick={openModal}
   className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm"
 >
 <i className="fas fa-user"></i> Login
@@ -662,59 +670,86 @@ const handleBookingSubmit = async () => {
   </div>
 </section>
 {/* STAFF LOGIN MODAL */}
-{showLoginModal && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Staff Portal</h2>
-          <button 
-            onClick={() => setShowLoginModal(false)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-<form className="space-y-4" onSubmit={handleLogin}>
-  <div className="space-y-1">
-    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
-    <input 
-      type="email"
-      required
-      value={loginEmail}
-      onChange={(e) => setLoginEmail(e.target.value)}
-      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-      placeholder="name@nailexpress.com"
-    />
-  </div>
-
-  <div className="space-y-1">
-    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Password</label>
-    <input 
-      type="password"
-      required
-      value={loginPassword}
-      onChange={(e) => setLoginPassword(e.target.value)}
-      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none transition-all"
-      placeholder="••••••••"
-    />
-  </div>
-
-  <button 
-    type="submit"
-    className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-pink-600 transition-all shadow-lg shadow-gray-200 mt-4 uppercase tracking-widest text-sm"
+{isLoginModalOpen && (
+  <div 
+    className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    onClick={closeModal} // Closes modal if you click the dark background
   >
-    Sign In
-  </button>
-</form>
-        
-        <p className="text-center text-xs text-gray-400 mt-6 font-medium">
-          Authorized personnel only. Access is monitored.
+    {/* Glassmorphism Modal Card */}
+    <div 
+      className="w-full max-w-sm backdrop-blur-2xl bg-white/90 dark:bg-slate-900/90 p-8 rounded-xl shadow-2xl border border-white/20 relative animate-in fade-in zoom-in duration-200"
+      onClick={(e) => e.stopPropagation()} // Prevents closing when clicking inside the box
+    >
+      <button 
+        onClick={closeModal} 
+        className="absolute top-4 right-4 text-slate-400 hover:text-pink-600 transition-colors p-2"
+      >
+        ✕
+      </button>
+
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-black text-pink-600 uppercase tracking-tighter leading-none">
+         Welcome Back !
+        </h2>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-2">
+          Login to Salon System
         </p>
       </div>
+
+      <form onSubmit={handleLogin} className="space-y-4">
+        {error && (
+          <p className="text-[10px] font-bold text-red-500 bg-red-50 p-3 rounded-xl text-center border border-red-100 uppercase tracking-tight">
+            {error}
+          </p>
+        )}
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            Email Address
+          </label>
+          <input 
+            type="email" 
+            required
+            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all text-sm"
+            placeholder="admin@nailsexpress.com"
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+            Password
+          </label>
+          <input 
+            type="password" 
+            required
+            className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all text-sm"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+
+        <button 
+          type="submit"
+          disabled={loading}
+          className="w-full bg-pink-600 text-white font-black py-4 rounded-xl hover:bg-pink-700 shadow-xl shadow-pink-500/20 uppercase tracking-widest text-xs mt-4 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              Authenticating...
+            </span>
+          ) : (
+            "Sign In"
+          )}
+        </button>
+      </form>
+
+      <p className="text-center text-slate-400 text-[9px] font-bold uppercase mt-8 tracking-[0.15em]">
+        Secure Access and Monitoring for Authorized
+      </p>
     </div>
   </div>
 )}

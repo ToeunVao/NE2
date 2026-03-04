@@ -214,7 +214,7 @@ const uniqueClients = new Set(filteredData.map(log =>
     };
   }, [filteredData]);
 
-  if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading...</div>;
+  //if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading...</div>;
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
@@ -227,28 +227,28 @@ const uniqueClients = new Set(filteredData.map(log =>
         </div>
 
         {/* --- DATE FILTER BAR (MATCHES IMAGE) --- */}
-        <div className="flex flex-wrap items-center gap-3 dark:bg-slate-900/80 dark:border-slate-800 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 dark:bg-slate-900/80 dark:text-white dark:border-slate-800 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 px-2">
             <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
             <input 
               type="date" 
               value={startDate} 
               onChange={e => { setStartDate(e.target.value); setActiveFilter('custom'); }} 
-              className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
+              className="bg-gray-50 dark:bg-slate-950 dark:text-white dark:border-slate-800 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
             />
           </div>
-          <div className="flex items-center gap-2 px-2 border-l border-gray-100">
+          <div className="flex items-center gap-2 px-2 border-l border-gray-100 dark:border-slate-800">
             <span className="text-[10px] font-black uppercase text-gray-400">To:</span>
             <input 
               type="date" 
               value={endDate} 
               onChange={e => { setEndDate(e.target.value); setActiveFilter('custom'); }} 
-              className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
+              className="bg-gray-50 dark:bg-slate-950 dark:text-white dark:border-slate-800 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
             />
           </div>
           
           {/* SHORTCUT BUTTONS */}
-          <div className="flex gap-1 pl-2 border-l border-gray-100">
+          <div className="flex gap-1 pl-2 border-l border-gray-100 dark:border-slate-800">
             <button 
               onClick={() => { 
                 const today = getLocalDate();
@@ -256,8 +256,8 @@ const uniqueClients = new Set(filteredData.map(log =>
                 setEndDate(today); 
                 setActiveFilter('today');
               }}
-              className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-                activeFilter === 'today' ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+              className={`px-4 py-1.5 dark:bg-slate-950 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase transition-all ${
+                activeFilter === 'today' ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
               }`}
             >
               Today
@@ -269,8 +269,8 @@ const uniqueClients = new Set(filteredData.map(log =>
                 setEndDate(today); 
                 setActiveFilter('thisMonth');
               }}
-              className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-                activeFilter === 'thisMonth' ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+              className={`px-4 py-1.5 dark:bg-slate-950 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase transition-all ${
+                activeFilter === 'thisMonth' ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
               }`}
             >
               This Month
@@ -358,11 +358,11 @@ const uniqueClients = new Set(filteredData.map(log =>
 
   {/* Right Side: Totals Summary Badge */}
   <div className="flex items-center gap-3">
-    <div className="flex items-center gap-1.5 bg-pink-100 text-pink-800 px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
+    <div className="flex items-center gap-1.5 dark:bg-slate-950 dark:border-slate-800 bg-pink-100 text-pink-800 px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
       <span className="text-[9px] font-black text-gray-400 uppercase mr-2">Total </span>
       <span className="text-[10px] font-black text-pink-600">(${report.totalEarning.toFixed(2)})</span>
     </div>
-    <div className="bg-green-100 text-green-800 text-sm font-semibold flex items-center gap-1.5  px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
+    <div className="dark:bg-slate-950 dark:border-slate-800 bg-green-100 text-green-800 text-sm font-semibold flex items-center gap-1.5  px-3 py-1 rounded-xl border border-gray-100 shadow-sm">
       <span className="text-[9px] font-black text-gray-400 uppercase mr-2">Tip </span>
       <span className="text-[10px] font-black text-green-600">(${report.totalTips.toFixed(2)})</span>
     </div>
@@ -380,7 +380,7 @@ const uniqueClients = new Set(filteredData.map(log =>
     <tbody className="divide-y divide-gray-50 font-bold text-gray-600 dark:border-slate-800">
       {/* We slice the data here to only show the visibleCount */}
       {filteredData.slice().reverse().slice(0, visibleCount).map((log) => (
-        <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
+        <tr key={log.id} className="hover:bg-gray-50/50 transition-colors dark:border-slate-800 ">
           <td className="px-6 py-4 text-xs font-black">{log.dateLabel}</td>
           <td className="px-6 py-4 uppercase text-[10px] text-gray-400">{log.service || "N/A"}</td>
           <td className="px-6 py-4 text-pink-600">${parseFloat(log.earning).toFixed(2)}</td>
@@ -392,10 +392,10 @@ const uniqueClients = new Set(filteredData.map(log =>
 
   {/* LOAD MORE BUTTON */}
   {filteredData.length > visibleCount && (
-    <div className="p-4 bg-white dark:bg-slate-950 border-t border-gray-50 flex justify-center">
+    <div className="p-4 bg-white dark:bg-slate-950 border-t border-gray-50 flex justify-center dark:border-slate-800">
       <button 
         onClick={() => setVisibleCount(prev => prev + 5)}
-        className="px-8 py-2 bg-gray-50 hover:bg-pink-50 text-gray-400 hover:text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-100"
+        className="px-8 py-2 bg-gray-50 dark:bg-slate-900/80 dark:border-slate-800 hover:bg-pink-50 text-gray-400 hover:text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-100"
       >
         Load More Records
       </button>
@@ -412,7 +412,7 @@ function PastelCard({ label, value, bg, text }) {
                   label.toLowerCase().includes("clients");
 
   return (
-    <div style={{ backgroundColor: bg }} className="p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm">
+    <div style={{ backgroundColor: bg }} className="p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm dark:!bg-slate-800 dark:border dark:border-white/10">
       <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
         {label}
       </span>

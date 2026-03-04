@@ -25,16 +25,14 @@ export const metadata = {
   description: "A management system for Nails Express salon.",
   // ADD THIS: This helps browsers recognize it's a PWA
   manifest: "/manifest.json", 
-  themeColor: "#db2777",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
 // Add this exported viewport configuration
 export const viewport = {
+  themeColor: "#db2777",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1, // Prevents zooming in
-  userScalable: false, // Disables pinch-to-zoom
-  viewportFit: "cover", // Ensures content fills the screen (good for iPhones with notches)
+  maximumScale: 1,
+  userScalable: false, // Recommended for PWA to feel like an app
 };
 
 export default function RootLayout({ children }) {
@@ -44,7 +42,7 @@ export default function RootLayout({ children }) {
         {/* This loads FontAwesome directly from the web, fixing the "Module Not Found" error */}
        {/* CRITICAL: Link to manifest.json */}
         <link rel="manifest" href="/manifest.json" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
          <link 
           rel="stylesheet" 

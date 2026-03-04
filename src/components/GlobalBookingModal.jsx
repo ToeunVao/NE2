@@ -106,7 +106,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
       <div className="relative w-full h-full md:h-auto md:max-w-2xl bg-white shadow-2xl flex flex-col md:rounded-xl overflow-hidden animate-in slide-in-from-bottom duration-300">
         
         {/* Header - Sticky */}
-        <div className="bg-[#db2777] p-5 text-white flex justify-between items-center sticky top-0 z-10">
+        <div className="bg-[#db2777] dark:bg-slate-950 dark:border-slate-800 dark:text-white p-5 text-white flex justify-between items-center sticky top-0 z-10">
           <div className="flex flex-col">
             <h2 className="font-bold text-sm uppercase tracking-wide italic">Quick Appointment</h2>
             <p className="text-[10px] opacity-80 font-bold uppercase">Manual Entry Mode</p>
@@ -117,26 +117,26 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
         </div>
 
         {/* Form Content - Scrollable on mobile */}
-        <form onSubmit={handleBooking} className="flex-1 overflow-y-auto p-6 md:p-8">
+        <form onSubmit={handleBooking} className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white flex-1 overflow-y-auto p-6 md:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pb-24 md:pb-0">
             
             {/* Name & Phone */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Client Name</label>
-              <input required className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+              <input required className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
                 value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} />
             </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Phone Number</label>
-              <input className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+              <input className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
                 value={bookingForm.phone} onChange={e => setBookingForm({...bookingForm, phone: e.target.value})} />
             </div>
 
             {/* Email & Date/Time */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Email Address</label>
-              <input type="email" className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+              <input type="email" className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
                 value={bookingForm.email} onChange={e => setBookingForm({...bookingForm, email: e.target.value})} />
             </div>
 
@@ -145,7 +145,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
               <input 
                 type="datetime-local" 
                 required 
-                className="w-full p-4 md:p-2.5 bg-purple-50 border border-purple-100 text-[#db2777] font-black text-sm outline-none rounded-xl shadow-inner" 
+                className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-purple-50 border border-purple-100 text-[#db2777] font-black text-sm outline-none rounded-xl shadow-inner" 
                 value={bookingForm.dateTime} 
                 onChange={e => setBookingForm({...bookingForm, dateTime: e.target.value})} 
               />
@@ -157,7 +157,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
               <input 
                 list="booking-service-list" 
                 required 
-                className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+                className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
                 placeholder="Search services..."
                 value={bookingForm.service}
                 onChange={e => handleServiceChange(e.target.value)} 
@@ -171,7 +171,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
 
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Booking Type</label>
-              <select className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold appearance-none" 
+              <select className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold appearance-none" 
                 value={bookingForm.bookingType} onChange={e => setBookingForm({...bookingForm, bookingType: e.target.value})}>
                 <option value="Calendar">Calendar</option>
                 <option value="Online">Online</option>
@@ -182,7 +182,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
             {/* Tech & Group Size */}
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Assign Technician</label>
-              <select className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none font-black text-[#db2777] rounded-xl appearance-none" 
+              <select className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none font-black text-[#db2777] rounded-xl appearance-none" 
                 value={bookingForm.technician} onChange={e => setBookingForm({...bookingForm, technician: e.target.value})}>
                 <option value="Any Technician">Any Technician</option>
                 {technicians.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
@@ -191,20 +191,20 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
 
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Group Size</label>
-              <input type="number" min="1" className="w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl font-bold" 
+              <input type="number" min="1" className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl font-bold" 
                 value={bookingForm.groupSize} onChange={e => setBookingForm({...bookingForm, groupSize: parseInt(e.target.value) || 1})} />
             </div>
 
             {/* Notes */}
             <div className="md:col-span-2 space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Notes / Special Requests</label>
-              <textarea rows="3" className="w-full p-4 bg-gray-50 border border-gray-200 text-sm outline-none resize-none rounded-xl focus:border-[#db2777] font-bold" 
+              <textarea rows="3" className="dark:bg-slate-950 dark:text-white w-full p-4 bg-gray-50 border border-gray-200 text-sm outline-none resize-none rounded-xl focus:border-[#db2777] font-bold" 
                 value={bookingForm.notes} onChange={e => setBookingForm({...bookingForm, notes: e.target.value})}></textarea>
             </div>
           </div>
 
           {/* Fixed Bottom Submit Area for Mobile */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 md:relative md:border-0 md:p-0 md:mt-6 md:flex md:justify-end">
+          <div className="fixed bottom-0 dark:border-slate-800 dark:bg-slate-950 dark:text-white left-0 right-0 p-4 bg-white border-t border-gray-100 md:relative md:border-0 md:p-0 md:mt-6 md:flex md:justify-end">
             <button 
               disabled={loading} 
               type="submit" 

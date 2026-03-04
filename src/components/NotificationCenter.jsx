@@ -117,8 +117,8 @@ export default function NotificationCenter() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-4 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
-          <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+        <div className="absolute right-0 mt-4 w-80 dark:bg-slate-950 dark:border-slate-800 dark:text-white bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9999] overflow-hidden">
+          <div className="p-4 border-b border-gray-50 flex dark:border-slate-800  justify-between items-center bg-gray-50/50">
             <h3 className="font-bold text-gray-800 text-sm">Notifications</h3>
             {notifications.length > 0 && (
               <button onClick={markAllRead} className="text-[10px] font-black text-pink-600 uppercase tracking-widest hover:underline">

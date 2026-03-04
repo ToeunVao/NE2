@@ -451,7 +451,7 @@ const filteredStats = useMemo(() => {
 }, [serviceLogs, startDate, endDate, reportFilterTech]); // Update dependencies here too!
 
 
-  if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
+ // if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
 
 const { 
   totals = {}, 

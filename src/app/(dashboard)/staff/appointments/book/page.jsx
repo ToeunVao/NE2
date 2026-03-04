@@ -240,7 +240,7 @@ const pastAppointments = filteredAppointments
   {viewMode === 'calendar' ? 'List all Booking' : 'Show Calendar'}
   <span className="bg-[#9d174d] px-2 py-0.5 rounded-md">{futureBookingsCount}</span>
 </button>
-            <div className="dark:bg-slate-950 flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
+            <div className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white flex items-center gap-1 bg-gray-50 p-1 rounded-lg border border-gray-100">
               <button onClick={() => setTechFilter("all")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "all" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>All</button>
               <button onClick={() => setTechFilter("Any Technician")} className={`px-3 py-1.5 text-[11px] font-bold rounded-md transition-all ${techFilter === "Any Technician" ? 'bg-[#db2777] text-white' : 'text-gray-400'}`}>Any Tech</button>
               {technicians.map(t => (
@@ -254,7 +254,7 @@ const pastAppointments = filteredAppointments
               <span className="font-bold text-base text-gray-800 w-36 text-center">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
               <button onClick={() => changeMonth(1)} className="bg-[#db2777] text-white w-8 h-8 flex items-center justify-center rounded-md"><i className="fas fa-chevron-right text-[10px]"></i></button>
             </div>
-            <div className="bg-gray-100 px-3 py-2 rounded-md text-[10px] font-black text-gray-500 uppercase">Month Total: <span className="text-pink-600 ml-1">{monthlyCount}</span></div>
+            <div className="bg-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-whit px-3 py-2 rounded-md text-[10px] font-black text-gray-500 uppercase">Month Total: <span className="text-pink-600 ml-1">{monthlyCount}</span></div>
           </div>
         </div>
 {/* REPLACE the <div className="w-full"> containing the Calendar with this: */}
