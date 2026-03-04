@@ -214,10 +214,10 @@ const topSpenders = [...members]
   .slice(0, 5);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen dark:bg-slate-950">
          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight">CASH REWARDS</h1>
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight  dark:text-white">CASH REWARDS</h1>
           <p className="text-gray-500 font-bold uppercase text-[10px] tracking-[0.3em]">VIP Membership Management</p>
         </div>
       </div>
@@ -259,7 +259,7 @@ const topSpenders = [...members]
   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Client Birthday</label>
   <input 
     type="date"
-    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-gray-700"
+    className="w-full p-4 bg-gray-50 border dark:bg-slate-900/80 dark:border-slate-800  border-gray-100 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-gray-700"
     value={activeMember?.birthday || ""}
    onChange={async (e) => {
   if (!activeMember?.id) return; // Safety check
@@ -314,7 +314,7 @@ const topSpenders = [...members]
     type="text"
     placeholder="Search name or phone..."
     value={search}
-    className="w-full p-4 pr-12 rounded-xl border border-gray-200 shadow-sm bg-white focus:ring-2 focus:ring-pink-500 outline-none transition-all font-medium"
+    className="w-full dark:bg-slate-900/80 dark:border-slate-800 dark:text-white  p-4 pr-12 rounded-xl border border-gray-200 shadow-sm bg-white focus:ring-2 focus:ring-pink-500 outline-none transition-all font-medium"
     onChange={(e) => setSearch(e.target.value)}
   />
   {search && (
@@ -327,7 +327,7 @@ const topSpenders = [...members]
   )}
 </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
+          <div className="dark:bg-slate-900/80 dark:border-slate-800 bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
             {filteredMembers.map(member => {
   // 1. CALCULATE FOR THIS SPECIFIC MEMBER
   const isVIP = topSpenders.some(vip => vip.id === member.id);
@@ -342,10 +342,10 @@ const topSpenders = [...members]
     <button 
       key={member.id}
       onClick={() => setSelectedId(member.id)} 
-      className={`w-full border-gray-100 pl-4 p-4 text-left border-b transition-all ${selectedId === member.id ? 'bg-pink-50 border-l-4 border-l-pink-600' : 'hover:bg-gray-50'}`}
+      className={`dark:border-slate-800  w-full border-gray-100 pl-4 p-4 text-left border-b transition-all ${selectedId === member.id ? 'bg-pink-50 border-l-4 border-l-pink-600' : 'hover:bg-gray-50'}`}
     >
       <div className="flex items-center gap-2">
-        <p className="font-black text-gray-900 uppercase text-sm">{member.name || "Unnamed"}</p>
+        <p className="font-black text-gray-900 uppercase text-sm dark:text-white">{member.name || "Unnamed"}</p>
         {isVIP && <i className="fas fa-crown text-amber-500 text-[10px]" title="VIP Client"></i>}
       </div>
       <p className="text-xs text-gray-400 font-bold tracking-widest mt-1">
@@ -354,9 +354,7 @@ const topSpenders = [...members]
        <p className="mt-2 inline-block bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-[10px] font-black uppercase">
       ${(member.cashRewardBalance || 0).toFixed(2)} Reward
     </p>
-    <p className="font-black text-gray-900 uppercase text-sm">{member.name}</p>
-        {isVIP && <i className="fas fa-crown text-amber-500 text-[10px]"></i>}
-        {isBirthdayMonth && <i className="fas fa-birthday-cake text-pink-500 text-[10px]"></i>}
+   
     </button>
   );
 })}
@@ -397,13 +395,13 @@ const topSpenders = [...members]
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
   {/* BOX 1: LOG SPENDING (Existing) */}
-  <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm">
+  <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
     <h3 className="font-black uppercase tracking-widest text-[10px] mb-4 text-gray-400">Log New Cash Spending</h3>
     <div className="flex gap-2">
       <input 
         type="number" step="0.01" value={cashAmount}
         onChange={(e) => setCashAmount(e.target.value)}
-        className="flex-grow p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 font-bold"
+        className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white flex-grow p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 font-bold"
         placeholder="Amount ($)"
       />
       <button onClick={handleAddSpending} className="bg-gray-900 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-pink-600 transition-all">
@@ -413,13 +411,13 @@ const topSpenders = [...members]
   </div>
 
   {/* BOX 2: REDEEM REWARD (New) */}
-  <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm">
+  <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
     <h3 className="font-black uppercase tracking-widest text-[10px] mb-4 text-pink-600">Redeem Cash Reward</h3>
     <div className="flex gap-2">
       <input 
         type="number" step="0.01" value={redeemAmount}
         onChange={(e) => setRedeemAmount(e.target.value)}
-        className="flex-grow p-4 bg-pink-50 border border-pink-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 font-bold"
+        className="flex-grow dark:bg-slate-900/80 dark:border-slate-800 dark:text-white p-4 bg-pink-50 border border-pink-100 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 font-bold"
         placeholder="Redeem ($)"
       />
       <button onClick={handleRedeem} className="bg-pink-600 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-pink-700 transition-all shadow-lg shadow-pink-100">
@@ -429,8 +427,8 @@ const topSpenders = [...members]
   </div>
 </div>
               {/* --- HISTORY LOG SECTION --- */}
-<div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-  <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
+<div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden dark:border-slate-800  dark:bg-slate-950 dark:text-white">
+  <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center dark:border-slate-800 dark:bg-slate-950 dark:text-white">
     <h3 className="font-black uppercase tracking-widest text-xs text-gray-500">Transaction History</h3>
     {/* PDF DOWNLOAD BUTTON */}
   <button 
@@ -451,7 +449,7 @@ const topSpenders = [...members]
   <div className="max-h-[400px] overflow-y-auto divide-y divide-gray-50">
     {activeMember.spendingHistory && activeMember.spendingHistory.length > 0 ? (
       activeMember.spendingHistory.slice().reverse().map((log, index) => (
-        <div key={index} className="p-6 flex justify-between items-center hover:bg-gray-50 transition-all">
+        <div key={index} className="dark:border-slate-800  p-6 flex justify-between items-center hover:bg-gray-50 transition-all">
           <div className="flex items-center gap-4">
             {/* Date Icon */}
             <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl">
@@ -460,7 +458,7 @@ const topSpenders = [...members]
               </svg>
             </div>
             <div>
-              <p className="font-black text-gray-900 text-sm">
+              <p className="font-black text-gray-900 text-sm dark:text-white">
                 {new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
               </p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
@@ -511,7 +509,7 @@ const topSpenders = [...members]
       </div>
      
       {/* GLOBAL SETTINGS SECTION */}
-          <div className="p-8 bg-white rounded-xl border border-gray-100 shadow-sm space-y-6">
+          <div className="p-8 bg-white rounded-xl border border-gray-100 shadow-sm space-y-6 dark:bg-slate-900/80 dark:border-slate-800 ">
             <h3 className="font-black uppercase tracking-widest text-sm text-pink-600">Reward Configuration</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="space-y-1">

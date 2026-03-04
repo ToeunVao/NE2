@@ -108,7 +108,7 @@ return (
               Nails Express
             </span>
             <span className="text-[8px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">
-              Management System
+              Salon Management System
             </span>
           </Link>
         </div>

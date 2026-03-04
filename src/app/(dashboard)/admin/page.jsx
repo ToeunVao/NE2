@@ -451,7 +451,7 @@ const filteredStats = useMemo(() => {
 }, [serviceLogs, startDate, endDate, reportFilterTech]); // Update dependencies here too!
 
 
- // if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
+// if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
 
 const { 
   totals = {}, 
@@ -471,19 +471,19 @@ const {
         {/* --- OVERVIEW FILTER SECTION --- */}
 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
   <div>
-    <h2 className="text-lg font-black text-gray-800">Business Overview</h2>
+    <h2 className="text-lg font-black text-gray-800 dark:text-white">Business Overview</h2>
     <p className="text-xs text-gray-400 font-bold uppercase">Performance Metrics</p>
   </div>
 
   {/* DATE PICKER FOR CARDS/GRAPH */}
-  <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+  <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
     <div className="flex items-center gap-2 px-2">
       <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
       <input 
         type="date" 
         value={overviewStart} 
         onChange={e => setOverviewStart(e.target.value)} 
-        className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
+        className="dark:bg-slate-950 dark:text-white bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
       />
     </div>
     <div className="flex items-center gap-2 px-2 border-l border-gray-100">
@@ -492,7 +492,7 @@ const {
         type="date" 
         value={overviewEnd} 
         onChange={e => setOverviewEnd(e.target.value)} 
-        className="bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
+        className="dark:bg-slate-950 dark:text-white bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
       />
     </div>
     
@@ -501,7 +501,7 @@ const {
      <button 
       onClick={() => { setOverviewStart(getLocalDate()); setOverviewEnd(getLocalDate()); }}
       className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${
-        overviewStart === overviewEnd ? 'bg-pink-600 text-white' : 'bg-gray-100 hover:bg-gray-200'
+        overviewStart === overviewEnd ? 'bg-pink-600 text-white shadow-lg shadow-pink-100 dark:bg-pink-500' : 'dark:bg-slate-950 bg-gray-100 hover:bg-gray-200'
       }`}
     >
       Today
@@ -513,7 +513,7 @@ const {
     setOverviewEnd(today); 
   }}
   className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-    overviewStart === initialFirstDay ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+    overviewStart === initialFirstDay ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-400 hover:bg-gray-200'
   }`}
 >
   This Month
@@ -526,7 +526,7 @@ const {
 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
   
   {/* TOTAL REVENUE - PINK */}
-  <div style={{ backgroundColor: COLORS.pink }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+  <div style={{ backgroundColor: COLORS.pink }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
     <div>
       <p style={{ color: COLORS.pinkText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Revenue</p>
       <h3 style={{ color: COLORS.pinkText }} className="font-black text-3xl tracking-tight">${overviewStats.totalEarnings.toFixed(2)}</h3>
@@ -539,7 +539,7 @@ const {
   </div>
 
   {/* TOTAL CASH - GREEN */}
-  <div style={{ backgroundColor: COLORS.green }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+  <div style={{ backgroundColor: COLORS.green }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
     <div>
       <p style={{ color: COLORS.greenText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Cash</p>
       <h3 style={{ color: COLORS.greenText }} className="font-black text-3xl tracking-tight">${overviewStats.totalCash.toFixed(2)}</h3>
@@ -552,7 +552,7 @@ const {
   </div>
 
   {/* TOP EARNER - BLUE */}
-  <div style={{ backgroundColor: COLORS.blue }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+  <div style={{ backgroundColor: COLORS.blue }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
     <div>
       <p style={{ color: COLORS.blueText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Earner</p>
       <h3 style={{ color: COLORS.blueText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topEarnerName}</h3>
@@ -565,7 +565,7 @@ const {
   </div>
 
   {/* TOP BOOKING - PURPLE */}
-  <div style={{ backgroundColor: COLORS.purple }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+  <div style={{ backgroundColor: COLORS.purple }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
     <div>
       <p style={{ color: COLORS.purpleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Booking</p>
       <h3 style={{ color: COLORS.purpleText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topBookingName}</h3>
@@ -582,7 +582,7 @@ const {
 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
   
 {/* APPOINTMENTS - PERIWINKLE CARD */}
-<div style={{ backgroundColor: COLORS.periwinkle }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+<div style={{ backgroundColor: COLORS.periwinkle }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
   <div>
     <p style={{ color: COLORS.periwinkleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
       Live Appointments
@@ -600,7 +600,7 @@ const {
 </div>
 
 {/* CLIENTS - MINT CARD */}
-<div style={{ backgroundColor: COLORS.mint }} className="p-6 rounded-xl flex justify-between items-center group transition-all">
+<div style={{ backgroundColor: COLORS.mint }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
   <div>
     <p style={{ color: COLORS.mintText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
       Total Clients
@@ -617,7 +617,7 @@ const {
   </div>
 </div>
   {/* GIFT CARDS - ORANGE */}
-  <div style={{ backgroundColor: COLORS.orange }} className="p-6 rounded-xl flex justify-between items-center">
+  <div style={{ backgroundColor: COLORS.orange }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
     <div>
       <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Gift Cards</p>
       <h3 style={{ color: COLORS.orangeText }} className="text-2xl font-black">${overviewStats.totalGiftCard.toFixed(2)}</h3>
@@ -630,7 +630,7 @@ const {
   </div>
 
   {/* EXPENSES - RED */}
-  <div style={{ backgroundColor: COLORS.red }} className="p-6 rounded-xl flex justify-between items-center">
+  <div style={{ backgroundColor: COLORS.red }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
     <div>
       <p style={{ color: COLORS.redText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Expenses</p>
       <h3 style={{ color: COLORS.redText }} className="text-2xl font-black">${overviewStats.totalExpense.toFixed(2)}</h3>
@@ -644,18 +644,18 @@ const {
 </div>
 
       {/* SECTION 3: STAFF EARNINGS SUMMARY (Cards + Chart) */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-        <h3 className="text-xl font-black text-gray-700 italic mb-6 bg-gray-100 inline-block px-4 py-1 rounded-lg">Staff Earnings Summary</h3>
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+        <h3 className="dark:bg-slate-950 dark:text-white text-xl font-black text-gray-700 italic mb-6 bg-gray-100 inline-block px-4 py-1 rounded-lg">Staff Earnings Summary</h3>
         
         {/* Staff Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
             {/* Change staffPerformance.map to overviewStats.staffPerformance.map */}
 {overviewStats.staffPerformance.map((staff, idx) => (
-  <div key={idx} className="p-5 rounded-xl border border-gray-50" style={{backgroundColor: `${staff.color}15`}}>
+  <div key={idx} className="p-5 rounded-xl border border-gray-50 dark:border-slate-800 " style={{backgroundColor: `${staff.color}15`}}>
     <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
-    <p className="text-2xl font-black text-gray-800 mb-4">${staff.revenue.toFixed(2)}</p>
+    <p className="text-2xl font-black text-gray-800 mb-4 dark:text-white">${staff.revenue.toFixed(2)}</p>
     
-    <div className="space-y-1">
+    <div className="space-y-1 dark:text-white">
       <PayoutRow 
         label={`Total Payout (${staff.commRateDisplay}%)`} 
         value={staff.payout} 
@@ -685,7 +685,7 @@ const {
       </div>
 
       {/* SECTION 4: REVENUE TREND */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
          <h3 className="text-xl font-black text-gray-700 italic mb-6">Salon Revenue Trend</h3>
          <div className="h-[300px] w-full">
            {/* Change dashboardData.trendData to overviewStats.trendData */}
@@ -732,7 +732,7 @@ const {
 
       {/* SECTION 5: UPCOMING APPOINTMENTS */}
 {/* SECTION 5: UPCOMING APPOINTMENTS */}
-<div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+<div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div className="flex justify-between items-center mb-6">
     <h3 className="text-2xl font-serif text-slate-700 font-bold">Upcoming Appointments</h3>
     <div className="flex gap-4 overflow-x-auto pb-2">
@@ -839,9 +839,9 @@ onClick={async () => {
   </div>
 </div>
 {/* SECTION: FILTERED STAFF REPORT TABLE */}
-  <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8">
+  <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div ref={formRef} className="flex flex-col md:flex-row justify-between items-start mb-2 md:items-centergap-4">
-  <h3 className="text-2xl font-black text-gray-800 tracking-tight">
+  <h3 className="text-2xl dark:text-white font-black text-gray-800 tracking-tight">
         Staff Earning Report <span className="text-pink-500 ml-2">({filteredStats.clientCount} Clients)</span>
       </h3>
       
@@ -849,7 +849,7 @@ onClick={async () => {
     <div className="flex gap-6">
       <div className="text-right">
         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total Earnings</p>
-        <p className="text-2xl font-black text-gray-800">${filteredStats.totalEarnings.toFixed(2)}</p>
+        <p className="text-2xl dark:text-pink-500 font-black text-gray-800">${filteredStats.totalEarnings.toFixed(2)}</p>
       </div>
       <div className="text-right">
         <p className="text-[10px] font-black uppercase text-green-600 tracking-widest">Total Tips</p>
@@ -857,15 +857,15 @@ onClick={async () => {
       </div>
     </div>
     </div>
-  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+  <div className="grid dark:bg-slate-950 dark:border-slate-800 grid-cols-1 md:grid-cols-6 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Date</label>
-      <input type="date" value={newEarning.date} onChange={e => setNewEarning({...newEarning, date: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
+      <input type="date" value={newEarning.date} onChange={e => setNewEarning({...newEarning, date: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
     
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Staff Name</label>
-      <select value={newEarning.staffName} onChange={e => setNewEarning({...newEarning, staffName: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none">
+      <select value={newEarning.staffName} onChange={e => setNewEarning({...newEarning, staffName: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none">
         <option value="">Select Staff</option>
         {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
       </select>
@@ -873,17 +873,17 @@ onClick={async () => {
 
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Service</label>
-      <input placeholder="Service..." value={newEarning.service} onChange={e => setNewEarning({...newEarning, service: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
+      <input placeholder="Service..." value={newEarning.service} onChange={e => setNewEarning({...newEarning, service: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
 
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Earning ($)</label>
-      <input placeholder="0.00" type="number" value={newEarning.earning} onChange={e => setNewEarning({...newEarning, earning: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
+      <input placeholder="0.00" type="number" value={newEarning.earning} onChange={e => setNewEarning({...newEarning, earning: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
 
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Tip ($)</label>
-      <input placeholder="0.00" type="number" value={newEarning.tip} onChange={e => setNewEarning({...newEarning, tip: e.target.value})} className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
+      <input placeholder="0.00" type="number" value={newEarning.tip} onChange={e => setNewEarning({...newEarning, tip: e.target.value})} className="dark:bg-slate-900/80 dark:border-slate-800 w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
 
     <button onClick={handleAddEarning} className="w-full bg-pink-600 hover:bg-pink-700 text-white font-black py-3.5 rounded-xl transition-all shadow-lg shadow-pink-100 uppercase text-xs tracking-widest">
@@ -899,7 +899,7 @@ onClick={async () => {
           key={name} 
           onClick={() => setReportFilterTech(name)}
           className={`px-4 py-1.5 rounded-full text-xs font-black uppercase transition-all ${
-            reportFilterTech === name ? 'bg-pink-600 text-white shadow-md' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            reportFilterTech === name ? 'bg-pink-600 text-white shadow-md' : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-500 hover:bg-gray-200'
           }`}
         >
           {name}
@@ -908,14 +908,14 @@ onClick={async () => {
     </div>
 
     {/* Date Filter (Right) */}
-<div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+<div className="flex flex-wrap items-center dark:bg-slate-900/80 dark:border-slate-800 dark:text-white gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
   {/* START DATE */}
   <div className="flex flex-col gap-1">
     <input 
       type="date" 
       value={startDate} 
       onChange={e => setStartDate(e.target.value)} 
-      className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
+      className="dark:bg-slate-900/80 dark:border-slate-800 bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
     />
   </div>
 
@@ -925,7 +925,7 @@ onClick={async () => {
       type="date" 
       value={endDate} 
       onChange={e => setEndDate(e.target.value)} 
-      className="bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
+      className="dark:bg-slate-900/80 dark:border-slate-800 bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
     />
   </div>
 
@@ -941,7 +941,7 @@ onClick={async () => {
     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
       startDate === getLocalDate() && endDate === getLocalDate()
         ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
-        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50' // Inactive Style
+        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50 dark:border-slate-800  dark:bg-slate-950 dark:text-white' // Inactive Style
     }`}
   >
     Today
@@ -960,7 +960,7 @@ onClick={async () => {
     className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
       startDate !== getLocalDate() 
         ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
-        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50' // Inactive Style
+        : 'bg-white border border-gray-200 text-gray-400 dark:border-slate-800  hover:bg-gray-50 dark:bg-slate-950 dark:text-white' // Inactive Style
     }`}
   >
     This Month
@@ -970,10 +970,10 @@ onClick={async () => {
   </div>
 
   {/* Table */}
-  <div className="overflow-x-auto rounded-xl border border-gray-50 bg-white">
+  <div className="overflow-x-auto rounded-xl border border-gray-50 bg-white dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
     <table className="w-full text-left">
       <thead>
-        <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
+        <tr className="text-[10px] dark:border-slate-800  font-black text-gray-400 uppercase tracking-widest border-b border-gray-50">
           <th className="px-6 py-4 w-16">No.</th>
           <th className="px-6 py-4">Date</th>
           <th className="px-6 py-4">Staff Name</th>
@@ -984,15 +984,15 @@ onClick={async () => {
         </tr>
       </thead>
 <tbody className="divide-y divide-gray-50">
- {(showAllRows ? filteredStats.rows : filteredStats.rows.slice(0, 5)).map((log, index) => (
-    <tr key={log.id} className="text-sm font-bold text-gray-600 hover:bg-gray-50/50 transition-colors group">
-       <td className="px-6 py-4 text-gray-400">{index + 1}</td>
-        <td className="px-6 py-4">{formatDisplayDate(log.dateStr)}</td>
-        <td className="px-6 py-4 text-pink-600">{log.staffName}</td>
-        <td className="px-6 py-4 text-gray-400 font-normal">{log.service || "N/A"}</td>
-        <td className="px-6 py-4">${parseMoney(log.earning).toFixed(2)}</td>
-        <td className="px-6 py-4 text-green-600">${parseMoney(log.tip).toFixed(2)}</td>
-        <td className="px-6 py-4 text-right">
+ {(showAllRows ? filteredStats.rows : filteredStats.rows.slice(0, 10)).map((log, index) => (
+    <tr key={log.id} className="text-sm font-bold text-gray-600 hover:bg-gray-50/50 transition-colors group dark:border-slate-800">
+       <td className="px-3 py-1 text-gray-400">{index + 1}</td>
+        <td className="px-4 py-1">{formatDisplayDate(log.dateStr)}</td>
+        <td className="px-4 py-1 text-pink-600">{log.staffName}</td>
+        <td className="px-4 py-1 text-gray-400 font-normal">{log.service || "N/A"}</td>
+        <td className="px-4 py-1">${parseMoney(log.earning).toFixed(2)}</td>
+        <td className="px-4 py-1 text-green-600 ">${parseMoney(log.tip).toFixed(2)}</td>
+        <td className="px-4 py-1 text-right">
           <div className="flex justify-end gap-3  group-hover:opacity-100 transition-opacity">
             {/* EDIT ICON */}
             <button 
@@ -1040,7 +1040,7 @@ onClick={async () => {
 </tbody>
 
       {/* Table Footer with Totals */}
-      <tfoot className="bg-gray-50/50 font-black text-gray-700">
+      <tfoot className="bg-gray-50/50 font-black text-gray-700 dark:bg-slate-950 ">
         <tr>
           <td colSpan={4} className="px-6 py-4 text-right uppercase text-[10px] text-gray-400">Filtered Total:</td>
           <td className="px-6 py-4 text-pink-600">
@@ -1071,7 +1071,7 @@ onClick={async () => {
     </table>
   </div>
   {filteredStats.rows.length > 5 && (
-        <div className="p-4 border-t border-gray-50 bg-gray-50/30 flex justify-center rounded-b-xl">
+        <div className="dark:bg-slate-950 dark:border-slate-800  p-4 border-t border-gray-50 bg-gray-50/30 flex justify-center rounded-b-xl">
           <button 
             onClick={() => setShowAllRows(!showAllRows)}
             className="text-[10px] font-black uppercase text-pink-600 hover:text-pink-700 tracking-widest flex items-center gap-2"
@@ -1112,7 +1112,7 @@ function PastelCard({ label, value, bg, text, isText = false }) {
 
 function PayoutRow({ label, value }) {
     return (
-        <div className="flex justify-between items-center text-[10px] font-bold text-gray-500 border-b border-gray-100 last:border-0 py-1">
+        <div className="flex justify-between items-center text-[10px] dark:border-slate-800 dark:text-white font-bold text-gray-500 border-b border-gray-100 last:border-0 py-1">
             <span>{label}:</span>
             <span className="font-black text-gray-700">${value.toFixed(2)}</span>
         </div>

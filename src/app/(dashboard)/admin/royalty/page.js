@@ -79,10 +79,10 @@ export default function RoyaltyAdmin() {
   );
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-gray-50 min-h-screen dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight">ROYALTY PROGRAM</h1>
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight dark:text-white">ROYALTY PROGRAM</h1>
           <p className="text-gray-500 font-bold uppercase text-[10px] tracking-[0.3em]">Customer Rewards Management</p>
         </div>
       </div>
@@ -93,17 +93,17 @@ export default function RoyaltyAdmin() {
           <input 
             type="text"
             placeholder="Search name or phone..."
-            className="w-full p-4 rounded-xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-pink-500 outline-none transition-all"
+            className="w-full dark:border-slate-800 p-4 rounded-xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-pink-500 outline-none transition-all"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
+          <div className="dark:bg-slate-950 dark:text-white dark:border-slate-800 bg-white rounded-xl shadow-sm border border-gray-100 h-[600px] overflow-y-auto">
             {filteredClients.map(client => (
               <button 
                 key={client.id}
                 onClick={() => setSelectedClient(client)}
-                className={`w-full border-gray-100 pl-4 p-2 text-left border-b last:border-0 transition-all ${selectedClient?.id === client.id ? 'bg-pink-50 border-l-4 border-l-pink-600' : 'hover:bg-gray-50'}`}
+                className={`w-full border-gray-100 pl-4 p-2 text-left border-b last:border-0 transition-all dark:border-slate-800 ${selectedClient?.id === client.id ? 'bg-pink-50 dark:border-slate-800 border-l-4 border-l-pink-600 dark:bg-slate-800 dark:text-white' : 'dark:border-slate-800 hover:bg-gray-50'}`}
               >
-                <p className="font-black text-gray-900 uppercase text-sm">{client.name}</p>
+                <p className="font-black text-gray-900 uppercase text-sm dark:text-white">{client.name}</p>
                 <p className="text-xs text-gray-400 font-bold tracking-widest">{client.phone}</p>
                 <div className="mt-2 inline-block bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-[10px] font-black uppercase">
                    {client.points || 0} pts
@@ -118,13 +118,13 @@ export default function RoyaltyAdmin() {
           {selectedClient ? (
             <div className="space-y-6 animate-in fade-in duration-500">
               {/* Profile Overview */}
-              <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center">
+              <div className="bg-white p-8 rounded-xl dark:bg-slate-950 dark:text-white dark:border-slate-800  border border-gray-100 shadow-sm flex flex-col md:flex-row justify-between items-center">
                 <div className="flex items-center gap-6">
                   <div className="w-20 h-20 bg-gray-900 rounded-xl flex items-center justify-center text-white text-3xl font-black">
                     {selectedClient.name[0]}
                   </div>
                   <div>
-                    <h2 className="text-3xl font-black text-gray-900 uppercase">{selectedClient.name}</h2>
+                    <h2 className="text-3xl font-black text-gray-900 uppercase dark:text-white">{selectedClient.name}</h2>
                     <p className="text-gray-500 font-bold tracking-widest text-xs uppercase">{selectedClient.phone}</p>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export default function RoyaltyAdmin() {
                 </div>
 
                 {/* Redeem Points Box */}
-                <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-8 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-950 dark:text-white dark:border-slate-800 ">
                   <h3 className="font-black uppercase tracking-widest text-xs mb-4 text-gray-400">Redeem Points</h3>
                   <div className="space-y-4">
                     <input 
@@ -162,7 +162,7 @@ export default function RoyaltyAdmin() {
                       value={redeemAmount}
                       onChange={(e) => setRedeemAmount(e.target.value)}
                       placeholder="Points to Use"
-                      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:ring-2 focus:ring-gray-900"
+                      className="w-full p-4 bg-gray-50 border border-gray-100 rounded-xl dark:border-slate-800  dark:bg-slate-950 dark:text-white outline-none focus:ring-2 focus:ring-gray-900"
                     />
                     <button 
                       onClick={handleRedeem}
@@ -175,13 +175,13 @@ export default function RoyaltyAdmin() {
               </div>
 
               {/* History Table */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-gray-50 bg-gray-50/50">
-                   <h3 className="font-black uppercase tracking-widest text-xs text-gray-500">Transaction History</h3>
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm dark:bg-slate-950 dark:text-white dark:border-slate-800 overflow-hidden">
+                <div className="p-6 border-b border-gray-50 bg-gray-50/50 dark:bg-slate-950 dark:text-white dark:border-slate-800 ">
+                   <h3 className="font-black uppercase tracking-widest text-xs text-gray-500 ">Transaction History</h3>
                 </div>
                 <div className="max-h-80 overflow-y-auto">
                   {selectedClient.history?.slice().reverse().map((item, idx) => (
-                    <div key={idx} className="p-6 border-b border-gray-50 flex justify-between items-center last:border-0">
+                    <div key={idx} className="p-6 border-b border-gray-50 dark:border-slate-800 flex justify-between items-center last:border-0">
                       <div>
                         <p className={`font-black uppercase text-sm ${item.type === 'EARN' ? 'text-gray-900' : 'text-pink-600'}`}>
                           {item.type === 'EARN' ? 'Added Spending' : 'Redeemed Points'}
