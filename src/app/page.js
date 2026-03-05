@@ -337,7 +337,7 @@ const handleTrackGiftCard = async (e) => {
       </nav>
 
       {/* 2. REFINED HERO SECTION */}
-      <section className="relative h-[80vh] flex items-center px-6 md:px-20 overflow-hidden">
+      <section className="relative h-[50vh] flex items-center px-6 md:px-20 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <Image 
             src="https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80"
@@ -372,7 +372,7 @@ const handleTrackGiftCard = async (e) => {
       </section>
 
 {/* --- GIFT CARD SECTION --- */}
-<section className="py-20 bg-pink-50">
+<section className="py-10 bg-pink-50">
   <div className="max-w-6xl mx-auto px-6">
 <div className="bg-white rounded-xl overflow-hidden shadow-xl border border-indigo-100 flex flex-col md:flex-row items-center">
   
@@ -774,7 +774,7 @@ const handleTrackGiftCard = async (e) => {
 {/* BOOKING SECTION */}
 
 
-<div className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100 max-w-4xl mt-10 mb-20 mx-auto">
+<div id="book" className="bg-white rounded-3xl shadow-xl p-8 border border-gray-100 max-w-4xl mt-10 mb-20 mx-auto">
   <div className="text-center mb-10">
   <h2 className="text-3xl font-bold text-[#d63384] mb-2 font-serif tracking-tight">Book a New Appointment</h2>
               <p className="text-gray-500 italic">Your moment of relaxation is just a few clicks away.</p>
