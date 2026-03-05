@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  getDoc, doc,
+  getDoc, getDocs, doc,
   collection, 
   query, 
   onSnapshot, 
@@ -19,7 +19,8 @@ import { auth, db } from "@/lib/firebase";
 import { 
   signInWithEmailAndPassword, 
   setPersistence, 
-  browserLocalPersistence 
+  browserLocalPersistence,
+  onAuthStateChanged // ADD THIS
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
@@ -31,6 +32,12 @@ const promotions = [
 export default function HomePage() {
   const { showToast } = useToast();
   const router = useRouter();
+  // Add these for Tracking
+const [trackCode, setTrackCode] = useState("");
+const [trackResult, setTrackResult] = useState(null);
+const [trackLoading, setTrackLoading] = useState(false);
+const [trackError, setTrackError] = useState("");
+const [isFlipped, setIsFlipped] = useState(false);
   // --- ADD THESE STATES HERE ---
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -241,6 +248,74 @@ const handleBookingSubmit = async () => {
     showToast("Error booking. Try again.", "error");
   }
 };
+
+// ADD THIS NEW EFFECT BLOCK:
+  useEffect(() => {
+    // Listen for existing login sessions when the app opens
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // If a user is found, check their role in Firestore
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          
+          if (userDoc.exists()) {
+            const role = userDoc.data().role;
+            // Redirect based on role
+            if (role === "admin") {
+              router.push("/admin");
+            } else {
+              router.push("/staff/dashboard");
+            }
+          }
+        } catch (error) {
+          console.error("Error checking user role:", error);
+        }
+      }
+      // If no user is found, it just stays on the Landing Page
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [router]);
+
+const handleTrackGiftCard = async (e) => {
+  e.preventDefault();
+  if (!trackCode) return;
+  
+  setTrackLoading(true);
+  setTrackError("");
+  setTrackResult(null);
+
+  try {
+    const input = trackCode.trim();
+    
+    // Matches your working code: checks raw, uppercase, and GC- prefix
+    const q = query(
+      collection(db, "gift_cards"), 
+      where("code", "in", [input, input.toUpperCase(), `GC-${input}`, `GC-${input.toUpperCase()}`])
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      setTrackError("Gift card not found. Please check the number.");
+    } else {
+      const docData = querySnapshot.docs[0].data();
+      setTrackResult({
+        id: querySnapshot.docs[0].id,
+        ...docData,
+        customerName: docData.recipientName || "Valued Client",
+        expiryDate: docData.expirationDate?.toDate ? docData.expirationDate.toDate().toLocaleDateString() : (docData.expirationDate || "No Expiry")
+      });
+    }
+  } catch (err) {
+    console.error("Tracking Error:", err);
+    setTrackError("Error connecting to database.");
+  } finally {
+    setTrackLoading(false);
+  }
+};
+
   return (
     <main className="min-h-screen bg-white">
       {/* 1. ELEGANT NAVIGATION */}
@@ -323,12 +398,22 @@ const handleBookingSubmit = async () => {
           Perfect for birthdays, holidays, or just because!
         </p>
         
-        <button 
-  onClick={() => setStep('giftcard')}
-          className="inline-block bg-gray-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-indigo-600 hover:scale-105 transition-all shadow-lg shadow-gray-200"
-        >
-          Buy a Gift Card
-       </button>
+       {/* --- BUTTON GROUP ROW --- */}
+  <div className="flex flex-col sm:flex-row items-center gap-4">
+    <button 
+      onClick={() => setStep('giftcard')}
+      className="w-full sm:w-auto bg-gray-900 text-white px-3 py-3 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-pink-600 hover:scale-105 transition-all shadow-lg shadow-gray-200"
+    >
+      Buy a Gift Card
+    </button>
+
+    <button 
+      onClick={() => setStep('track-giftcard')}
+      className="w-full sm:w-auto bg-pink-600 text-white px-3 py-3 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 transition-all active:scale-95 shadow-lg shadow-pink-200"
+    >
+      Track My Card
+    </button>
+  </div>
       </div>
       
     </div>
@@ -403,6 +488,224 @@ const handleBookingSubmit = async () => {
   </div>
 )}
 
+
+{/* --- GIFT CARD TRACKING MODAL --- */}
+{step === 'track-giftcard' && (
+  <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]">
+      
+      {/* Header */}
+      <div className="bg-pink-700 p-6 text-center relative">
+        <button onClick={() => { setStep(1); setTrackResult(null); setTrackError(""); }} 
+                className="absolute right-4 top-4 text-slate-400 hover:text-white">✕</button>
+        <h2 className="text-xl font-black text-white uppercase tracking-tighter">Track Gift Card</h2>
+        <p className="text-white text-[10px] font-bold uppercase tracking-[0.3em] mt-1">Nails Express Registry</p>
+      </div>
+
+      <div className="p-6 overflow-y-auto">
+        {/* Search Form */}
+        {!trackResult && (
+          <form onSubmit={handleTrackGiftCard} className="space-y-4">
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block ml-1">Enter Card Code</label>
+              <input 
+                type="text"
+                placeholder="XXXXXX"
+                className="w-full p-4 bg-gray-50 border border-transparent rounded-xl text-center font-black text-lg text-slate-700 outline-none focus:ring-2 focus:ring-pink-500 transition-all uppercase"
+                value={trackCode}
+                onChange={(e) => setTrackCode(e.target.value)}
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={trackLoading || !trackCode}
+              className="w-full py-4 bg-pink-600 text-white rounded-xl font-black uppercase tracking-widest text-xs shadow-lg hover:bg-pink-700 transition-all disabled:opacity-50"
+            >
+              {trackLoading ? "Searching..." : "Check Status"}
+            </button>
+            {trackError && <p className="text-[10px] font-bold text-red-500 bg-red-50 p-3 rounded-xl text-center border border-red-100 uppercase">{trackError}</p>}
+          </form>
+        )}
+{trackResult && (
+  <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-300">
+    {/* Top Balance Card */}
+{/* --- PREMIUM 3D GIFT CARD --- */}
+<div className="group perspective-1000 w-full h-[240px] mb-8 cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+  <div className={`relative w-full h-full transition-transform duration-700 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+    
+   {/* FRONT OF CARD - LUXURY SIGNATURE STYLE */}
+<div className="absolute inset-0 backface-hidden bg-slate-900 rounded-xl shadow-2xl overflow-hidden p-0 border border-slate-800">
+  
+  {/* Modern Rose-Gold Geometric Accent */}
+  <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+  <div className="absolute bottom-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
+
+  {/* Top Section: Brand & Amount */}
+  <div className="p-6 flex justify-between items-start relative z-10">
+    <div>
+      <h3 className="font-parisienne text-3xl font-black text-pink-500 leading-tight">Gift Card</h3>
+      <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Nails Express</p>
+    </div>
+    <div className="text-right">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Balance</p>
+      <p className="text-4xl font-black text-white tracking-tighter">
+        ${Number(trackResult.balance).toFixed(2)}
+      </p>
+    </div>
+  </div>
+
+  {/* Middle Section: Recipient & Sender */}
+  <div className="px-6 mt-2 relative z-10 flex gap-8">
+    <div>
+      <p className="text-[7px] font-black text-pink-500/60 uppercase tracking-widest mb-1">To</p>
+      <p className="text-xs font-bold text-white uppercase tracking-tight truncate max-w-[120px]">
+        {trackResult.recipientName || 'Valued Guest'}
+      </p>
+    </div>
+    <div>
+      <p className="text-[7px] font-black text-pink-500/60 uppercase tracking-widest mb-1">From</p>
+      <p className="text-xs font-bold text-white uppercase tracking-tight truncate max-w-[120px]">
+        {trackResult.senderName || 'Nails Express'}
+      </p>
+    </div>
+  </div>
+
+  {/* Bottom Section: Card Number & Expiry */}
+  <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/40 to-transparent relative z-10">
+    <div className="flex justify-between items-end">
+      <div>
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Card Number</p>
+        <p className="text-sm font-mono text-white tracking-[0.2em]">
+          {trackResult.code || 'XXXXXX'}
+        </p>
+      </div>
+      <div className="text-right">
+        <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Expires</p>
+        <p className="text-[10px] font-bold text-white uppercase">
+          {trackResult.expiryDate}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Status Overlay */}
+  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none">
+     <i className="fas fa-crown text-[120px] text-white"></i>
+  </div>
+</div>
+
+    {/* BACK OF CARD (Inspired by b.png) */}
+    <div className="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-xl border border-gray-100 shadow-xl flex flex-col p-8 overflow-hidden">
+      {/* Black Magnetic Strip Header */}
+      <div className="absolute top-0 left-0 right-0 h-10 bg-black"></div>
+      
+      <div className="mt-8 text-center flex-1 flex flex-col justify-center">
+        <p className="text-[10px] leading-relaxed text-gray-500 font-medium px-4 mb-4">
+          This card is redeemable for services at Nails Express. Treat this card like cash, it is not replaceable if lost or stolen. This card is non-refundable and cannot be exchanged for cash.
+        </p>
+        
+        <div className="h-[1px] w-full bg-gray-100 mb-4"></div>
+        
+        <h4 className="text-sm font-black text-pink-600 uppercase mb-1">Nails Express</h4>
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+          1560 Hustonville Rd #345, Danville, KY 40422
+        </p>
+        <p className="text-[10px] text-gray-400 font-black mt-1">(859) 236-2873</p>
+      </div>
+
+      <div className="flex justify-between mt-4 pt-4 border-t border-gray-50">
+        <div className="text-left">
+          <p className="text-[8px] font-black text-gray-300 uppercase">Holder</p>
+          <p className="text-[10px] font-bold text-gray-600">{trackResult.customerName}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[8px] font-black text-gray-300 uppercase">Expires</p>
+          <p className="text-[10px] font-bold text-gray-600">{trackResult.expiryDate}</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+    {/* Transaction History Section */}
+    <div className="mt-6">
+      <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 ml-1">
+        Detailed History
+      </h3>
+      
+      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+        {trackResult.history && trackResult.history.length > 0 ? (
+          [...trackResult.history].reverse().map((log, index) => (
+            <div key={index} className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      log.type === 'Redeem' || log.type === 'spend' ? 'bg-pink-100 text-pink-600' : 'bg-green-100 text-green-600'
+                    }`}>
+                      {log.type}
+                    </span>
+                    <span className="text-[9px] font-bold text-gray-400">
+                      {log.date?.toDate ? log.date.toDate().toLocaleDateString() : (log.date || 'Recent')}
+                    </span>
+                  </div>
+                  <p className="text-xs font-black text-gray-800 uppercase mt-1">
+                    {log.service || (log.type === 'Redeem' || log.type === 'spend' ? 'General Service' : 'Funds Added')}
+                  </p>
+                </div>
+                
+                <div className="text-right">
+                  <p className={`text-sm font-black ${log.type === 'Redeem' || log.type === 'spend' ? 'text-pink-600' : 'text-green-600'}`}>
+                    {(log.type === 'Redeem' || log.type === 'spend') ? '-' : '+'}${Number(Math.abs((log.oldBalance || 0) - (log.newBalance || 0))).toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {log.note && (
+                <div className="mt-2 p-2 bg-gray-50 rounded-lg border-l-2 border-gray-200">
+                  <p className="text-[10px] text-gray-500 italic leading-relaxed line-clamp-2">
+                    "{log.note}"
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-3 pt-2 border-t border-gray-50 flex justify-between items-center">
+                <span className="text-[8px] font-bold text-gray-300 uppercase">Balance After</span>
+                <span className="text-[10px] font-black text-gray-400">${Number(log.newBalance).toFixed(2)}</span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <p className="text-[10px] font-bold text-gray-400 uppercase">No records found</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Modal Footer Buttons */}
+    <div className="flex flex-col gap-2 pt-2">
+        <button 
+          onClick={() => { setTrackResult(null); setTrackCode(""); }}
+          className="w-full py-4 bg-pink-700 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-all"
+        >
+          Check Another Card
+        </button>
+        <button 
+          onClick={() => setStep(1)}
+          className="w-full py-2 text-slate-400 text-[9px] font-bold uppercase tracking-widest hover:text-pink-600 transition-colors"
+        >
+          Back to Home
+        </button>
+    </div>
+  </div>
+)}
+
+      </div>
+    </div>
+  </div>
+)}
 {/* BOOKING SECTION */}
 
 

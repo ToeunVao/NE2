@@ -34,10 +34,10 @@ const LearnTheoryModal = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[60] bg-slate-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-      <div className="safe-top bg-white p-4 flex justify-between items-center sticky top-0 border-b dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
-         <div className="w-10"></div>
+      <div className="p-4 border-b flex justify-between items-center bg-pink-700 text-white dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+        
          <span className="font-black text-[10px] uppercase tracking-tighter">Study: {currentIndex + 1}/{questions.length}</span>
-         <button onClick={onClose} className="p-2 bg-slate-100 text-pink-700 rounded-xl dark:bg-slate-950 dark:text-white">Done</button>
+         <button onClick={onClose} ><X size={20}/></button>
       </div>
 
       <div className="flex-1 p-6 overflow-y-auto bg-slate-50 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
@@ -283,6 +283,7 @@ export default function BoardExamDashboard() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+const [showGuidelines, setShowGuidelines] = useState(false);
   useEffect(() => {
     if (!staffId) return;
     const q = query(collection(db, "exam-results"), where("staffId", "==", staffId), orderBy("date", "desc"));
@@ -360,8 +361,102 @@ export default function BoardExamDashboard() {
             </div>
             <ChevronRight size={16} className="text-slate-300" />
           </button>
+           <button onClick={() => setShowGuidelines(!showGuidelines)} className="w-full dark:bg-slate-900/80 dark:border-slate-800 bg-white p-6 rounded-xl border border-slate-100 shadow-sm flex items-center gap-4 active:scale-95 transition-all">
+            <div className="dark:bg-slate-950 dark:text-white w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center text-[#db2777]"><i className={`fas ${showGuidelines ? 'fa-minus-circle' : 'fa-info-circle'} text-24 transition-transform`}></i></div>
+            <div className="text-left flex-1">
+              <h3 className="font-black  dark:text-white text-slate-900 uppercase text-xs tracking-tight">{showGuidelines ? 'Hide Guidelines' : 'Practice Guidelines'}</h3>
+              <p className="text-[10px] font-bold text-slate-400">{showGuidelines ? 'Click to Hide PSI Practical Guidelines' : 'Click to show PSI Practical Guidelines'}</p>
+            </div>
+            <ChevronRight size={16} className="text-slate-300" />
+          </button>
+          
+        </div>
+<div className="mt-4">
+  {/* The Guidelines Content */}
+  {showGuidelines && (
+    <div className="mt-4 p-8 bg-white dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-xl shadow-2xl shadow-pink-100/20 animate-in slide-in-from-top-4 duration-500">
+      
+      {/* Header Section */}
+      <div className="border-l-4 border-pink-500 pl-6 mb-8">
+        <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+          PSI Nail Practical Examination
+        </h2>
+        <p className="text-slate-400 font-medium text-sm mt-1">
+          To ensure a smooth and successful experience, please adhere to the following guidelines.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* Arrival & Kit Section */}
+        <div className="space-y-6">
+          <section>
+            <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i className="fas fa-clock text-[14px]"></i> Arrival and Check-In
+            </h4>
+            <ul className="space-y-2 text-slate-600 dark:text-slate-400 text-xs font-medium leading-relaxed">
+              <li>• Arrive at least <span className="font-bold text-slate-900 dark:text-white">30 minutes</span> before your time.</li>
+              <li>• Proceed to <span className="font-bold text-slate-900 dark:text-white">Room 138</span> for mandatory kit inspection.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i className="fas fa-briefcase text-[14px]"></i> Kit Inspection Items
+            </h4>
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-white/5 grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-500 uppercase">
+              <div className="flex items-center gap-2">✓ Disinfectant wipe</div>
+              <div className="flex items-center gap-2">✓ Odorless liquid</div>
+              <div className="flex items-center gap-2">✓ Mannequin hand</div>
+              <div className="flex items-center gap-2">✓ Hand sanitizer</div>
+            </div>
+          </section>
         </div>
 
+        {/* Room & Prep Section */}
+        <div className="space-y-6">
+          <section>
+            <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i className="fas fa-chair text-[14px]"></i> Room Setup
+            </h4>
+            <p className="text-slate-600 dark:text-slate-400 text-xs leading-relaxed">
+              Locate your designated table number and listen for the <span className="text-pink-600 font-bold">recorded speaker instructions</span>.
+            </p>
+          </section>
+
+          <section className="bg-pink-50 dark:bg-pink-900/10 p-5 rounded-xl border border-pink-100 dark:border-pink-900/20">
+            <h4 className="text-[10px] font-black text-pink-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <i className="fas fa-trash-alt text-[14px]"></i> Waste Management
+            </h4>
+            <div className="space-y-3">
+              <div>
+                <span className="text-[9px] font-black uppercase text-pink-400 block">Single-use</span>
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium italic">Items that are not reusable.</p>
+              </div>
+              <div>
+                <span className="text-[9px] font-black uppercase text-pink-400 block">Multi-use</span>
+                <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium italic">Towels, clippers, and reusable tools.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Task List Footer */}
+      <div className="mt-10 pt-6 border-t border-slate-100 dark:border-white/5 flex flex-wrap gap-4 justify-center">
+        {['Manicure', 'Nail Tips', 'Nail Form', 'Cleaning'].map((task, i) => (
+          <div key={i} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest rounded-xl">
+            {i+1}. {task}
+          </div>
+        ))}
+      </div>
+
+      <p className="text-center text-[10px] font-bold text-pink-400 uppercase tracking-[0.3em] mt-8">
+        Best of Luck — Your Attentiveness is Key
+      </p>
+    </div>
+  )}
+</div>
         {/* NATIVE STYLE HISTORY LIST */}
         <div className="mt-8">
           <div className="flex justify-between items-center px-2 mb-4">

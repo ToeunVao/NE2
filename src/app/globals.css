@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
-
+/* In globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Parisienne&family=Inter:wght@400;700&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -75,7 +76,23 @@ input, textarea, select {
   }
 }
 
-
+@layer utilities {
+  .font-parisienne {
+    font-family: 'Parisienne', cursive !important;
+  }
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+}
 @custom-variant dark (&:is(.dark *));
 /* mobile app Prevent accidental text selection on buttons and icons */
 body.modal-open {
