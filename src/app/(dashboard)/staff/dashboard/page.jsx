@@ -214,6 +214,7 @@ const uniqueClients = new Set(filteredData.map(log =>
     };
   }, [filteredData]);
 
+  
   //if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading...</div>;
 
   return (
@@ -406,20 +407,46 @@ const uniqueClients = new Set(filteredData.map(log =>
   );
 }
 // --- SUB COMPONENTS ---
+const CARD_ICONS = {
+  "Total Earnings": "fa-wallet",
+  "Total Payout": "fa-hand-holding-dollar",
+  "Cash Payout": "fa-money-bill-wave",
+  "Check Payout": "fa-money-check-dollar",
+  "Total Tips": "fa-coins",
+  "Total Appointments": "fa-calendar-check",
+  "Total Clients": "fa-users"
+};
+
 function PastelCard({ label, value, bg, text }) {
-  // Check if the label is for a count rather than money
   const isCount = label.toLowerCase().includes("appointments") || 
                   label.toLowerCase().includes("clients");
+  
+  // Get the icon class based on the label
+  const iconClass = CARD_ICONS[label] || "fa-chart-line";
 
   return (
-    <div style={{ backgroundColor: bg }} className="p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm dark:!bg-slate-800 dark:border dark:border-white/10">
-      <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-        {label}
-      </span>
-      <span style={{ color: text }} className="font-black text-2xl tracking-tight">
-        {/* If it's a count, show the raw number. If it's money, show the $ sign. */}
-        {isCount ? value : value} 
-      </span>
+    <div 
+      style={{ backgroundColor: bg }} 
+      className="relative p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm dark:!bg-slate-800 dark:border dark:border-white/10 overflow-hidden group"
+    >
+      {/* Background Icon Decoration */}
+      <div className="absolute right-[-10px] bottom-[-10px] opacity-10 group-hover:opacity-20 transition-opacity">
+        <i className={`fas ${iconClass} text-6xl`} style={{ color: text }}></i>
+      </div>
+
+      <div className="relative z-10 flex flex-col">
+        <div className="flex items-center gap-2 mb-1">
+          {/* Small Icon next to Label */}
+          <i className={`fas ${iconClass} text-[10px]`} style={{ color: text }}></i>
+          <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80">
+            {label}
+          </span>
+        </div>
+        
+        <span style={{ color: text }} className="font-black text-2xl tracking-tight">
+          {value} 
+        </span>
+      </div>
     </div>
   );
 }
