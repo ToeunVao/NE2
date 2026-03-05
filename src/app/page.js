@@ -374,49 +374,114 @@ const handleTrackGiftCard = async (e) => {
 {/* --- GIFT CARD SECTION --- */}
 <section className="py-20 bg-pink-50">
   <div className="max-w-6xl mx-auto px-6">
-    <div className="bg-white rounded-xl overflow-hidden shadow-xl border border-indigo-100 flex flex-col md:flex-row items-center">
+<div className="bg-white rounded-xl overflow-hidden shadow-xl border border-indigo-100 flex flex-col md:flex-row items-center">
+  
+  {/* Left Block: Visual Side (The 3D Card) */}
+  <div className="w-full md:w-1/2 p-8 md:p-12 bg-gray-50/50 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-indigo-50">
+    <div className="w-full max-w-sm space-y-6 animate-in slide-in-from-bottom-4 duration-300">
       
-      {/* Visual Side */}
-      <div className="w-full md:w-1/2 p-12 bg-indigo-600 flex flex-col justify-center items-center text-center text-white space-y-4">
-        <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-4">
-          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-          </svg>
-        </div>
-        <h3 className="text-3xl font-black uppercase tracking-tighter">NailsXpress</h3>
-        <p className="text-indigo-100 font-bold tracking-[0.2em] uppercase text-xs">Digital Gift Card</p>
-      </div>
+      {/* --- PREMIUM 3D GIFT CARD --- */}
+      <div 
+        className="group perspective-1000 w-full h-[240px] cursor-pointer" 
+        onClick={() => setIsFlipped(!isFlipped)}
+      >
+        <div className={`relative w-full h-full transition-transform duration-700 preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+          
+          {/* FRONT OF CARD - LUXURY SIGNATURE STYLE */}
+          <div className="absolute inset-0 backface-hidden bg-slate-900 rounded-xl shadow-2xl overflow-hidden p-0 border border-slate-800">
+            {/* Modern Rose-Gold Geometric Accent */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
 
-      {/* Content Side */}
-      <div className="w-full md:w-1/2 p-12">
-        <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 leading-tight">
-          Give the Gift of Glamour
-        </h2>
-        <p className="text-gray-600 text-lg leading-relaxed mb-8">
-          Treat your loved ones to a relaxing and beautifying experience with a 
-          <span className="font-bold text-indigo-600"> NailsXpress digital gift card</span>. 
-          Perfect for birthdays, holidays, or just because!
+            {/* Top Section: Brand & Amount */}
+            <div className="p-6 flex justify-between items-start relative z-10">
+              <div>
+                 <h3 className="font-parisienne text-3xl font-black text-pink-500 leading-tight">Gift Card</h3>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Nails Express</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Current Balance</p>
+                <p className="text-3xl font-black text-white tracking-tighter">$100.00</p>
+              </div>
+            </div>
+
+            {/* Middle Section: Recipient & Sender */}
+            <div className="px-6 mt-2 relative z-10 flex gap-8">
+              <div>
+                <p className="text-[7px] font-black text-pink-500/60 uppercase tracking-widest mb-1">To</p>
+                <p className="text-xs font-bold text-white uppercase tracking-tight truncate max-w-[100px]">Valued Guest</p>
+              </div>
+              <div>
+                <p className="text-[7px] font-black text-pink-500/60 uppercase tracking-widest mb-1">From</p>
+                <p className="text-xs font-bold text-white uppercase tracking-tight truncate max-w-[100px]">Nails Express</p>
+              </div>
+            </div>
+
+            {/* Bottom Section: Card Number & Expiry */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/40 to-transparent relative z-10">
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Card Number</p>
+                  <p className="text-sm font-mono text-white tracking-[0.2em]">XXXXXX</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Expires</p>
+                  <p className="text-[10px] font-bold text-white">XX/XX/XXXX</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BACK OF CARD */}
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-xl border border-gray-100 shadow-xl flex flex-col p-8 overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-10 bg-black"></div>
+            <div className="mt-8 text-center flex-1 flex flex-col justify-center">
+               <p className="text-[10px] leading-relaxed text-gray-500 font-medium px-4 mb-4">
+          This card is redeemable for services at Nails Express. Treat this card like cash, it is not replaceable if lost or stolen. This card is non-refundable and cannot be exchanged for cash.
         </p>
-        
-       {/* --- BUTTON GROUP ROW --- */}
-  <div className="flex flex-col sm:flex-row items-center gap-4">
-    <button 
-      onClick={() => setStep('giftcard')}
-      className="w-full sm:w-auto bg-gray-900 text-white px-3 py-3 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-pink-600 hover:scale-105 transition-all shadow-lg shadow-gray-200"
-    >
-      Buy a Gift Card
-    </button>
+              <div className="h-[1px] w-full bg-gray-100 my-4"></div>
+              <h4 className="text-sm font-black text-pink-600 uppercase">Nails Express</h4>
+              <p className="text-[9px] text-gray-400 font-bold uppercase">(859) 236-2873</p>
+            </div>
+          </div>
 
-    <button 
-      onClick={() => setStep('track-giftcard')}
-      className="w-full sm:w-auto bg-pink-600 text-white px-3 py-3 rounded-xl font-black uppercase tracking-widest text-sm hover:bg-pink-700 transition-all active:scale-95 shadow-lg shadow-pink-200"
-    >
-      Track My Card
-    </button>
-  </div>
+        </div>
       </div>
-      
+      <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">
+        Click card to flip <i className="fas fa-sync ml-1"></i>
+      </p>
     </div>
+  </div>
+
+  {/* Right Block: Content Side */}
+  <div className="w-full md:w-1/2 p-12">
+    <h2 className="text-3xl md:text-3xl font-black text-gray-900 mb-6 leading-tight">
+      Give the Gift of <span className="text-pink-600 italic  capitalize">Glamour</span>
+    </h2>
+    <p className="text-gray-600 text-lg leading-relaxed mb-8">
+      Treat your loved ones to a relaxing experience with a 
+      <span className="font-bold text-pink-600"> Nails Express digital gift card</span>. 
+      Perfect for birthdays, holidays, or just because!
+    </p>
+    
+    <div className="flex flex-col sm:flex-row items-center gap-4">
+      <button 
+        onClick={() => setStep('giftcard')}
+        className="w-full sm:w-auto bg-gray-900 text-white px-3 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-pink-600 hover:scale-105 transition-all shadow-lg"
+      >
+        Buy a Gift Card
+      </button>
+
+      <button 
+        onClick={() => setStep('track-giftcard')}
+        className="w-full sm:w-auto border-2 border-pink-600 text-pink-600 px-3 py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-pink-50 transition-all active:scale-95"
+      >
+        Track My Card
+      </button>
+    </div>
+  </div>
+  
+</div>
   </div>
 </section>
 
