@@ -10,7 +10,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
   const [allServices, setAllServices] = useState([]); 
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(false);
-const [clients, setClients] = useState([]);
+
   const [bookingForm, setBookingForm] = useState({
     name: "", 
     phone: "", 
@@ -51,17 +51,8 @@ const [clients, setClients] = useState([]);
       setTechnicians(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-// Add this new fetch for clients
-  const unsubClients = onSnapshot(collection(db, "clients"), (snap) => {
-    setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
-
-  return () => { 
-    unsubServices(); 
-    unsubTechs(); 
-    unsubClients(); // Cleanup
-  };
-}, [isOpen]);
+    return () => { unsubServices(); unsubTechs(); };
+  }, [isOpen]);
 
   const handleServiceChange = (val) => {
     const match = allServices.find(s => s.name.toLowerCase() === val.toLowerCase());
@@ -71,16 +62,7 @@ const [clients, setClients] = useState([]);
       price: match ? match.price : 0 
     }));
   };
-const handleClientSelect = (name) => {
-  const selectedClient = clients.find(c => c.name === name);
-  
-  setBookingForm(prev => ({
-    ...prev,
-    name: name,
-    phone: selectedClient ? (selectedClient.phone || "") : prev.phone,
-    email: selectedClient ? (selectedClient.email || "") : prev.email
-  }));
-};
+
   const handleBooking = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -139,23 +121,11 @@ const handleClientSelect = (name) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pb-24 md:pb-0">
             
             {/* Name & Phone */}
-           <div className="space-y-1">
-  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Client Name</label>
-  <input 
-    required 
-    list="client-list" // Connects to the datalist below
-    className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
-    value={bookingForm.name} 
-    onChange={e => handleClientSelect(e.target.value)} // Trigger auto-fill
-  />
-  
-  {/* The Autocomplete Data List */}
-  <datalist id="client-list">
-    {clients.map(c => (
-      <option key={c.id} value={c.name} />
-    ))}
-  </datalist>
-</div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Client Name</label>
+              <input required className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+                value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} />
+            </div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Phone Number</label>
