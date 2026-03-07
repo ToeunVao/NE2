@@ -256,17 +256,19 @@ const summaryStats = useMemo(() => {
   </div>
 {/* Header Section */}
 <div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
-  <div className="flex flex-col gap-4">
-  {/* H1 takes full width on mobile */}
-  <h1 className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white w-full text-2xl font-black text-pink-600 uppercase tracking-tighter">
+  {/* Parent container with responsive layout */}
+<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  
+  {/* H1 stays left-aligned and takes necessary space, not full width */}
+  <h1 className="text-2xl font-black text-pink-600 uppercase tracking-tighter">
     My Yearly Earning Report
   </h1>
   
-  {/* Select dropdown moves below it */}
+  {/* Select dropdown moves to the right on desktop */}
   <select 
     value={selectedYear}
     onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-    className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white w-fit bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-pink-300 transition-all"
+    className="bg-white dark:bg-slate-900/80 dark:border-slate-800 dark:text-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-pink-300 transition-all"
   >
     {yearOptions.map(y => (
       <option key={y} value={y}>{y} Statistics</option>
