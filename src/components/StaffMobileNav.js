@@ -121,7 +121,7 @@ if (!staffId || pathname === "/" || pathname === "/staff/login") {
             <div className={`p-2 rounded-xl transition-all ${isActive('/staff/board-exam') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
               <BookOpen size={22} strokeWidth={isActive('/staff/board-exam') ? 2.5 : 2} />
             </div>
-            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/board-exam') ? 'text-pink-600' : 'text-slate-400'}`}>Exams</span>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/board-exam') ? 'text-pink-600' : 'text-slate-400'}`}>PSI Theory</span>
           </button>
 
         </div>

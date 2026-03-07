@@ -75,6 +75,34 @@ input, textarea, select {
     @apply flex items-center gap-2 p-4 border-b border-gray-50 bg-gray-50/30;
   }
 }
+  @media print {
+    /* Hide everything by default */
+    body * { visibility: hidden; }
+    
+    /* Only show the matrix container and its children */
+    #printable-report, #printable-report * {
+      visibility: visible;
+    }
+    
+    /* Position the report at the very top of the page */
+    #printable-report {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 20px;
+    }
+
+    /* Hide the print button and year selector during print */
+    .print\:hidden { display: none !important; }
+    
+    /* Force background colors to show in PDF/Print */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    
+    /* Ensure table fits on one page */
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+  }
 
 @layer utilities {
   .font-parisienne {

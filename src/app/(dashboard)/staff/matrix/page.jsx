@@ -18,62 +18,109 @@ const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 export default function EarningMatrixPage() {
   const [allLogs, setAllLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState(null);
   const [viewType, setViewType] = useState("earning"); 
   const [selectedMonthFilter, setSelectedMonthFilter] = useState("All");
+// Inside EarningMatrixPage component
+const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+const yearOptions = useMemo(() => {
+  const currentYear = new Date().getFullYear();
+  const startYear = 2025;
+  // This creates an array from 2025 up to the current year + 1
+  return Array.from(
+    { length: currentYear - startYear + 2 }, 
+    (_, i) => startYear + i
+  );
+}, []);
 
-  useEffect(() => {
-    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+useEffect(() => {
+  let unsubLive = () => {};
+  let unsubExcel = () => {};
 
-      const initializeMatrix = async () => {
-        try {
-          const userDoc = await getDoc(doc(db, "users", user.uid));
-          const staffNameInDb = userDoc.data()?.name;
+  const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+    if (!user) { setLoading(false); return; }
+    setLoading(true);
 
-          if (!staffNameInDb) {
-            setLoading(false);
-            return;
-          }
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const profileData = userDoc.data();
+setUserProfile(profileData);
+    const exactName = userDoc.data()?.name?.trim() || "";
+    const lowerName = exactName.toLowerCase();
 
-          const currentYear = new Date().getFullYear();
-          const q = query(
-            collection(db, "earnings"),
-            where("staffName", "==", staffNameInDb),
-            orderBy("date", "asc")
-          );
+    // We use objects (Maps) here because keys must be unique. 
+    // This automatically prevents doubling if data exists in both collections.
+    let liveMap = {};
+    let excelMap = {};
 
-          const unsubLogs = onSnapshot(q, (snap) => {
-            const logs = snap.docs.map(doc => {
-              const docData = doc.data();
-              const d = docData.date?.toDate() || new Date();
-              return {
-                amount: parseFloat(docData.earning) || 0,
-                tip: parseFloat(docData.tip) || 0,
-                day: d.getDate(),
-                month: d.getMonth(), 
-                year: d.getFullYear()
-              };
-            }).filter(log => log.year === currentYear);
+    const updateCombinedLogs = () => {
+      // Merge maps: Live data takes priority over Excel data for the same day
+      const combinedMap = { ...excelMap, ...liveMap };
+      const finalArray = Object.values(combinedMap).filter(log => log.year === selectedYear);
+      
+      setAllLogs(finalArray);
+      setLoading(false);
+    };
 
-            setAllLogs(logs);
-            setLoading(false);
-          });
+    // 1. EXCEL DATA (salon_earnings)
+    unsubExcel = onSnapshot(collection(db, "salon_earnings"), (snap) => {
+      excelMap = {}; // Reset local map to prevent accumulation
+      snap.forEach(doc => {
+        const dateStr = doc.id; // "2025-01-14"
+        if (!dateStr.includes("-")) return;
 
-          return unsubLogs;
-        } catch (error) {
-          console.error("Matrix Error:", error);
-          setLoading(false);
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const data = doc.data();
+        let val = data[exactName] || data[lowerName] || 0;
+        val = parseFloat(String(val).replace(/[$,]/g, "")) || 0;
+
+        if (val > 0) {
+          excelMap[dateStr] = {
+            amount: val,
+            tip: 0,
+            day: d,
+            month: m - 1,
+            year: y,
+            id: dateStr // Unique key
+          };
         }
-      };
-
-      initializeMatrix();
+      });
+      updateCombinedLogs();
     });
 
-    return () => unsubscribeAuth();
-  }, []);
+    // 2. LIVE DATA (earnings)
+    unsubLive = onSnapshot(collection(db, "earnings"), (snap) => {
+      liveMap = {}; // Reset local map
+      snap.forEach(doc => {
+        const data = doc.data();
+        const docStaffName = (data.staffName || data.name || "").toLowerCase().trim();
+        
+        if (data.staffId === user.uid || docStaffName === lowerName) {
+          let dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+          if (isNaN(dObj.getTime())) return;
+
+          const dateKey = dObj.toISOString().split('T')[0];
+          
+          // If multiple entries exist for one day in 'earnings', we sum them
+          const currentAmount = liveMap[dateKey]?.amount || 0;
+          const currentTip = liveMap[dateKey]?.tip || 0;
+
+          liveMap[dateKey] = {
+            amount: currentAmount + (parseFloat(data.earning || data.earnings) || 0),
+            tip: currentTip + (parseFloat(data.tip || data.tips) || 0),
+            day: dObj.getDate(),
+            month: dObj.getMonth(),
+            year: dObj.getFullYear(),
+            id: dateKey
+          };
+        }
+      });
+      updateCombinedLogs();
+    });
+  });
+
+  return () => { unsubLive(); unsubExcel(); unsubscribeAuth(); };
+}, [selectedYear]);
+
 const chartData = useMemo(() => {
   return MONTHS.map((name, index) => {
     const monthLogs = allLogs.filter(log => log.month === index);
@@ -86,18 +133,14 @@ const chartData = useMemo(() => {
 }, [allLogs]);
 
 const summaryStats = useMemo(() => {
+  // 1. Get Today's date in local YYYY-MM-DD format
   const now = new Date();
+  const localYear = now.getFullYear();
+  const localMonth = now.getMonth();
+  const localDay = now.getDate();
   
-  // 1. Get Today's date in LOCAL format (YYYY-MM-DD) without UTC shift
-  const todayStr = now.toLocaleDateString('sv'); // 'sv' (Sweden) locale gives YYYY-MM-DD
-  
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  
-  // 2. Calculate Last Month correctly (handles January -> December shift)
-  const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-  const lastMonth = lastMonthDate.getMonth();
-  const lastMonthYear = lastMonthDate.getFullYear();
+  // Create a clean string for "Today" comparison: e.g., "2026-03-07"
+  const todayDateString = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
 
   const stats = {
     today: { e: 0, t: 0 },
@@ -107,29 +150,31 @@ const summaryStats = useMemo(() => {
   };
 
   allLogs.forEach(log => {
-    // 3. Construct the log's date string using its stored components
-    // This assumes your log has { year, month, day } already extracted in allLogs
-    const logDate = new Date(log.year, log.month, log.day).toLocaleDateString('sv');
-    
-    // Today
-    if (logDate === todayStr) {
+    // Construct the log's date string for comparison
+    const logDateString = `${log.year}-${String(log.month + 1).padStart(2, '0')}-${String(log.day).padStart(2, '0')}`;
+
+    // Total Year
+    stats.thisYear.e += log.amount;
+    stats.thisYear.t += log.tip;
+
+    // --- FIX: TODAY CHECK ---
+    if (logDateString === todayDateString) {
       stats.today.e += log.amount;
       stats.today.t += log.tip;
     }
+
     // This Month
-    if (log.month === currentMonth && log.year === currentYear) {
+    if (log.month === localMonth && log.year === localYear) {
       stats.thisMonth.e += log.amount;
       stats.thisMonth.t += log.tip;
     }
-    // Last Month
-    if (log.month === lastMonth && log.year === lastMonthYear) {
+
+    // Last Month (simplified check)
+    const lastMonthIdx = localMonth === 0 ? 11 : localMonth - 1;
+    const lastMonthYear = localMonth === 0 ? localYear - 1 : localYear;
+    if (log.month === lastMonthIdx && log.year === lastMonthYear) {
       stats.lastMonth.e += log.amount;
       stats.lastMonth.t += log.tip;
-    }
-    // This Year
-    if (log.year === currentYear) {
-      stats.thisYear.e += log.amount;
-      stats.thisYear.t += log.tip;
     }
   });
 
@@ -148,7 +193,9 @@ const summaryStats = useMemo(() => {
 
   //if (loading) return <div className="p-20 text-center font-black text-gray-300 uppercase tracking-widest">Loading Report...</div>;
 
+
   return (
+    
     <div className="max-w-full mx-auto p-4 space-y-6">
         {/* TOP SUMMARY CARDS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -184,39 +231,81 @@ const summaryStats = useMemo(() => {
 
 </div>
 
-      <div className="bg-white dark:bg-slate-950 dark:border-slate-800 p-6 rounded-xl shadow-sm border border-gray-100">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <h1 className="text-2xl font-black text-pink-600 tracking-tighter uppercase">
-            Individual Earning Matrix
-          </h1>
+      <div id="printable-report" className="bg-white dark:bg-slate-950 dark:border-slate-800 p-6 rounded-xl shadow-sm border border-gray-100">
+          {/* ONLY VISIBLE ON PRINT */}
+  <div className="hidden print:block mb-8 border-b-2 border-pink-500 pb-4">
+    <div className="flex justify-between items-end">
+      <div>
+        <h1 className="text-3xl font-black uppercase tracking-tighter text-pink-600">
+          Staff Earning Report
+        </h1>
+       <p className="text-sm font-bold text-pink-600 uppercase tracking-widest">
+  {userProfile?.name || "Staff Member"} — {selectedYear} Performance
+</p>
+      </div>
+      <div className="text-right">
+        <p className="text-[10px] font-black uppercase text-gray-400">Printed On</p>
+        <p className="text-[10px] font-bold text-gray-800">
+          {new Date().toLocaleString('en-US', { 
+            dateStyle: 'medium', 
+            timeStyle: 'short' 
+          })}
+        </p>
+      </div>
+    </div>
+  </div>
+{/* Header Section */}
+<div className="flex flex-wrap items-center justify-between gap-4 mb-6 print:hidden">
+  <div className="flex flex-col gap-4">
+  {/* H1 takes full width on mobile */}
+  <h1 className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white w-full text-2xl font-black text-pink-600 uppercase tracking-tighter">
+    My Yearly Earning Report
+  </h1>
+  
+  {/* Select dropdown moves below it */}
+  <select 
+    value={selectedYear}
+    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+    className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white w-fit bg-white border border-gray-200 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest outline-none shadow-sm cursor-pointer hover:border-pink-300 transition-all"
+  >
+    {yearOptions.map(y => (
+      <option key={y} value={y}>{y} Statistics</option>
+    ))}
+  </select>
+</div>
 
-          <div className="flex flex-wrap items-center dark:bg-slate-900/80 dark:border-slate-800 gap-4 bg-gray-50 p-2 rounded-xl border border-gray-100">
-            <div className="flex items-center gap-1 bg-white p-1 dark:bg-slate-900/80 dark:border-slate-800 rounded-lg shadow-sm">
-              <span className="text-[10px] font-black uppercase text-gray-400 px-2">Show:</span>
-              <button
-                onClick={() => setViewType("earning")}
-                className={`px-6 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${
-                  viewType === "earning" ? "bg-pink-600 text-white shadow-md" : "text-gray-400 hover:bg-gray-50"
-                }`}
-              >
-                Earning
-              </button>
-              <button
-                onClick={() => setViewType("tip")}
-                className={`px-6 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${
-                  viewType === "tip" ? "bg-green-600 text-white shadow-md" : "text-gray-400 hover:bg-gray-50"
-                }`}
-              >
-                Tip
-              </button>
-            </div>
-          </div>
-        </div>
+  <div className="flex items-center gap-3">
+    {/* PRINT BUTTON */}
+    {/* Button UI */}
+<button 
+  onClick={() => window.print()}
+  className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white flex items-center gap-2 bg-white border border-gray-200 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all shadow-sm active:scale-95 print:hidden"
+>
+  <i className="fas fa-print text-pink-500"></i>
+  Print
+</button>
+
+    {/* Toggle Switcher */}
+    <div className="dark:bg-slate-900/80 dark:border-slate-800 dark:text-white flex bg-gray-100 p-1 rounded-xl">
+      <button 
+        onClick={() => setViewType("earning")}
+        className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewType === "earning" ? 'bg-pink-600 text-white shadow-sm' : 'text-gray-400'}`}
+      >
+        Earnings
+      </button>
+      <button 
+        onClick={() => setViewType("tip")}
+        className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewType === "tip" ? 'bg-green-600 text-white shadow-sm' : 'text-gray-400'}`}
+      >
+        Tips
+      </button>
+    </div>
+  </div>
+</div>
 
         {/* Matrix Table */}
         <div className="overflow-x-auto border border-gray-100  dark:border-slate-800 rounded-xl">
+      
           <table className="min-w-full text-xs text-left border-collapse table-fixed">
             <thead>
               <tr className="bg-pink-600 text-white text-[10px] font-black uppercase">
@@ -271,7 +360,19 @@ const summaryStats = useMemo(() => {
             </tbody>
           </table>
         </div>
-
+{/* FOOTER - ONLY VISIBLE ON PRINT */}
+<div className="hidden print:block mt-12 pt-8 border-t border-gray-300">
+  
+    <div className="w-full text-center">
+      <p className="text-[10px] font-bold text-gray-500 italic">
+        "Thank you for your hard work and dedication to our clients. 
+        Please review this report for accuracy. If you have any questions, contact management."
+      </p>
+      <p className="text-[9px] font-black text-gray-400 mt-4 uppercase">
+       © {new Date().getFullYear()} NailsExpress | Official Staff Records
+      </p>
+    </div>
+</div>
         
 
       </div>
@@ -295,8 +396,8 @@ const summaryStats = useMemo(() => {
     </div>
   </div>
 
-  <div className="h-[350px] w-full">
-    <ResponsiveContainer width="100%" height="100%">
+  <div className="h-[350px] w-full min-h-[350px]">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
       <BarChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
         <XAxis 
@@ -321,6 +422,8 @@ const summaryStats = useMemo(() => {
     </ResponsiveContainer>
   </div>
 </div>
+
     </div>
+    
   );
 }
