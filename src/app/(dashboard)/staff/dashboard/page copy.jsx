@@ -4,7 +4,11 @@ import { auth, db } from "@/lib/firebase";
 import { 
   collection, onSnapshot, query, where, orderBy, doc, getDoc 
 } from "firebase/firestore";
-import { DollarSign, Percent, Calendar, Users, TrendingUp, Award, Briefcase, Wallet } from "lucide-react";
+import { 
+  // ... your other existing icons ...
+  TrendingUp, 
+  // ...
+} from "lucide-react";
 import { 
   ComposedChart, 
   Line, 
@@ -16,7 +20,6 @@ import {
   ResponsiveContainer, 
   Legend 
 } from 'recharts';
-
 const COLORS = {
   pink: "#F9D5E5", pinkText: "#D63384",
   green: "#D5F9DE", greenText: "#198754",
@@ -61,83 +64,59 @@ const [visibleCount, setVisibleCount] = useState(5); // Start with 5 rows
   // Defaulting to "thisMonth" behavior
   const [activeFilter, setActiveFilter] = useState("thisMonth");
 
-useEffect(() => {
-  let unsubLive = () => {};
-  let unsubExcel = () => {};
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-  const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
-    if (!user) { setLoading(false); return; }
+      const initializeDashboard = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          const staffNameInDb = userDoc.data()?.name;
+          setRealName(staffNameInDb || "Staff");
 
-    // Fetch user details to get exact name for Excel matching
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    const exactName = userDoc.data()?.name?.trim() || "";
-    const lowerName = exactName.toLowerCase();
+          if (!staffNameInDb) {
+            setLoading(false);
+            return;
+          }
 
-    let liveMap = {};
-    let excelMap = {};
+          const q = query(
+            collection(db, "earnings"),
+            where("staffName", "==", staffNameInDb),
+            orderBy("date", "asc")
+          );
 
-    const updateLogs = () => {
-      // Merge Excel and Live data into a single array
-      const combinedMap = { ...excelMap, ...liveMap };
-      const data = Object.values(combinedMap);
-      setAllLogs(data); 
-      setLoading(false);
-    };
+          const unsubLogs = onSnapshot(q, (snap) => {
+            const data = snap.docs.map(doc => {
+              const docData = doc.data();
+              const d = docData.date?.toDate() || new Date();
+              return {
+                id: doc.id,
+                ...docData,
+                jsDate: d,
+                dateStr: d.toISOString().split('T')[0],
+                dateLabel: `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+              };
+            });
+            setAllLogs(data);
+            setLoading(false);
+          });
 
-    // Excel Data (salon_earnings)
-    unsubExcel = onSnapshot(collection(db, "salon_earnings"), (snap) => {
-      excelMap = {};
-      snap.forEach(doc => {
-        const [y, m, d] = doc.id.split('-').map(Number);
-        const data = doc.data();
-        let val = parseFloat(String(data[exactName] || data[lowerName] || 0).replace(/[$,]/g, ""));
-        if (val > 0) {
-          excelMap[doc.id] = { 
-            id: doc.id,
-            earning: val, 
-            tip: 0, 
-            day: d, 
-            month: m - 1, 
-            year: y,
-            dateLabel: `${m}/${d}/${y}`,
-            dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-            service: "Excel Import" 
-          };
+          return unsubLogs;
+        } catch (error) {
+          console.error("Dashboard error:", error);
+          setLoading(false);
         }
-      });
-      updateLogs();
+      };
+      initializeDashboard();
     });
 
-    // Live Data (earnings)
-    unsubLive = onSnapshot(query(collection(db, "earnings"), where("staffName", "==", exactName)), (snap) => {
-      liveMap = {};
-      snap.forEach(doc => {
-        const data = doc.data();
-        const dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
-        const dateKey = dObj.toISOString().split('T')[0];
-        
-        const prev = liveMap[dateKey] || { earning: 0, tip: 0 };
-        liveMap[dateKey] = {
-          id: doc.id,
-          earning: prev.earning + (parseFloat(data.earning || data.earnings) || 0),
-          tip: prev.tip + (parseFloat(data.tip || data.tips) || 0),
-          day: dObj.getDate(),
-          month: dObj.getMonth(),
-          year: dObj.getFullYear(),
-          dateLabel: `${dObj.getMonth() + 1}/${dObj.getDate()}/${dObj.getFullYear()}`,
-          dateStr: dateKey,
-          service: data.service || "Standard"
-        };
-      });
-      updateLogs();
-    });
-  });
-
-  return () => { unsubLive(); unsubExcel(); unsubscribeAuth(); };
-}, []);
-
+    return () => unsubscribeAuth();
+  }, []);
 useEffect(() => {
-  setVisibleCount(10); // Reset to 5 whenever the date filter or data changes
+  setVisibleCount(5); // Reset to 5 whenever the date filter or data changes
 }, [startDate, endDate]);
   // --- FILTER LOGIC ---
   const filteredData = useMemo(() => {
@@ -147,15 +126,17 @@ useEffect(() => {
   }, [allLogs, startDate, endDate]);
 
 const chartData = useMemo(() => {
-  // Use the year from the selected start date (fallback to current year if empty)
-  const currentYear = startDate ? new Date(startDate).getFullYear() : new Date().getFullYear();
+  // Use the year from the selected date (or current year)
+  const currentYear = new Date(startDate).getFullYear();
   const commissionRate = 0.70;
 
   // Map through all 12 months to build the full year trend
   return MONTHS.map((name, index) => {
-    // Filter logs for THIS specific month index and year
-    // Now using the clean 'month' and 'year' properties from our unified allLogs
-    const logsInMonth = allLogs.filter(log => log.month === index && log.year === currentYear);
+    // Filter logs for THIS specific month index across the whole year
+    const logsInMonth = allLogs.filter(log => {
+      const d = log.date?.toDate ? log.date.toDate() : new Date(log.date);
+      return d.getMonth() === index && d.getFullYear() === currentYear;
+    });
 
     const monthlyEarning = logsInMonth.reduce((sum, log) => sum + (Number(log.earning) || 0), 0);
     const monthlyTips = logsInMonth.reduce((sum, log) => sum + (Number(log.tip) || 0), 0);
@@ -173,62 +154,70 @@ const chartData = useMemo(() => {
       total: Number((totalCommission + monthlyTips).toFixed(2)),
     };
   });
-  // No filter at the end, guaranteeing all 12 months show up
+  // Removed the .filter() so all 12 months show up
 }, [allLogs, startDate]);
 
 
+
 const report = useMemo(() => {
-  // 1. Basic Sums (Handles both Excel 'amount' and Live 'earning' keys safely)
-  const totalEarning = filteredData.reduce((sum, log) => sum + (parseFloat(log.amount || log.earning) || 0), 0);
-  const totalTips = filteredData.reduce((sum, log) => sum + (parseFloat(log.tip) || 0), 0);
-  
-  // Commission Math (70% total commission -> 70% check / 30% cash + tips)
-  const commissionRate = 0.70; 
-  const totalCommission = totalEarning * commissionRate;
-  const checkPayout = totalCommission * 0.70; 
-  const cashPayout = (totalCommission - checkPayout) + totalTips;
-  const totalPayout = totalCommission + totalTips;
-
-  // Appointment & Client Counts
-  const totalAppointments = filteredData.filter(log => 
-    log.bookingId || log.type === "booking" || log.source === "dashboard" || log.source === "online"
-  ).length;
-
-  const uniqueClients = new Set(filteredData.map(log => 
-    (log.clientName || log.id).toString().toLowerCase().trim()
-  )).size;
-
-  // 2. CALCULATE TOP DAY EARNING (Uses filteredData)
-  const dailyEarnings = {};
-  filteredData.forEach(log => {
-    // Robust fallback: Uses dateLabel if it exists, otherwise creates it safely to prevent NaN/undefined
-    const dateKey = log.dateLabel || `${log.month + 1}/${log.day}/${log.year}`;
+    // 1. Basic Sums
+    const totalEarning = filteredData.reduce((sum, log) => sum + (parseFloat(log.earning) || 0), 0);
+    const totalTips = filteredData.reduce((sum, log) => sum + (parseFloat(log.tip) || 0), 0);
     
-    // Sum the daily earnings
-    dailyEarnings[dateKey] = (dailyEarnings[dateKey] || 0) + (parseFloat(log.amount || log.earning) || 0);
-  });
+    // 2. NEW LOGIC: 70% Payout Calculation
+    // Total Payout is only the Commission part (70% of Earnings)
+    const commissionRate = 0.70; 
+    const totalCommission = totalEarning * commissionRate;
 
-  // Find the date with the highest earning
-  const dates = Object.keys(dailyEarnings);
-  const bestDate = dates.length > 0 
-    ? dates.reduce((a, b) => dailyEarnings[a] > dailyEarnings[b] ? a : b)
-    : "No Data";
+    // 3. Cash vs Check Calculation
+    // We assume Check Payout is 70% of the Commission (Standard Admin Logic)
+    const checkPayout = totalCommission * 0.70; 
+    
+    // Cash Payout = (Remaining 30% of Commission) + ALL TIPS
+    const cashPayout = (totalCommission - checkPayout) + totalTips;
 
-  return { 
-    totalAppointments,
-    totalEarning, 
-    totalTips, 
-    totalPayout,
-    cashPayout,
-    checkPayout,
-    uniqueClients,
-    count: filteredData.length,
-    topDay: { 
-      date: bestDate, 
-      amount: dailyEarnings[bestDate] || 0 
-    }
-  };
-}, [filteredData]);
+    // Total Payout (Combined for display)
+    const totalPayout = totalCommission + totalTips;
+const totalAppointments = filteredData.filter(log => 
+    log.bookingId || 
+    log.type === "booking" || 
+    log.source === "dashboard" || 
+    log.source === "online"
+  ).length;
+    // 4. Unique Clients Count
+const uniqueClients = new Set(filteredData.map(log => 
+      (log.clientName || log.id).toString().toLowerCase().trim()
+    )).size;
+
+
+    // 5. Chart Grouping
+   const chartMap = {};
+    filteredData.forEach(log => {
+      // Use the raw jsDate to create a unique key for sorting
+      const timeKey = new Date(log.jsDate).setHours(0,0,0,0); 
+      const label = log.dateLabel;
+      
+      if (!chartMap[timeKey]) {
+        chartMap[timeKey] = { time: timeKey, name: label, amount: 0 };
+      }
+      chartMap[timeKey].amount += parseFloat(log.earning) || 0;
+    });
+
+    // Sort by time so the graph goes from left to right correctly
+    const chartData = Object.values(chartMap).sort((a, b) => a.time - b.time);
+
+    return { 
+      totalAppointments,
+      totalEarning, 
+      totalTips, 
+      totalPayout,
+      cashPayout,
+      checkPayout,
+      uniqueClients,
+      count: filteredData.length, 
+      chartData // This is now sorted correctly
+    };
+  }, [filteredData]);
 
 const [topDay, setTopDay] = useState({ date: "N/A", amount: 0 });
 
@@ -317,58 +306,38 @@ useEffect(() => {
       {/* STAT CARDS */}
 {/* STAT CARDS ROW 1 */}
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-  {/* Row 1: Top Day + 3 Pastel Cards */}
-<div 
-  style={{ backgroundColor: COLORS.orange }} 
-  className="relative p-6 rounded-xl border border-transparent shadow-sm transition-all hover:border-orange-300 overflow-hidden group"
->
-  {/* Abstract Gradient Glow Effect */}
-  <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent -z-0" />
   
-  {/* Award Icon positioned Top-Right */}
-  <div className="absolute top-0 right-0 opacity-50">
-    <Award size={60} style={{ color: COLORS.orangeText }} />
-  </div>
-  
-  {/* Content Layer */}
-  <div className="relative z-10">
-    <div className="flex items-center gap-2 mb-3">
-      <div className="p-1.5 rounded-md bg-white/50">
-        <TrendingUp size={14} style={{ color: COLORS.orangeText }} />
+  {/* Your New Top Day Earning Card */}
+  <div className="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center">
+        <TrendingUp size={20} />
       </div>
-      <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest">
-        Top Day Earning
-      </p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top Day Earning {topDay.date}</p>
     </div>
-    
-    <h3 style={{ color: COLORS.orangeText }} className="text-2xl font-black">
-      ${typeof report.topDay.amount === 'number' 
-        ? report.topDay.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) 
-        : "0.00"}
-    </h3>
-    
-    <div className="flex items-center gap-2 mt-1">
-      <div className="p-1 rounded-full bg-white/50">
-        <Calendar size={10} style={{ color: COLORS.orangeText }} />
-      </div>
-      <p style={{ color: COLORS.orangeText }} className="text-[10px] font-bold uppercase tracking-tight">
-        {report.topDay.date}
-      </p>
+    <div>
+      <h3 className="text-2xl font-black text-slate-900 dark:text-white">
+        ${topDay.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </h3>
+     
     </div>
   </div>
-</div>
+
+  {/* Your Existing Pastel Cards */}
   <PastelCard label="Total Earnings" value={`$${report.totalEarning.toFixed(2)}`} bg={COLORS.pink} text={COLORS.pinkText} />
   <PastelCard label="Total Payout" value={`$${report.totalPayout.toFixed(2)}`} bg={COLORS.periwinkle} text={COLORS.periwinkleText} />   
   <PastelCard label="Cash Payout" value={`$${report.cashPayout.toFixed(2)}`} bg={COLORS.mint} text={COLORS.mintText} />
 
-  {/* Row 2: Add your remaining 4 cards here */}
-  <PastelCard label="Total Tips" value={`$${report.totalTips.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
-  <PastelCard label="Check Payout" value={`$${report.checkPayout.toFixed(2)}`} bg={COLORS.blue} text={COLORS.blueText} />
-  <PastelCard label="Appointments" value={report.totalAppointments} bg={COLORS.purple} text={COLORS.purpleText} />
-  <PastelCard label="Total Clients" value={report.uniqueClients} bg={COLORS.red} text={COLORS.redText} />
 </div>
 
+{/* PAYOUT CARDS ROW 2 */}
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
 
+  <PastelCard label="Check Payout" value={`$${report.checkPayout.toFixed(2)}`} bg={COLORS.orange} text={COLORS.orangeText} />
+  <PastelCard label="Total Tips" value={`$${report.totalTips.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
+  <PastelCard label="Total Appointments" value={report.totalAppointments} bg={COLORS.blue} text={COLORS.blueText} />
+  <PastelCard label="Total Clients" value={report.uniqueClients} bg={COLORS.purple} text={COLORS.purpleText} />
+</div>
 
       {/* CHART */}
 <div className="dark:bg-slate-900/80 dark:border-slate-800 bg-white p-6 rounded-xl border border-gray-100 shadow-sm mt-6">
@@ -480,27 +449,45 @@ useEffect(() => {
   );
 }
 // --- SUB COMPONENTS ---
-const ICON_MAP = {
-  "Total Earnings": DollarSign,
-  "Total Payout": Wallet,
-  "Cash Payout": TrendingUp,
-  "Total Tips": Award,
-  "Check Payout": Percent,
-  "Appointments": Briefcase,
-  "Total Clients": Users
+const CARD_ICONS = {
+  "Total Earnings": "fa-wallet",
+  "Total Payout": "fa-hand-holding-dollar",
+  "Cash Payout": "fa-money-bill-wave",
+  "Check Payout": "fa-money-check-dollar",
+  "Total Tips": "fa-coins",
+  "Total Appointments": "fa-calendar-check",
+  "Total Clients": "fa-users"
 };
 
 function PastelCard({ label, value, bg, text }) {
-  const IconComponent = ICON_MAP[label] || TrendingUp;
+  const isCount = label.toLowerCase().includes("appointments") || 
+                  label.toLowerCase().includes("clients");
   
+  // Get the icon class based on the label
+  const iconClass = CARD_ICONS[label] || "fa-chart-line";
+
   return (
-    <div style={{ backgroundColor: bg }} className="p-6 rounded-xl shadow-sm relative overflow-hidden">
-      <div className="absolute right-[-10px] bottom-[-10px] opacity-10">
-        <IconComponent size={80} style={{ color: text }} />
+    <div 
+      style={{ backgroundColor: bg }} 
+      className="relative p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm dark:!bg-slate-800 dark:border dark:border-white/10 overflow-hidden group"
+    >
+      {/* Background Icon Decoration */}
+      <div className="absolute right-[-10px] bottom-[-10px] opacity-10 group-hover:opacity-20 transition-opacity">
+        <i className={`fas ${iconClass} text-6xl`} style={{ color: text }}></i>
       </div>
-      <div className="relative z-10">
-        <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-        <h3 className="text-2xl font-black mt-1" style={{ color: text }}>{value}</h3>
+
+      <div className="relative z-10 flex flex-col">
+        <div className="flex items-center gap-2 mb-1">
+          {/* Small Icon next to Label */}
+          <i className={`fas ${iconClass} text-[10px]`} style={{ color: text }}></i>
+          <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80">
+            {label}
+          </span>
+        </div>
+        
+        <span style={{ color: text }} className="font-black text-2xl tracking-tight">
+          {value} 
+        </span>
       </div>
     </div>
   );
