@@ -71,6 +71,7 @@ useEffect(() => {
     // Fetch user details to get exact name for Excel matching
     const userDoc = await getDoc(doc(db, "users", user.uid));
     const exactName = userDoc.data()?.name?.trim() || "";
+    setRealName(exactName);
     const lowerName = exactName.toLowerCase();
 
     let liveMap = {};
