@@ -77,11 +77,19 @@ useEffect(() => {
     let liveMap = {};
     let excelMap = {};
 
-    const updateLogs = () => {
-      // Merge Excel and Live data into a single array
-      const combinedMap = { ...excelMap, ...liveMap };
-      const data = Object.values(combinedMap);
-      setAllLogs(data); 
+const updateLogs = () => {
+      // 1. Get arrays of all data
+      const excelEntries = Object.values(excelMap);
+      const liveEntries = Object.values(liveMap);
+
+      // 2. Filter: Only keep Excel entries IF there is NO live entry for that same date
+      const uniqueExcel = excelEntries.filter(excel => {
+        const hasLive = liveEntries.some(live => live.dateStr === excel.dateStr);
+        return !hasLive; 
+      });
+
+      // 3. Set the merged result
+      setAllLogs([...uniqueExcel, ...liveEntries]); 
       setLoading(false);
     };
 
@@ -110,28 +118,31 @@ useEffect(() => {
     });
 
     // Live Data (earnings)
-    unsubLive = onSnapshot(query(collection(db, "earnings"), where("staffName", "==", exactName)), (snap) => {
-      liveMap = {};
-      snap.forEach(doc => {
-        const data = doc.data();
-        const dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
-        const dateKey = dObj.toISOString().split('T')[0];
-        
-        const prev = liveMap[dateKey] || { earning: 0, tip: 0 };
-        liveMap[dateKey] = {
-          id: doc.id,
-          earning: prev.earning + (parseFloat(data.earning || data.earnings) || 0),
-          tip: prev.tip + (parseFloat(data.tip || data.tips) || 0),
-          day: dObj.getDate(),
-          month: dObj.getMonth(),
-          year: dObj.getFullYear(),
-          dateLabel: `${dObj.getMonth() + 1}/${dObj.getDate()}/${dObj.getFullYear()}`,
-          dateStr: dateKey,
-          service: data.service || "Standard"
-        };
-      });
-      updateLogs();
+// Live Data (earnings)
+unsubLive = onSnapshot(query(collection(db, "earnings"), where("staffName", "==", exactName)), (snap) => {
+  const newLogs = []; // Use an array instead of a map
+  snap.forEach(doc => {
+    const data = doc.data();
+    const dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+    
+    newLogs.push({
+      id: doc.id,
+      earning: parseFloat(data.earning || data.earnings) || 0,
+      tip: parseFloat(data.tip || data.tips) || 0,
+      day: dObj.getDate(),
+      month: dObj.getMonth(),
+      year: dObj.getFullYear(),
+      dateLabel: `${dObj.getMonth() + 1}/${dObj.getDate()}/${dObj.getFullYear()}`,
+      dateStr: dObj.toISOString().split('T')[0],
+      service: data.service || "Standard",
+      source: "live" // Tag for filtering
     });
+  });
+  
+  // Merge with Excel data
+  setAllLogs([...Object.values(excelMap), ...newLogs]);
+  setLoading(false);
+});
   });
 
   return () => { unsubLive(); unsubExcel(); unsubscribeAuth(); };
@@ -140,12 +151,25 @@ useEffect(() => {
 useEffect(() => {
   setVisibleCount(10); // Reset to 5 whenever the date filter or data changes
 }, [startDate, endDate]);
+// Add this before your 'filteredData' definition
+const processedLogs = useMemo(() => {
+  return allLogs.filter(log => {
+    // If it's Excel, check if a Live entry exists for the same date
+    if (log.service === "Excel Import") {
+      const hasLive = allLogs.some(l => l.dateStr === log.dateStr && l.source === "live");
+      return !hasLive; // Hide Excel row if Live data exists
+    }
+    return true;
+  });
+}, [allLogs]);
   // --- FILTER LOGIC ---
+// --- FILTER LOGIC ---
   const filteredData = useMemo(() => {
-    return allLogs.filter(log => {
+    // CHANGE: Use processedLogs instead of allLogs here to stop double counting!
+    return processedLogs.filter(log => {
       return log.dateStr >= startDate && log.dateStr <= endDate;
     });
-  }, [allLogs, startDate, endDate]);
+  }, [processedLogs, startDate, endDate]); // Make sure to update the dependency array too
 
 const chartData = useMemo(() => {
   // Use the year from the selected start date (fallback to current year if empty)
@@ -443,27 +467,30 @@ useEffect(() => {
     </div>
   </div>
 </div>
-  <table className="w-full text-left">
-    <thead className="text-[10px] font-black text-gray-400 uppercase dark:bg-slate-900/80 dark:border-slate-80 border-b border-gray-50 bg-white">
-      <tr>
-        <th className="px-6 py-4">Date</th>
-        <th className="px-6 py-4">Service</th>
-        <th className="px-6 py-4">Amount</th>
-        <th className="px-6 py-4 text-right">Tip</th>
+<table className="w-full text-left">
+  <thead className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 bg-gray-50/50">
+    <tr>
+      <th className="px-6 py-4">No.</th>
+      <th className="px-6 py-4">Date</th>
+      <th className="px-6 py-4">Staff Name</th>
+      <th className="px-6 py-4">Service</th>
+      <th className="px-6 py-4">Earning</th>
+      <th className="px-6 py-4 text-right">Tip</th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-gray-50 font-bold text-gray-600">
+    {processedLogs.slice().reverse().slice(0, visibleCount).map((log, index) => (
+      <tr key={log.id} className="hover:bg-pink-50/30 transition-colors">
+        <td className="px-6 py-4 text-[10px] text-gray-400">{index + 1}</td>
+        <td className="px-6 py-4 text-xs font-black">{log.dateLabel}</td>
+        <td className="px-6 py-4 uppercase text-[10px] text-pink-600">{realName}</td>
+        <td className="px-6 py-4 uppercase text-[10px] text-gray-400">{log.service}</td>
+        <td className="px-6 py-4 font-black text-pink-600">${parseFloat(log.earning || 0).toFixed(2)}</td>
+        <td className="px-6 py-4 font-black text-emerald-600 text-right">${parseFloat(log.tip || 0).toFixed(2)}</td>
       </tr>
-    </thead>
-    <tbody className="divide-y divide-gray-50 font-bold text-gray-600 dark:border-slate-800">
-      {/* We slice the data here to only show the visibleCount */}
-      {filteredData.slice().reverse().slice(0, visibleCount).map((log) => (
-        <tr key={log.id} className="hover:bg-gray-50/50 transition-colors dark:border-slate-800 ">
-          <td className="px-6 py-4 text-xs font-black">{log.dateLabel}</td>
-          <td className="px-6 py-4 uppercase text-[10px] text-gray-400">{log.service || "N/A"}</td>
-          <td className="px-6 py-4 text-pink-600">${parseFloat(log.earning).toFixed(2)}</td>
-          <td className="px-6 py-4 text-green-600 text-right">${parseFloat(log.tip).toFixed(2)}</td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+    ))}
+  </tbody>
+</table>
 
   {/* LOAD MORE BUTTON */}
   {filteredData.length > visibleCount && (
