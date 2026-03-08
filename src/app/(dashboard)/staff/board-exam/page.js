@@ -282,7 +282,15 @@ export default function BoardExamDashboard() {
   const [stats, setStats] = useState({ avg: 0, count: 0 });
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [selectedImage, setSelectedImage] = useState(null);
+// Change state initialization to this:
+const [checkedItems, setCheckedItems] = useState(() => {
+  if (typeof window !== "undefined") {
+    const saved = localStorage.getItem("exam-checklist");
+    return saved ? JSON.parse(saved) : {};
+  }
+  return {};
+});
 const [showGuidelines, setShowGuidelines] = useState(false);
   useEffect(() => {
     if (!staffId) return;
@@ -297,6 +305,49 @@ const [showGuidelines, setShowGuidelines] = useState(false);
     });
   }, [staffId]);
 
+  
+  useEffect(() => {
+  localStorage.setItem("exam-checklist", JSON.stringify(checkedItems));
+}, [checkedItems]);
+
+const examKits = [
+ { 
+    name: "Workstation Preparation (10 Minutes) - Keep on table until end of exam", 
+    image: "/images/1.jpg",
+    items: ["Q-tips", "Alcohol Pad", "Alcohol", "Lotion", "Cuticle oil","Papers towel", "Orangewood stick", "Single-use and multi-use items (large Bag)", "Disinfecting wipes", "Hand sanitizer", "Baggie of gloves","First aid kit", "3 Towels", "1 mannequin hand"] 
+ 
+  },
+  
+ { 
+    name: "Basic Manicure (25 Minutes)", 
+    image: "/images/2.jpg",
+    items: [
+      "Cuticle softener",  
+      "Polish remover", "Finger bowl", 
+      "Nail brush", "Soap", "Water","White lint-free towel", "Cuticle pusher"
+    ] 
+  },
+  { 
+    name: "Nail Tip Application (25 Minutes)", 
+    image: "/images/3.jpg",
+    items: [
+      "Dehydrator", "Nail glue", "Pin", "Nail tips", 
+      "Clipper", "White lint-free towel", 
+      "Nail tip cutters", 
+      "File & buffer"
+    ] 
+  },
+  { 
+    name: "Nail Enhancement Using a Form (35 Minutes)", 
+    image: "/images/4.jpg",
+    items: [
+      "Monomer & polymer", "Closed dappen dish", "Nail forms", 
+      "white towel", "White lint-free towel", 
+      "Acrylic brush", "File & buffer", "Primer", 
+      "Dehydrator"
+    ] 
+  }
+];
   if (loading) return <div className="p-20 text-center font-black text-pink-500 animate-pulse text-xs tracking-widest uppercase">Syncing Dashboard...</div>;
 
   return (
@@ -443,17 +494,114 @@ const [showGuidelines, setShowGuidelines] = useState(false);
       </div>
 
       {/* Task List Footer */}
-      <div className="mt-10 pt-6 border-t border-slate-100 dark:border-white/5 flex flex-wrap gap-4 justify-center">
-        {['Manicure', 'Nail Tips', 'Nail Form', 'Cleaning'].map((task, i) => (
-          <div key={i} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest rounded-xl">
-            {i+1}. {task}
-          </div>
+<div className="mt-10 pt-6 border-t border-slate-100 dark:border-white/5">
+  <h1 className="text-[14px] font-black text-slate-400 uppercase tracking-widest mb-6 text-center">Preparation Checklist</h1>
+  
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {examKits.map((task, i) => (
+    <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-white/5 overflow-hidden transition-all hover:shadow-md">
+      
+      {/* Dynamic Image Section */}
+{task.image && (
+  <div 
+    className="mb-4 -mx-5 -mt-5 h-40 overflow-hidden border-b border-slate-100 cursor-zoom-in group"
+    onClick={() => setSelectedImage({ url: task.image, title: task.name })}
+  >
+    <img 
+      src={task.image} 
+      alt={task.name} 
+      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+    />
+    {/* Optional "Click to zoom" overlay */}
+    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+       <p className="text-white text-[10px] font-black uppercase tracking-widest bg-black/40 px-3 py-1 rounded-full">Click to Zoom</p>
+    </div>
+  </div>
+)}
+
+      <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-4">
+        {task.name}
+      </h4>
+
+      <div className="space-y-3">
+        {task.items.map((item) => (
+          <label key={item} className="flex items-center gap-3 cursor-pointer group">
+            <div className="relative flex items-center">
+              <input 
+                type="checkbox" 
+                checked={!!checkedItems[item]}
+                onChange={() => setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }))}
+                className="peer h-5 w-5 cursor-pointer appearance-none rounded-lg border-2 border-slate-200 dark:border-slate-700 checked:bg-pink-500 checked:border-pink-500 transition-all"
+              />
+              <CheckCircle2 className="absolute w-5 h-5 text-white opacity-0 peer-checked:opacity-100 p-1 pointer-events-none" />
+            </div>
+            <span className={`text-xs font-bold transition-all ${checkedItems[item] ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
+              {item}
+            </span>
+          </label>
         ))}
       </div>
-
-      <p className="text-center text-[10px] font-bold text-pink-400 uppercase tracking-[0.3em] mt-8">
-        Best of Luck — Your Attentiveness is Key
+    </div>
+  ))}
+</div>
+</div>
+{/* FULL SCREEN IMAGE LIGHTBOX */}
+{selectedImage && (
+  <div 
+    className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-10 transition-all"
+    onClick={() => setSelectedImage(null)} // Click background to close
+  >
+    <button 
+      className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+      onClick={() => setSelectedImage(null)}
+    >
+      <X size={32} strokeWidth={3} />
+    </button>
+    
+    <div className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center">
+      <img 
+        src={selectedImage.url} 
+        alt={selectedImage.title}
+        className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl border border-white/10 object-contain"
+      />
+      <h3 className="mt-6 text-white font-black uppercase tracking-widest text-sm">
+        {selectedImage.title}
+      </h3>
+      <p className="text-white/40 text-[10px] font-bold uppercase mt-2">
+        Click anywhere to close
       </p>
+    </div>
+  </div>
+)}
+
+      {/* Success Banner Section */}
+<div className="mt-12 mb-8 relative group overflow-hidden">
+  <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-rose-400 to-amber-400 opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+  
+  <div className="relative border border-pink-100 dark:border-pink-900/30 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md p-8 rounded-3xl text-center shadow-xl shadow-pink-500/5">
+    
+    {/* Animated Icon */}
+    <div className="mb-4 inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-pink-500 to-rose-400 rounded-2xl shadow-lg shadow-pink-500/30 animate-bounce">
+      <Award className="text-white" size={32} />
+    </div>
+
+    <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-2">
+      Best of Luck
+    </h2>
+    
+    <div className="flex items-center justify-center gap-2 mb-4">
+      <span className="h-px w-8 bg-pink-200" />
+      <p className="text-pink-600 dark:text-pink-400 font-black text-xs uppercase tracking-[0.2em]">
+        Your Attentiveness is Key
+      </p>
+      <span className="h-px w-8 bg-pink-200" />
+    </div>
+
+    <p className="max-w-md mx-auto text-slate-500 dark:text-slate-400 text-[11px] font-bold leading-relaxed uppercase tracking-wide">
+      Focus on your sanitation, maintain your posture, and treat the mannequin like a real client. You've got this!
+    </p>
+  </div>
+</div>
     </div>
   )}
 </div>
