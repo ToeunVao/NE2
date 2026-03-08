@@ -8,7 +8,7 @@ import {
   serverTimestamp, query, where, orderBy, limit, onSnapshot 
 } from "firebase/firestore";
 import { 
-  ClipboardList, BookOpen, Timer, Award, TrendingUp, X, ChevronRight, Calendar, CheckCircle2 
+  ClipboardList, BookOpen, Timer, Award, TrendingUp, X, ChevronRight, Calendar, CheckCircle2, Search 
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 // ==========================================
@@ -499,49 +499,56 @@ const examKits = [
   
 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
   {examKits.map((task, i) => (
-    <div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-white/5 overflow-hidden transition-all hover:shadow-md">
+<div key={i} className="bg-slate-50 dark:bg-slate-800/50 p-5 rounded-2xl border border-slate-100 dark:border-white/5 overflow-hidden transition-all">
+  
+  {/* IMAGE SECTION - Click only active here */}
+  {task.image && (
+    <div 
+      className="relative mb-4 -mx-5 -mt-5 h-40 overflow-hidden border-b border-slate-100 dark:border-white/5 cursor-zoom-in group"
+      onClick={(e) => {
+        e.stopPropagation(); // Prevents click from bubbling to parent
+        setSelectedImage({ url: task.image, title: task.name });
+      }}
+    >
+      <img 
+        src={task.image} 
+        alt={task.name} 
+        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+      />
       
-      {/* Dynamic Image Section */}
-{task.image && (
-  <div 
-    className="mb-4 -mx-5 -mt-5 h-40 overflow-hidden border-b border-slate-100 cursor-zoom-in group"
-    onClick={() => setSelectedImage({ url: task.image, title: task.name })}
-  >
-    <img 
-      src={task.image} 
-      alt={task.name} 
-      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-    />
-    {/* Optional "Click to zoom" overlay */}
-    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-       <p className="text-white text-[10px] font-black uppercase tracking-widest bg-black/40 px-3 py-1 rounded-full">Click to Zoom</p>
-    </div>
-  </div>
-)}
-
-      <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-4">
-        {task.name}
-      </h4>
-
-      <div className="space-y-3">
-        {task.items.map((item) => (
-          <label key={item} className="flex items-center gap-3 cursor-pointer group">
-            <div className="relative flex items-center">
-              <input 
-                type="checkbox" 
-                checked={!!checkedItems[item]}
-                onChange={() => setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }))}
-                className="peer h-5 w-5 cursor-pointer appearance-none rounded-lg border-2 border-slate-200 dark:border-slate-700 checked:bg-pink-500 checked:border-pink-500 transition-all"
-              />
-              <CheckCircle2 className="absolute w-5 h-5 text-white opacity-0 peer-checked:opacity-100 p-1 pointer-events-none" />
-            </div>
-            <span className={`text-xs font-bold transition-all ${checkedItems[item] ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
-              {item}
-            </span>
-          </label>
-        ))}
+      {/* Overlay - now strictly inside the image box */}
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/30">
+          <Search size={14} className="text-white" />
+          <p className="text-white text-[9px] font-black uppercase tracking-widest">
+            Click to Zoom
+          </p>
+        </div>
       </div>
     </div>
+  )}
+
+  {/* TEXT & CHECKBOX SECTION - No zoom here */}
+  <h4 className="text-[10px] font-black text-pink-500 uppercase tracking-[0.2em] mb-4">
+    {task.name}
+  </h4>
+  
+  <div className="space-y-3">
+    {task.items.map((item) => (
+     <label key={item} className="flex items-center gap-3 cursor-pointer group/item">
+  <input 
+    type="checkbox" // Fixed: Removed the backslash
+    checked={!!checkedItems[item]}
+    onChange={() => setCheckedItems(prev => ({ ...prev, [item]: !prev[item] }))}
+    className="accent-pink-600 w-4 h-4 rounded border-slate-300"
+  />
+  <span className={`text-xs font-bold ${checkedItems[item] ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-200'}`}>
+    {item}
+  </span>
+</label>
+    ))}
+  </div>
+</div>
   ))}
 </div>
 </div>
