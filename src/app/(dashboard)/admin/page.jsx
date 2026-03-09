@@ -523,7 +523,7 @@ const {
 </div>
 
 {/* ROW 1: PRIMARY BUSINESS STATS */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
   
   {/* TOTAL REVENUE - PINK */}
   <div style={{ backgroundColor: COLORS.pink }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">

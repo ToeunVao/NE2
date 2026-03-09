@@ -341,7 +341,7 @@ useEffect(() => {
 
       {/* STAT CARDS */}
 {/* STAT CARDS ROW 1 */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
   {/* Row 1: Top Day + 3 Pastel Cards */}
 <div 
   style={{ backgroundColor: COLORS.orange }} 
