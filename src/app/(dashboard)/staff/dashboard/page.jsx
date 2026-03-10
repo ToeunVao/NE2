@@ -35,6 +35,7 @@ export default function StaffPersonalDashboard() {
   const [allLogs, setAllLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 const [realName, setRealName] = useState("");
+const [staffSettings, setStaffSettings] = useState({ commission: 60, checkPayout: 70, payoutType: "Commission + Tips" });
 const [visibleCount, setVisibleCount] = useState(5); // Start with 5 rows
 
   // --- DATE UTILITIES (Matches Admin Logic) ---
@@ -69,9 +70,18 @@ useEffect(() => {
     if (!user) { setLoading(false); return; }
 
     // Fetch user details to get exact name for Excel matching
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    const exactName = userDoc.data()?.name?.trim() || "";
-    setRealName(exactName);
+// Fetch user details to get exact name and rates
+const userDoc = await getDoc(doc(db, "users", user.uid));
+const userData = userDoc.data();
+const exactName = userData?.name?.trim() || "";
+setRealName(exactName);
+
+// Set personal rates from Firestore (fallback to defaults if missing)
+setStaffSettings({
+  commission: parseFloat(userData?.commission) || 60,
+  checkPayout: parseFloat(userData?.checkPayout) || 70,
+  payoutType: userData?.payoutType || "Commission + Tips"
+});
     const lowerName = exactName.toLowerCase();
 
     let liveMap = {};
@@ -163,56 +173,70 @@ const processedLogs = useMemo(() => {
   });
 }, [allLogs]);
   // --- FILTER LOGIC ---
-// --- FILTER LOGIC ---
-  const filteredData = useMemo(() => {
-    // CHANGE: Use processedLogs instead of allLogs here to stop double counting!
-    return processedLogs.filter(log => {
-      return log.dateStr >= startDate && log.dateStr <= endDate;
-    });
-  }, [processedLogs, startDate, endDate]); // Make sure to update the dependency array too
-
-const chartData = useMemo(() => {
-  // Use the year from the selected start date (fallback to current year if empty)
-  const currentYear = startDate ? new Date(startDate).getFullYear() : new Date().getFullYear();
-  const commissionRate = 0.70;
-
-  // Map through all 12 months to build the full year trend
-  return MONTHS.map((name, index) => {
-    // Filter logs for THIS specific month index and year
-    // Now using the clean 'month' and 'year' properties from our unified allLogs
-    const logsInMonth = allLogs.filter(log => log.month === index && log.year === currentYear);
-
-    const monthlyEarning = logsInMonth.reduce((sum, log) => sum + (Number(log.earning) || 0), 0);
-    const monthlyTips = logsInMonth.reduce((sum, log) => sum + (Number(log.tip) || 0), 0);
-
-    // Apply your 70/30 card math
-    const totalCommission = monthlyEarning * commissionRate;
-    const checkPayout = totalCommission * 0.70; 
-    const cashPayout = (totalCommission - checkPayout) + monthlyTips;
-
-    return {
-      name: name.substring(0, 3), // "Jan", "Feb", etc.
-      cash: Number(cashPayout.toFixed(2)),
-      check: Number(checkPayout.toFixed(2)),
-      tips: Number(monthlyTips.toFixed(2)),
-      total: Number((totalCommission + monthlyTips).toFixed(2)),
-    };
+const filteredData = useMemo(() => {
+  // 1. Filter by date range
+  const filtered = processedLogs.filter(log => {
+    return log.dateStr >= startDate && log.dateStr <= endDate;
   });
-  // No filter at the end, guaranteeing all 12 months show up
-}, [allLogs, startDate]);
+
+  // 2. Sort by Date Descending (Newest first)
+  // This ensures the record with the most recent date is at the top (index 0)
+  return filtered.sort((a, b) => new Date(b.dateStr) - new Date(a.dateStr));
+  
+}, [processedLogs, startDate, endDate]);
+const chartData = useMemo(() => {
+    const currentYear = startDate ? new Date(startDate).getFullYear() : new Date().getFullYear();
+    
+    const commRate = (staffSettings.commission || 60) / 100;
+    const checkRate = (staffSettings.checkPayout || 70) / 100;
+    const isCommPlusTips = staffSettings.payoutType === "Commission + Tips";
+
+    return MONTHS.map((name, index) => {
+      const logsInMonth = processedLogs.filter(log => log.month === index && log.year === currentYear);
+
+      const monthlyEarning = logsInMonth.reduce((sum, log) => sum + (Number(log.earning) || 0), 0);
+      const monthlyTips = logsInMonth.reduce((sum, log) => sum + (Number(log.tip) || 0), 0);
+
+      // Monthly Commission (70% or 60%)
+      const mTotalCommission = monthlyEarning * commRate;
+      
+      const mCheck = mTotalCommission * checkRate;
+      const mCashShare = mTotalCommission * (1 - checkRate);
+      
+      // Tips go only to the Cash value
+      const mCash = isCommPlusTips ? (mCashShare + monthlyTips) : mCashShare;
+
+      return {
+        name: name.substring(0, 3),
+        total: Number(mTotalCommission.toFixed(2)), // Matches the "Total Payout" card
+        check: Number(mCheck.toFixed(2)),
+        cash: Number(mCash.toFixed(2)),
+         tips: Number(monthlyTips.toFixed(2)),
+      };
+    });
+  }, [processedLogs, startDate, staffSettings]);
 
 
 const report = useMemo(() => {
-  // 1. Basic Sums (Handles both Excel 'amount' and Live 'earning' keys safely)
-  const totalEarning = filteredData.reduce((sum, log) => sum + (parseFloat(log.amount || log.earning) || 0), 0);
-  const totalTips = filteredData.reduce((sum, log) => sum + (parseFloat(log.tip) || 0), 0);
-  
-  // Commission Math (70% total commission -> 70% check / 30% cash + tips)
-  const commissionRate = 0.70; 
-  const totalCommission = totalEarning * commissionRate;
-  const checkPayout = totalCommission * 0.70; 
-  const cashPayout = (totalCommission - checkPayout) + totalTips;
-  const totalPayout = totalCommission + totalTips;
+const totalEarning = filteredData.reduce((sum, log) => sum + (Number(log.earning) || 0), 0);
+    const totalTips = filteredData.reduce((sum, log) => sum + (Number(log.tip) || 0), 0);
+
+    // --- FINAL STAFF-OWNED TIPS LOGIC ---
+    const commRate = (staffSettings.commission || 60) / 100;
+    const checkRate = (staffSettings.checkPayout || 70) / 100;
+    
+    // Total Payout = Commission ONLY (The Salon's deal with the staff)
+    const totalCommission = totalEarning * commRate; 
+    
+    // Check Payout = 70% of that Commission
+    const checkAmount = totalCommission * checkRate;
+    
+    // Cash Payout = 30% Share of Commission + 100% of Tips (No salon share)
+    const commissionCashShare = totalCommission * (1 - checkRate);
+    const finalCashPayout = (staffSettings.payoutType === "Commission + Tips") 
+      ? (commissionCashShare + totalTips) 
+      : commissionCashShare;
+    // -------------------------------------
 
   // Appointment & Client Counts
   const totalAppointments = filteredData.filter(log => 
@@ -243,9 +267,9 @@ const report = useMemo(() => {
     totalAppointments,
     totalEarning, 
     totalTips, 
-    totalPayout,
-    cashPayout,
-    checkPayout,
+ cashPayout: finalCashPayout,    // This card is now HIGHER due to tips
+      checkPayout: checkAmount,       // This card stays at 70% of commission
+      totalPayout: totalCommission,   // This card stays at the pure Commission %
     uniqueClients,
     count: filteredData.length,
     topDay: { 
@@ -384,12 +408,13 @@ useEffect(() => {
 </div>
   <PastelCard label="Total Earnings" value={`$${report.totalEarning.toFixed(2)}`} bg={COLORS.pink} text={COLORS.pinkText} />
   <PastelCard label="Total Payout" value={`$${report.totalPayout.toFixed(2)}`} bg={COLORS.periwinkle} text={COLORS.periwinkleText} />   
-  <PastelCard label="Cash Payout" value={`$${report.cashPayout.toFixed(2)}`} bg={COLORS.mint} text={COLORS.mintText} />
-
-  {/* Row 2: Add your remaining 4 cards here */}
-  <PastelCard label="Total Tips" value={`$${report.totalTips.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
   <PastelCard label="Check Payout" value={`$${report.checkPayout.toFixed(2)}`} bg={COLORS.blue} text={COLORS.blueText} />
-  <PastelCard label="Appointments" value={report.totalAppointments} bg={COLORS.purple} text={COLORS.purpleText} />
+  
+ 
+  {/* Row 2: Add your remaining 4 cards here */}
+  <PastelCard label="Cash Payout" value={`$${report.cashPayout.toFixed(2)}`} bg={COLORS.mint} text={COLORS.mintText} />
+ <PastelCard label="Total Tips" value={`$${report.totalTips.toFixed(2)}`} bg={COLORS.green} text={COLORS.greenText} />
+ <PastelCard label="Appointments" value={report.totalAppointments} bg={COLORS.purple} text={COLORS.purpleText} />
   <PastelCard label="Total Clients" value={report.uniqueClients} bg={COLORS.red} text={COLORS.redText} />
 </div>
 
@@ -404,47 +429,69 @@ useEffect(() => {
     </p>
   </div>
 
-  <div className="h-[400px] w-full">
+{/* --- CHART SECTION --- */}
+{/* --- CHART SECTION --- */}
+<div className="w-full overflow-x-auto">
+  <div className="h-[350px] md:h-[400px] w-full">
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+      <ComposedChart 
+        data={chartData}
+        margin={{ top: 10, right: 10, left: -20, bottom: 0 }} // Pull left margin in for mobile
+      >
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
         <XAxis 
           dataKey="name" 
           axisLine={false} 
           tickLine={false} 
-          tick={{fontSize: 10, fontWeight: '900', fill: '#9CA3AF'}} 
+          tick={{ fontSize: 10, fontWeight: 'bold' }}
+          interval={0} // Forces all month names to show
         />
         <YAxis 
           axisLine={false} 
           tickLine={false} 
-          tick={{fontSize: 10, fontWeight: 'bold', fill: '#9CA3AF'}} 
-          tickFormatter={(v) => `$${v}`} 
+          tick={{ fontSize: 10 }}
         />
-        <Tooltip 
-          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-          formatter={(value) => `$${Number(value).toFixed(2)}`}
-        />
-        <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 'bold' }} />
-
-        {/* Stacked Bars */}
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
         
-        {/* Total Payout Bar (Optional: if you want to see the pink bar from your earlier reference) */}
-        <Bar dataKey="total" name="Total Payout" fill="#EC4899" fillOpacity={0.1} barSize={20} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="cash" name="Cash Payout" stackId="a" fill="#F43F5E" barSize={20} />
-        <Bar dataKey="check" name="Check Payout" stackId="a" fill="#3B82F6" barSize={20} radius={[4, 4, 0, 0]} />
-  
-        {/* Tip Line */}
+        {/* Adjusted Bar sizes: barSize={12} is perfect for mobile spacing */}
+        <Bar dataKey="total" name="Total Payout" fill={COLORS.purple} radius={[4, 4, 0, 0]} barSize={12} />
+        <Bar dataKey="check" name="Check Payout" fill={COLORS.blue} radius={[4, 4, 0, 0]} barSize={12} />
+        <Bar dataKey="cash" name="Cash Payout" fill={COLORS.green} radius={[4, 4, 0, 0]} barSize={12} />
+        
         <Line 
           type="monotone" 
           dataKey="tips" 
-          name="Tips Trend" 
-          stroke="#10B981" 
+          name="Total Tips" 
+          stroke={COLORS.orangeText} 
           strokeWidth={3} 
-          dot={{ r: 3, fill: '#10B981' }} 
+          dot={{ r: 3 }} 
+          activeDot={{ r: 5 }}
         />
       </ComposedChart>
     </ResponsiveContainer>
   </div>
+
+  {/* --- SUMMARY TEXT BELOW CHART --- */}
+  {/* Added 'grid-cols-2' for mobile and 'md:grid-cols-4' for desktop */}
+  <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 border-t border-gray-50 pt-6 dark:border-slate-800">
+    <div className="p-2 text-center bg-purple-50/30 dark:bg-purple-900/10 rounded-xl">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Payout</p>
+      <p className="text-base md:text-lg font-black text-purple-600">${report.totalPayout.toFixed(2)}</p>
+    </div>
+    <div className="p-2 text-center bg-blue-50/30 dark:bg-blue-900/10 rounded-xl">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Check Payout</p>
+      <p className="text-base md:text-lg font-black text-blue-600">${report.checkPayout.toFixed(2)}</p>
+    </div>
+    <div className="p-2 text-center bg-green-50/30 dark:bg-green-900/10 rounded-xl">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Cash Payout</p>
+      <p className="text-base md:text-lg font-black text-green-600">${report.cashPayout.toFixed(2)}</p>
+    </div>
+    <div className="p-2 text-center bg-orange-50/30 dark:bg-orange-900/10 rounded-xl">
+      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Tips</p>
+      <p className="text-base md:text-lg font-black text-orange-500">${report.totalTips.toFixed(2)}</p>
+    </div>
+  </div>
+</div>
 </div>
 
       {/* TABLE */}
@@ -467,36 +514,44 @@ useEffect(() => {
     </div>
   </div>
 </div>
-<table className="w-full text-left">
-  <thead className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 bg-gray-50/50">
-    <tr>
-      <th className="px-6 py-4">No.</th>
-      <th className="px-6 py-4">Date</th>
-      <th className="px-6 py-4">Staff Name</th>
-      <th className="px-6 py-4">Service</th>
-      <th className="px-6 py-4">Earning</th>
-      <th className="px-6 py-4 text-right">Tip</th>
-    </tr>
-  </thead>
-  <tbody className="divide-y divide-gray-50 font-bold text-gray-600">
-    {processedLogs.slice().reverse().slice(0, visibleCount).map((log, index) => (
-      <tr key={log.id} className="hover:bg-pink-50/30 transition-colors">
-        <td className="px-6 py-4 text-[10px] text-gray-400">{index + 1}</td>
-        <td className="px-6 py-4 text-xs font-black">{log.dateLabel}</td>
-        <td className="px-6 py-4 uppercase text-[10px] text-pink-600">{realName}</td>
-        <td className="px-6 py-4 uppercase text-[10px] text-gray-400">{log.service}</td>
-        <td className="px-6 py-4 font-black text-pink-600">${parseFloat(log.earning || 0).toFixed(2)}</td>
-        <td className="px-6 py-4 font-black text-emerald-600 text-right">${parseFloat(log.tip || 0).toFixed(2)}</td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+<div className="overflow-x-auto">
+    <table className="w-full text-left text-xs min-w-[500px]">
+      <thead className="bg-gray-50 text-gray-400 uppercase font-bold">
+        <tr>
+          <th className="px-6 py-4 w-12">No.</th>
+          <th className="px-6 py-4">Date</th>
+          <th className="px-6 py-4">Client</th>
+          <th className="px-6 py-4">Service</th>
+          <th className="px-6 py-4 text-right">Earning</th>
+          <th className="px-6 py-4 text-right">Tip</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-50">
+        {filteredData.slice(0, visibleCount).map((log, index) => {
+          // Date Formatting: YYYY-MM-DD -> MM/DD/YYYY
+          const d = log.dateStr ? log.dateStr.split('-') : [];
+          const formattedDate = d.length === 3 ? `${d[1]}/${d[2]}/${d[0]}` : "N/A";
+
+          return (
+            <tr key={log.id || index} className="hover:bg-pink-50/50 transition-colors">
+              <td className="px-6 py-4 text-gray-400 font-bold">{index + 1}</td>
+              <td className="px-6 py-4 text-gray-500 font-medium">{formattedDate}</td>
+              <td className="px-6 py-4 font-black text-gray-800">{log.clientName || "Walk-in"}</td>
+              <td className="px-6 py-4 text-gray-600 truncate max-w-[120px]">{log.serviceName || "Service"}</td>
+              <td className="px-6 py-4 text-right font-black text-purple-600">${Number(log.earning || 0).toFixed(2)}</td>
+              <td className="px-6 py-4 text-right font-black text-orange-500">${Number(log.tip || 0).toFixed(2)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
 
   {/* LOAD MORE BUTTON */}
   {filteredData.length > visibleCount && (
     <div className="p-4 bg-white dark:bg-slate-950 border-t border-gray-50 flex justify-center dark:border-slate-800">
       <button 
-        onClick={() => setVisibleCount(prev => prev + 5)}
+        onClick={() => setVisibleCount(prev => prev +20)}
         className="px-8 py-2 bg-gray-50 dark:bg-slate-900/80 dark:border-slate-800 hover:bg-pink-50 text-gray-400 hover:text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-100"
       >
         Load More Records
@@ -533,3 +588,40 @@ function PastelCard({ label, value, bg, text }) {
     </div>
   );
 }
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const labelMap = {
+      total: { name: "Total Payout", color: "#6F42C1" },
+      check: { name: "Check Payout", color: "#0D6EFD" },
+      cash: { name: "Cash Payout", color: "#198754" },
+      tips: { name: "Total Tips", color: "#D97706" }
+    };
+
+    const order = ['total', 'check', 'cash', 'tips'];
+    const sortedData = [...payload].sort((a, b) => 
+      order.indexOf(a.dataKey) - order.indexOf(b.dataKey)
+    );
+
+    return (
+      <div className="bg-white p-4 border-2 border-gray-200 rounded-xl shadow-2xl min-w-[220px]">
+        <p className="font-black text-gray-900 border-b border-gray-100 pb-2 mb-2 text-sm uppercase">
+          {label} Stats
+        </p>
+        <div className="space-y-2">
+          {sortedData.map((entry, index) => {
+            const config = labelMap[entry.dataKey] || { name: entry.name, color: "#000" };
+            return (
+              <div key={index} className={`flex justify-between items-center ${entry.dataKey === 'total' ? "mb-2 pb-2 border-b border-gray-50" : ""}`}>
+                <span className="font-bold text-gray-500 text-[10px] uppercase">{config.name}</span>
+                <span className="font-black text-sm" style={{ color: config.color }}>
+                  ${Number(entry.value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};

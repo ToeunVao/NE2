@@ -511,44 +511,36 @@ useEffect(() => {
     </div>
   </div>
 </div>
-<div className="overflow-x-auto">
-    <table className="w-full text-left text-xs min-w-[500px]">
-      <thead className="bg-gray-50 text-gray-400 uppercase font-bold">
-        <tr>
-          <th className="px-6 py-4 w-12">No.</th>
-          <th className="px-6 py-4">Date</th>
-          <th className="px-6 py-4">Client</th>
-          <th className="px-6 py-4">Service</th>
-          <th className="px-6 py-4 text-right">Earning</th>
-          <th className="px-6 py-4 text-right">Tip</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-50">
-        {filteredData.slice(0, visibleCount).map((log, index) => {
-          // Date Formatting: YYYY-MM-DD -> MM/DD/YYYY
-          const d = log.dateStr ? log.dateStr.split('-') : [];
-          const formattedDate = d.length === 3 ? `${d[1]}/${d[2]}/${d[0]}` : "N/A";
-
-          return (
-            <tr key={log.id || index} className="hover:bg-pink-50/50 transition-colors">
-              <td className="px-6 py-4 text-gray-400 font-bold">{index + 1}</td>
-              <td className="px-6 py-4 text-gray-500 font-medium">{formattedDate}</td>
-              <td className="px-6 py-4 font-black text-gray-800">{log.clientName || "Walk-in"}</td>
-              <td className="px-6 py-4 text-gray-600 truncate max-w-[120px]">{log.serviceName || "Service"}</td>
-              <td className="px-6 py-4 text-right font-black text-purple-600">${Number(log.earning || 0).toFixed(2)}</td>
-              <td className="px-6 py-4 text-right font-black text-orange-500">${Number(log.tip || 0).toFixed(2)}</td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
+<table className="w-full text-left">
+  <thead className="text-[10px] font-black text-gray-400 uppercase border-b border-gray-50 bg-gray-50/50">
+    <tr>
+      <th className="px-6 py-4">No.</th>
+      <th className="px-6 py-4">Date</th>
+      <th className="px-6 py-4">Staff Name</th>
+      <th className="px-6 py-4">Service</th>
+      <th className="px-6 py-4">Earning</th>
+      <th className="px-6 py-4 text-right">Tip</th>
+    </tr>
+  </thead>
+  <tbody className="divide-y divide-gray-50 font-bold text-gray-600">
+    {processedLogs.slice().reverse().slice(0, visibleCount).map((log, index) => (
+      <tr key={log.id} className="hover:bg-pink-50/30 transition-colors">
+        <td className="px-6 py-4 text-[10px] text-gray-400">{index + 1}</td>
+        <td className="px-6 py-4 text-xs font-black">{log.dateLabel}</td>
+        <td className="px-6 py-4 uppercase text-[10px] text-pink-600">{realName}</td>
+        <td className="px-6 py-4 uppercase text-[10px] text-gray-400">{log.service}</td>
+        <td className="px-6 py-4 font-black text-pink-600">${parseFloat(log.earning || 0).toFixed(2)}</td>
+        <td className="px-6 py-4 font-black text-emerald-600 text-right">${parseFloat(log.tip || 0).toFixed(2)}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
 
   {/* LOAD MORE BUTTON */}
   {filteredData.length > visibleCount && (
     <div className="p-4 bg-white dark:bg-slate-950 border-t border-gray-50 flex justify-center dark:border-slate-800">
       <button 
-        onClick={() => setVisibleCount(prev => prev +20)}
+        onClick={() => setVisibleCount(prev => prev + 5)}
         className="px-8 py-2 bg-gray-50 dark:bg-slate-900/80 dark:border-slate-800 hover:bg-pink-50 text-gray-400 hover:text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-gray-100"
       >
         Load More Records

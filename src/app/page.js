@@ -51,6 +51,7 @@ const [showPolicy, setShowPolicy] = useState(false); // Modal state
 
   const openModal = () => setIsLoginModalOpen(true);
   const closeModal = () => setIsLoginModalOpen(false);
+  
 // Fetch Technicians (Users with role 'technician' or 'staff')
 useEffect(() => {
   const q = query(collection(db, "users"), where("role", "==", "technician"));
@@ -195,17 +196,24 @@ const handleLogin = async (e) => {
   }
 };
 // Add this if it is missing or replace your old booking state
+// Helper to get the current date and time formatted for the input
+const getCurrentDateTimeLocal = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 16);
+};
+
 const [bookingData, setBookingData] = useState({
   name: "",
   phone: "",
   serviceId: "",
   serviceName: "",
   price: 0,
-  groupSize: 1, // <--- Add this back
+  groupSize: 1,
   staffId: "anyone",
   staffName: "Any Technician",
-  date: "",
-  time: ""
+  dateTime: getCurrentDateTimeLocal(), // Combined date and time
+  note: "" // New Note field
 });
 
 const filteredServices = services.filter(s => 
@@ -214,23 +222,23 @@ const filteredServices = services.filter(s =>
 );
 const handleBookingSubmit = async () => {
   try {
-    if (!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.date || !bookingData.time) {
+    // Updated validation to check dateTime
+    if (!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.dateTime) {
       showToast("Please fill in all fields", "error");
       return;
     }
 
-    // Combine Date and Time for the Calendar
-    const [hours, mins] = bookingData.time.split(":");
-    const appointmentDate = new Date(bookingData.date);
-    appointmentDate.setHours(parseInt(hours), parseInt(mins));
+    // Convert the combined dateTime string into a JavaScript Date object
+    const appointmentDate = new Date(bookingData.dateTime);
 
     await addDoc(collection(db, "appointments"), {
       name: bookingData.name,
       phone: bookingData.phone,
-      service: bookingData.serviceName, // Uses exactly what's in the box
+      service: bookingData.serviceName,
       price: Number(bookingData.price || 0),
       technician: bookingData.staffName || "Any Technician",
-      appointmentTimestamp: Timestamp.fromDate(appointmentDate), // Calendar needs this
+      appointmentTimestamp: Timestamp.fromDate(appointmentDate),
+      note: bookingData.note || "", // Save the note
       bookingType: "Online",
       status: "confirmed",
       createdAt: serverTimestamp(),
@@ -239,9 +247,8 @@ const handleBookingSubmit = async () => {
 
     showToast("Booking Confirmed!", "success");
     
-    // CLEAR FORM
-    setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", date: "", time: "" });
-    setServiceSearch("");
+    // CLEAR FORM and reset to current time
+    setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", dateTime: getCurrentDateTimeLocal(), note: "" });
     
   } catch (err) {
     console.error(err);
@@ -422,11 +429,11 @@ const handleTrackGiftCard = async (e) => {
               <div className="flex justify-between items-end">
                 <div>
                   <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Card Number</p>
-                  <p className="text-sm font-mono text-white tracking-[0.2em]">XXXXXX</p>
+                  <p className="text-sm font-mono text-white tracking-[0.2em]">000000</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-1">Expires</p>
-                  <p className="text-[10px] font-bold text-white">XX/XX/XXXX</p>
+                  <p className="text-[10px] font-bold text-white">01/01/2026</p>
                 </div>
               </div>
             </div>
@@ -792,17 +799,18 @@ const handleTrackGiftCard = async (e) => {
        {/* CHANGE grid-cols-1 TO grid-cols-2 */}
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     <InputItem 
-      label="Full Name" 
+      label="" 
       value={bookingData.name} 
       onChange={v => setBookingData({...bookingData, name: v})} 
       placeholder="Enter your name" 
     />
     <InputItem 
-      label="Phone Number" 
+      label="" 
       value={bookingData.phone} 
       onChange={v => setBookingData({...bookingData, phone: v})} 
-      placeholder="(000) 000-0000" 
+      placeholder="(859) 123-4567" 
     />
+    
   </div>
       </section>
 
@@ -880,51 +888,41 @@ const handleTrackGiftCard = async (e) => {
     </select>
   </section>
 
-  {/* APPOINTMENT DATE */}
+{/* APPOINTMENT DATE & TIME */}
   <section>
     <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
       <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">5</span>
-      Appointment Date
+      Appointment Date & Time
     </h4>
     <input 
-      type="date" 
+      type="datetime-local" 
       className="w-full text-gray-400 p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm h-[54px]"
-      value={bookingData.date}
-      onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
+      value={bookingData.dateTime}
+      onChange={(e) => setBookingData({...bookingData, dateTime: e.target.value})}
     />
   </section>
 </div>
 <section className="mt-4">
   <h4 className="text-xs font-black text-pink-500 uppercase mb-4 flex items-center gap-2">
     <span className="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-[10px]">6</span>
-    Available Time
+    Note for Staff (Optional)
   </h4>
-  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-    {['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00','15:30', '16:00', '17:00'].map(t => (
-      <button 
-        key={t}
-        type="button"
-        onClick={() => setBookingData({...bookingData, time: t})}
-        className={`p-3 text-[10px] font-black rounded-xl border-2 transition-all ${
-          bookingData.time === t 
-            ? 'bg-pink-500 border-pink-500 text-white shadow-md' 
-            : 'bg-white border-gray-100 text-gray-400 hover:border-pink-200'
-        }`}
-      >
-        {t}
-      </button>
-    ))}
-  </div>
+  <textarea 
+    placeholder="Any special requests "
+    value={bookingData.note}
+    onChange={(e) => setBookingData({...bookingData, note: e.target.value})}
+    className="w-full text-gray-700 p-4 bg-gray-50 border border-transparent rounded-xl text-sm font-bold focus:bg-white outline-none transition-all focus:ring-2 focus:ring-pink-100 shadow-sm min-h-[50px] resize-y"
+  />
 </section>
 </div>
 
   </div>
   {/* 2. PLACE THE BUTTON HERE (OUTSIDE THE GRID) */}
   <div className="mt-12 flex justify-center">
-    <button 
-      disabled={!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.time || !bookingData.date}
+<button 
+      disabled={!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.dateTime}
       onClick={handleBookingSubmit}
-      className="w-full md:w-2/3 py-6 bg-black text-white rounded-2xl font-black uppercase tracking-widest hover:bg-pink-600 disabled:bg-gray-100 disabled:text-gray-300 transition-all shadow-l shadow-gray-200"
+      className="w-full md:w-2/3 py-6 bg-black text-white rounded-2xl font-black uppercase tracking-widest hover:bg-pink-600 disabled:bg-gray-100 disabled:text-gray-300 transition-all shadow-lg shadow-gray-200"
     >
       Confirm Appointment
     </button>
@@ -952,7 +950,7 @@ const handleTrackGiftCard = async (e) => {
   </div>
 )}
 {/* WHAT OUR CLIENTS SAY SECTION */}
-<section className="py-20 bg-white">
+<section className="py-20 bg-white overflow-hidden">
   <div className="max-w-6xl mx-auto px-6">
     <div className="text-center mb-16">
       <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight">
@@ -960,42 +958,58 @@ const handleTrackGiftCard = async (e) => {
       </h2>
       <p className="text-gray-500 font-medium">Real stories from our recent visits</p>
     </div>
+  </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-      {reviews.length > 0 ? reviews.slice(0, 6).map((client) => (
-        <div key={client.id} className="bg-gray-50 p-8 rounded-xl border border-gray-100 hover:shadow-xl transition-all">
-          {/* Star Rating */}
-          <div className="flex text-yellow-400 mb-4">
-            {[...Array(5)].map((_, i) => (
-              <svg key={i} className={`h-4 w-4 fill-current ${i < (client.rating || 5) ? 'text-yellow-400' : 'text-gray-200'}`} viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-            ))}
-          </div>
+  {/* Marquee Wrapper */}
+  <div className="relative w-full max-w-7xl mx-auto">
+    
+    {/* Gradient Fades for Left and Right Edges */}
+    <div className="absolute top-0 left-0 w-24 h-full bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
+    <div className="absolute top-0 right-0 w-24 h-full bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
 
-          <p className="text-gray-700 leading-relaxed mb-6 italic text-sm">
-            "{client.review || "Great service and friendly staff!"}"
-          </p>
-
-          <div className="flex items-center">
-            <div className="h-10 w-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-bold mr-3 uppercase">
-              {(client.name || "G").substring(0, 1)}
+    {reviews.length > 0 ? (
+      /* Scrolling Track */
+      <div className="flex animate-marquee gap-8 w-max px-4">
+        {/* We duplicate the sliced array to create the infinite seamless loop */}
+        {[...reviews.slice(0, 6), ...reviews.slice(0, 6)].map((client, index) => (
+          
+          /* The Card (Forced to a fixed width so it doesn't squish) */
+          <div 
+            key={`${client.id || 'review'}-${index}`} 
+            className="w-[320px] md:w-[380px] shrink-0 bg-gray-50 p-8 rounded-xl border border-gray-100 hover:shadow-xl transition-all cursor-pointer"
+          >
+            {/* Star Rating */}
+            <div className="flex text-yellow-400 mb-4">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className={`h-4 w-4 fill-current ${i < (client.rating || 5) ? 'text-yellow-400' : 'text-gray-200'}`} viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              ))}
             </div>
-            <div>
-              <p className="font-black text-gray-900 text-sm">{client.name || "Valued Customer"}</p>
-              {/* Show date of visit if available */}
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                {client.checkOutTimestamp ? new Date(client.checkOutTimestamp.seconds * 1000).toLocaleDateString() : "Verified Visit"}
-              </p>
+
+            <p className="text-gray-700 leading-relaxed mb-6 italic text-sm whitespace-normal">
+              "{client.review || "Great service and friendly staff!"}"
+            </p>
+
+            <div className="flex items-center">
+              <div className="h-10 w-10 shrink-0 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 font-bold mr-3 uppercase">
+                {(client.name || "G").substring(0, 1)}
+              </div>
+              <div className="truncate">
+                <p className="font-black text-gray-900 text-sm truncate">{client.name || "Valued Customer"}</p>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                  {client.checkOutTimestamp ? new Date(client.checkOutTimestamp.seconds * 1000).toLocaleDateString() : "Verified Visit"}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      )) : (
-        <div className="col-span-3 text-center py-10 text-gray-400 italic font-bold">
-          Waiting for new feedback...
-        </div>
-      )}
-    </div>
+        ))}
+      </div>
+    ) : (
+      <div className="text-center py-10 text-gray-400 italic font-bold">
+        Waiting for new feedback...
+      </div>
+    )}
   </div>
 </section>
 

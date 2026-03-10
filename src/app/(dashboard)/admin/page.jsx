@@ -579,7 +579,7 @@ const {
 </div>
 
 {/* ROW 2: OPERATIONAL STATS */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
   
 {/* APPOINTMENTS - PERIWINKLE CARD */}
 <div style={{ backgroundColor: COLORS.periwinkle }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
@@ -644,11 +644,11 @@ const {
 </div>
 
       {/* SECTION 3: STAFF EARNINGS SUMMARY (Cards + Chart) */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
         <h3 className="dark:bg-slate-950 dark:text-white text-xl font-black text-gray-700 italic mb-6 bg-gray-100 inline-block px-4 py-1 rounded-lg">Staff Earnings Summary</h3>
         
         {/* Staff Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
             {/* Change staffPerformance.map to overviewStats.staffPerformance.map */}
 {overviewStats.staffPerformance.map((staff, idx) => (
   <div key={idx} className="p-5 rounded-xl border border-gray-50 dark:border-slate-800 " style={{backgroundColor: `${staff.color}15`}}>
@@ -685,7 +685,7 @@ const {
       </div>
 
       {/* SECTION 4: REVENUE TREND */}
-      <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
          <h3 className="text-xl font-black text-gray-700 italic mb-6">Salon Revenue Trend</h3>
          <div className="h-[300px] w-full">
            {/* Change dashboardData.trendData to overviewStats.trendData */}
@@ -732,7 +732,7 @@ const {
 
       {/* SECTION 5: UPCOMING APPOINTMENTS */}
 {/* SECTION 5: UPCOMING APPOINTMENTS */}
-<div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+<div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div className="flex justify-between items-center mb-6">
     <h3 className="text-2xl font-serif text-slate-700 font-bold">Upcoming Appointments</h3>
     <div className="flex gap-4 overflow-x-auto pb-2">
@@ -839,7 +839,7 @@ onClick={async () => {
   </div>
 </div>
 {/* SECTION: FILTERED STAFF REPORT TABLE */}
-  <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 mb-8 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+  <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-8 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div ref={formRef} className="flex flex-col md:flex-row justify-between items-start mb-2 md:items-centergap-4">
   <h3 className="text-2xl dark:text-white font-black text-gray-800 tracking-tight">
         Staff Earning Report <span className="text-pink-500 ml-2">({filteredStats.clientCount} Clients)</span>

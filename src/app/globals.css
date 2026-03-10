@@ -75,6 +75,26 @@ input, textarea, select {
     @apply flex items-center gap-2 p-4 border-b border-gray-50 bg-gray-50/30;
   }
 }
+/* Add to globals.css */
+@keyframes scroll-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: scroll-left 40s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+/* Optional: Pause the scroll when the user hovers over a review */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
   @media print {
     /* Hide everything by default */
     body * { visibility: hidden; }
