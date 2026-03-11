@@ -51,7 +51,61 @@ const [showPolicy, setShowPolicy] = useState(false); // Modal state
 
   const openModal = () => setIsLoginModalOpen(true);
   const closeModal = () => setIsLoginModalOpen(false);
+
+  // --- NEW EFFECT TO FETCH STORE INFO ---
+const [storeSettings, setStoreSettings] = useState(null);
+const [blockedDates, setBlockedDates] = useState([]);
+
+
+useEffect(() => {
+  // 1. Fetch Operating Hours
+  const fetchSettings = async () => {
+    const docSnap = await getDoc(doc(db, "settings", "store_info"));
+    if (docSnap.exists()) setStoreSettings(docSnap.data());
+  };
   
+  // 2. Fetch Holiday/Closure Dates
+  const unsubClosures = onSnapshot(collection(db, "closures"), (snap) => {
+    setBlockedDates(snap.docs.map(doc => doc.data().date));
+  });
+
+  fetchSettings();
+  return () => unsubClosures();
+}, []);
+const validateClientBooking = (selectedDateTime) => {
+  if (!storeSettings) return true;
+
+  const dateObj = new Date(selectedDateTime);
+  const dateString = dateObj.toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const selectedTime = dateObj.getHours().toString().padStart(2, '0') + ":" + 
+                       dateObj.getMinutes().toString().padStart(2, '0');
+
+  // --- 1. Check Holiday/Closure Dates ---
+  if (blockedDates.includes(dateString)) {
+    const holidayMsg = storeSettings.closureMessage || "The salon is closed on this date.";
+    showToast(`DATE UNAVAILABLE: ${holidayMsg}`, "error");
+    return false;
+  }
+
+  // --- 2. Check Operating Hours ---
+  const daySettings = storeSettings.hours[dayName];
+  if (!daySettings || daySettings.isClosed) {
+    showToast(`CLOSED: We are closed on ${dayName}s. Please pick another day.`, "error");
+    return false;
+  }
+
+  // --- 3. Check Time Window ---
+  if (selectedTime < daySettings.open || selectedTime > daySettings.close) {
+    showToast(
+      `OUTSIDE HOURS: ${dayName} hours are ${daySettings.open} - ${daySettings.close}.`, 
+      "error"
+    );
+    return false;
+  }
+
+  return true;
+};
 // Fetch Technicians (Users with role 'technician' or 'staff')
 useEffect(() => {
   const q = query(collection(db, "users"), where("role", "==", "technician"));
@@ -220,6 +274,46 @@ const filteredServices = services.filter(s =>
   s.name?.toLowerCase().includes(serviceSearch.toLowerCase()) ||
   s.category?.toLowerCase().includes(serviceSearch.toLowerCase())
 );
+// --- HELPER FUNCTION: VALIDATE OPERATING HOURS ---
+  const isWithinOperatingHours = (selectedDateTimeStr) => {
+    if (!storeHours || !selectedDateTimeStr) return true; // Default to allow if not loaded
+
+    const dateObj = new Date(selectedDateTimeStr);
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = daysOfWeek[dateObj.getDay()];
+    
+    const todayHours = storeHours[dayName];
+
+    // 1. Check if the salon is closed that day
+    if (!todayHours || todayHours.isClosed) {
+      showToast(`Sorry, we are closed on ${dayName}s.`, "error");
+      return false;
+    }
+
+    // 2. Extract just the time from the datetime-local input (format: "HH:mm")
+    // dateTime string looks like "YYYY-MM-DDTHH:mm"
+    const timeParts = selectedDateTimeStr.split('T');
+    if (timeParts.length < 2) return true; 
+    const selectedTime = timeParts[1]; 
+
+    // 3. Compare selected time with open and close times
+    if (selectedTime < todayHours.open || selectedTime > todayHours.close) {
+      // Convert 24h to 12h for the error message
+      const format12h = (time24) => {
+        const [h, m] = time24.split(':');
+        const hNum = parseInt(h);
+        const ampm = hNum >= 12 ? 'PM' : 'AM';
+        const h12 = hNum % 12 || 12;
+        return `${h12}:${m} ${ampm}`;
+      };
+
+      showToast(`Please book between ${format12h(todayHours.open)} and ${format12h(todayHours.close)} on ${dayName}s.`, "error");
+      return false;
+    }
+
+    return true; // Valid time
+  };
+
 const handleBookingSubmit = async () => {
   try {
     // Updated validation to check dateTime
@@ -227,10 +321,17 @@ const handleBookingSubmit = async () => {
       showToast("Please fill in all fields", "error");
       return;
     }
-
+// Validate before anything else
+  if (!validateClientBooking(bookingData.dateTime)) {
+    return; // This blocks the submission
+  }
     // Convert the combined dateTime string into a JavaScript Date object
     const appointmentDate = new Date(bookingData.dateTime);
-
+const now = new Date();
+if (dateObj < now) {
+  showToast("INVALID TIME: You cannot book a time in the past.", "error");
+  return false;
+}
     await addDoc(collection(db, "appointments"), {
       name: bookingData.name,
       phone: bookingData.phone,
@@ -249,7 +350,7 @@ const handleBookingSubmit = async () => {
     
     // CLEAR FORM and reset to current time
     setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", dateTime: getCurrentDateTimeLocal(), note: "" });
-    
+    setServiceSearch("");
   } catch (err) {
     console.error(err);
     showToast("Error booking. Try again.", "error");

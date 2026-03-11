@@ -3,14 +3,20 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, addDoc, onSnapshot, query, where, 
-  serverTimestamp, Timestamp 
+  serverTimestamp, Timestamp, doc, getDoc // <-- ADD THESE HERE 
 } from "firebase/firestore";
+// Import your toast function from your context file
+import { useToast } from "@/context/ToastContext";
 
 export default function GlobalBookingModal({ isOpen, onClose }) {
+
   const [allServices, setAllServices] = useState([]); 
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(false);
 const [clients, setClients] = useState([]);
+const { showToast } = useToast();
+const [storeSettings, setStoreSettings] = useState(null);
+const [blockedDates, setBlockedDates] = useState([]);
   const [bookingForm, setBookingForm] = useState({
     name: "", 
     phone: "", 
@@ -23,6 +29,69 @@ const [clients, setClients] = useState([]);
     technician: "Any Technician", 
     notes: ""
   });
+
+  // Fetch hours when modal opens
+useEffect(() => {
+  if (!isOpen) return;
+
+  // 1. Fetch Store Hours & Closure Message
+  const fetchSettings = async () => {
+    const docRef = doc(db, "settings", "store_info");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) setStoreSettings(docSnap.data());
+  };
+  fetchSettings();
+
+  // 2. Fetch Holiday & Scheduled Closures
+  const unsubClosures = onSnapshot(collection(db, "closures"), (snap) => {
+    setBlockedDates(snap.docs.map(d => d.data().date));
+  });
+
+  return () => unsubClosures();
+}, [isOpen]);
+
+const validateBookingTime = (selectedDateTime) => {
+  if (!storeSettings) return true;
+
+  const dateObj = new Date(selectedDateTime);
+  
+  // Format to YYYY-MM-DD for holiday check
+  const dateString = dateObj.toLocaleDateString('en-CA'); // e.g., "2023-10-28"
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  
+  // Format to HH:mm for time check
+  const selectedTime = dateObj.getHours().toString().padStart(2, '0') + ":" + 
+                       dateObj.getMinutes().toString().padStart(2, '0');
+
+  // --- 1. Check Holiday/Closure Dates ---
+  if (blockedDates.includes(dateString)) {
+    const holidayMsg = storeSettings.closureMessage || "Salon is closed today.";
+    // Try passing message first if "Error" is showing up as the title
+   showToast(
+    `SALON CLOSED: ${holidayMsg} (Date: ${dateString}). Please select another day.`, 
+    "error"
+  );
+    return false;
+  }
+
+  // --- 2. Check Operating Hours ---
+  const daySettings = storeSettings.hours[dayName];
+  if (!daySettings || daySettings.isClosed) {
+  showToast(`CLOSED: We are closed on ${dayName}s.`, "error");
+    return false;
+  }
+
+  // --- 3. Check Time Window ---
+  if (selectedTime < daySettings.open || selectedTime > daySettings.close) {
+  showToast(
+  `OUTSIDE HOURS: ${dayName} hours are ${daySettings.open} - ${daySettings.close}. Please pick a different time.`, 
+  "error"
+);
+    return false;
+  }
+
+  return true;
+};
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,6 +152,12 @@ const handleClientSelect = (name) => {
 };
   const handleBooking = async (e) => {
     e.preventDefault();
+
+    // TRIGGER VALIDATION
+  if (!validateBookingTime(bookingForm.dateTime)) {
+    return; // STOP EXECUTION
+  }
+
     setLoading(true);
 
     try {
@@ -95,7 +170,7 @@ const handleClientSelect = (name) => {
         createdAt: serverTimestamp()
       });
 
-      alert("Booking Added Successfully!");
+      showToast("Success", "Booking created successfully!", "success");
       onClose();
       setBookingForm({
         name: "", phone: "", email: "", 
@@ -105,7 +180,7 @@ const handleClientSelect = (name) => {
       });
     } catch (err) {
       console.error("Booking Error:", err);
-      alert("Error: " + err.message);
+      showToast("Error", "Error creating booking.", "error");
     }
     setLoading(false);
   };
