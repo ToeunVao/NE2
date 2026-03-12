@@ -432,9 +432,9 @@ const handleTrackGiftCard = async (e) => {
           Nails Express
         </div>
         <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600 uppercase tracking-widest">
-          <Link href="#services" className="hover:text-pink-600 transition-colors">Services</Link>
+          <Link href="#" className="hover:text-pink-600 transition-colors">Home</Link>
           <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
-          <Link href="/admin/gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
+          <Link href="#gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
         </div>
         {/* In your Header or Footer */}
 <button onClick={openModal}
@@ -472,15 +472,28 @@ const handleTrackGiftCard = async (e) => {
             <Link href="#book" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg">
               Book Now
             </Link>
-            <Link href="#services" className="bg-white/50 backdrop-blur-sm text-gray-900 border border-gray-200 px-8 py-3 rounded-xl font-bold hover:bg-white transition-all">
-              Services
-            </Link>
+    <div class="flex gap-4 ml-4">
+  <a href="https://www.facebook.com/profile.php?id=61566760681750" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-blue-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+  </a>
+  
+  <a href="https://youtube.com/@NailExpressKY" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-red-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+  </a>
+  
+  <a href="https://www.tiktok.com/@nailsexpressky" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-black border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+  </a>
+</div>
           </div>
         </div>
       </section>
 
 {/* --- GIFT CARD SECTION --- */}
-<section className="py-10 bg-pink-50">
+<section id="gift-cards" className="py-10 bg-pink-50">
   <div className="max-w-6xl mx-auto px-6">
 <div className="bg-white rounded-xl overflow-hidden shadow-xl border border-indigo-100 flex flex-col md:flex-row items-center">
   
@@ -1238,30 +1251,53 @@ const handleTrackGiftCard = async (e) => {
 )}
 
       {/* 6. FOOTER */}
-      <footer className="bg-gray-900 text-white py-16 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
-          <div>
-            <h3 className="text-2xl font-serif mb-6 text-pink-400">Nails Express</h3>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Your neighborhood luxury nail sanctuary. Providing high-quality nail care services since 2010.
-            </p>
-          </div>
-          <div>
-            <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Hours</h4>
-            <ul className="text-gray-400 text-sm space-y-2">
-              <li>Mon - Sat: 9:00 AM - 7:00 PM</li>
-              <li>Sun: 11:00 AM - 5:00 PM</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Location</h4>
-            <p className="text-gray-400 text-sm">
-              Visit our Salon Page at <br/>
-              <Link href="http://nailsexpressky.com" className="text-pink-400 hover:underline">nailsexpressky.com</Link>
-            </p>
-          </div>
-        </div>
-      </footer>
+     {/* 6. DYNAMIC FOOTER */}
+<footer className="bg-gray-900 text-white py-16 px-6">
+  <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
+    
+    {/* Name & Description */}
+    <div>
+      <h3 className="text-2xl font-serif mb-6 text-pink-400">
+        {storeSettings?.name || "Nails Express"}
+      </h3>
+      <p className="text-gray-400 text-sm leading-relaxed">
+        {storeSettings?.description || "Your neighborhood luxury nail sanctuary. Providing high-quality nail care services."}
+      </p>
+    </div>
+
+    {/* Hours */}
+    <div>
+      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Hours</h4>
+      <ul className="text-gray-400 text-sm space-y-2">
+        {storeSettings?.hours ? (
+          <>
+            <li>Mon - Sat: {storeSettings.hours.MonSat?.open} - {storeSettings.hours.MonSat?.close}</li>
+            <li>Sun: {storeSettings.hours.Sun?.open} - {storeSettings.hours.Sun?.close}</li>
+          </>
+        ) : (
+          <>
+            <li>Mon - Sat: 9:00 AM - 7:00 PM</li>
+            <li>Sun: 11:00 AM - 5:00 PM</li>
+          </>
+        )}
+      </ul>
+    </div>
+
+    {/* Location/Link */}
+    <div>
+      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Location</h4>
+      <p className="text-gray-400 text-sm">
+        Visit our Salon Page at <br/>
+        <Link 
+          href={storeSettings?.website || "http://nailsexpressky.com"} 
+          className="text-pink-400 hover:underline"
+        >
+          {storeSettings?.website || "nailsexpressky.com"}
+        </Link>
+      </p>
+    </div>
+  </div>
+</footer>
     </main>
   );
 }

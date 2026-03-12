@@ -77,6 +77,7 @@ export default function AccessCodeManager() {
             </p>
           </div>
         ))}
+        
       </div>
 
       {codes.length === 0 && (

@@ -314,12 +314,6 @@ const [showGuidelines, setShowGuidelines] = useState(false);
     setCheckingAuth(false);
   }, []);
 
-  const handleLogout = () => {
-  localStorage.removeItem("psi_authorized");
-  localStorage.removeItem("psi_user_name");
-  window.location.reload();
-};
-
   // Code Validation Function
 // --- 1. Handle Code Verification ---
 const handleAccessSubmit = async (e) => {
