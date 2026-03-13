@@ -48,24 +48,14 @@ const [isFlipped, setIsFlipped] = useState(false);
 const [step, setStep] = useState(1);
 const [staff, setStaff] = useState([]); // To store technicians
 const [showPolicy, setShowPolicy] = useState(false); // Modal state
-const [showAnnouncement, setShowAnnouncement] = useState(false);
+
   const openModal = () => setIsLoginModalOpen(true);
   const closeModal = () => setIsLoginModalOpen(false);
-// Add this inside your HomePage function
-const [users, setUsers] = useState([]);
+
   // --- NEW EFFECT TO FETCH STORE INFO ---
 const [storeSettings, setStoreSettings] = useState(null);
 const [blockedDates, setBlockedDates] = useState([]);
 
-// Add this useEffect to fetch staff from Firestore
-useEffect(() => {
-  const q = query(collection(db, "users")); // Ensure 'db' is imported
-  const unsub = onSnapshot(q, (snap) => {
-    const userData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    setUsers(userData);
-  });
-  return () => unsub();
-}, []);
 
 useEffect(() => {
   // 1. Fetch Operating Hours
@@ -326,69 +316,30 @@ const filteredServices = services.filter(s =>
 
 const handleBookingSubmit = async () => {
   try {
-    // 1. DATA VALIDATION
+    // Updated validation to check dateTime
     if (!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.dateTime) {
       showToast("Please fill in all fields", "error");
       return;
     }
-
+// Validate before anything else
+  if (!validateClientBooking(bookingData.dateTime)) {
+    return; // This blocks the submission
+  }
+    // Convert the combined dateTime string into a JavaScript Date object
     const appointmentDate = new Date(bookingData.dateTime);
-    const now = new Date();
-
-    // 2. MINIMUM NOTICE CHECK
-    const noticeHours = storeSettings?.bookingConfigs?.minBookingNotice || 12;
-    const earliestAllowed = new Date(now.getTime() + (noticeHours * 60 * 60 * 1000));
-
-    if (appointmentDate < earliestAllowed) {
-      showToast(`Appointments must be booked at least ${noticeHours} hours in advance.`, "error");
-      return;
-    }
-
-    // 3. TECHNICIAN SCHEDULE CHECK (The Blocker)
-    // IMPORTANT: We check if staffId is a real ID and not "anyone"
-    const selectedStaff = users.find(u => u.id === bookingData.staffId);
-    
-    console.log("Checking Schedule for:", selectedStaff?.name);
-
-    if (selectedStaff && bookingData.staffId !== "anyone") {
-      const dayName = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
-      const schedule = selectedStaff.schedule?.[dayName];
-
-      // If no schedule exists or active is false
-      if (!schedule || !schedule.active) {
-        showToast(`${selectedStaff.name} is not working on ${dayName}.`, "error");
-        return;
-      }
-
-      // Convert times to total minutes for 100% accuracy
-      const apptTotalMins = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
-      const [openH, openM] = schedule.open.split(':').map(Number);
-      const [closeH, closeM] = schedule.close.split(':').map(Number);
-      
-      const openTotalMins = openH * 60 + openM;
-      const closeTotalMins = closeH * 60 + closeM;
-
-      console.log(`Appt Mins: ${apptTotalMins} | Range: ${openTotalMins}-${closeTotalMins}`);
-
-      if (apptTotalMins < openTotalMins || apptTotalMins >= closeTotalMins) {
-        showToast(
-          `${selectedStaff.name} is only available between ${schedule.open} and ${schedule.close} on ${dayName}.`, 
-          "error"
-        );
-        return; // STOPS THE BOOKING
-      }
-    }
-
-    // 4. FINAL SAVE
+const now = new Date();
+if (dateObj < now) {
+  showToast("INVALID TIME: You cannot book a time in the past.", "error");
+  return false;
+}
     await addDoc(collection(db, "appointments"), {
       name: bookingData.name,
       phone: bookingData.phone,
       service: bookingData.serviceName,
       price: Number(bookingData.price || 0),
-      technicianId: bookingData.staffId,
       technician: bookingData.staffName || "Any Technician",
       appointmentTimestamp: Timestamp.fromDate(appointmentDate),
-      note: bookingData.note || "",
+      note: bookingData.note || "", // Save the note
       bookingType: "Online",
       status: "confirmed",
       createdAt: serverTimestamp(),
@@ -397,17 +348,12 @@ const handleBookingSubmit = async () => {
 
     showToast("Booking Confirmed!", "success");
     
-    // 5. RESET FORM
-    setBookingData({ 
-      name: "", phone: "", serviceId: "", serviceName: "", price: 0, 
-      staffId: "anyone", staffName: "Any Technician", 
-      dateTime: getCurrentDateTimeLocal(), note: "" 
-    });
+    // CLEAR FORM and reset to current time
+    setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", dateTime: getCurrentDateTimeLocal(), note: "" });
     setServiceSearch("");
-
   } catch (err) {
-    console.error("Critical Booking Error:", err);
-    showToast("Error processing booking. Please try again.", "error");
+    console.error(err);
+    showToast("Error booking. Try again.", "error");
   }
 };
 
@@ -478,187 +424,73 @@ const handleTrackGiftCard = async (e) => {
   }
 };
 
-const generateSlots = (selectedDate) => {
-  const now = new Date();
-  const noticeHours = bookingConfigs?.minBookingNotice || 12; // From Admin Settings
-  const earliestAllowed = new Date(now.getTime() + (noticeHours * 60 * 60 * 1000));
-
-  // When filtering your time slots:
-  const availableSlots = allDaySlots.filter(slot => {
-    const slotTime = new Date(`${selectedDate} ${slot}`);
-    return slotTime > earliestAllowed; 
-  });
-  
-  return availableSlots;
-};
-// From your uploaded page.jsx
-const [bookingConfigs, setBookingConfigs] = useState({
-  minBookingNotice: 12,
-  defaultServiceDuration: 60,
-  // ...
-});
-
-const handleBookAppointment = async (startTime) => {
-  const duration = bookingConfigs?.defaultServiceDuration || 60; // From Admin
-  const endTime = calculateEndTime(startTime, duration);
-
-  await addDoc(collection(db, "appointments"), {
-    customerName: name,
-    start: startTime,
-    end: endTime, // This blocks the technician for the full duration
-    status: "confirmed",
-    createdAt: serverTimestamp()
-  });
-};
-
-
-
-// Update your existing useEffect that fetches storeSettings:
-useEffect(() => {
-  const fetchSettings = async () => {
-    // CHANGE THIS PATH TO MATCH YOUR SAVE FUNCTION
-    const snap = await getDoc(doc(db, "settings", "store_info")); 
-    
-    if (snap.exists()) {
-      const data = snap.data();
-      setStoreSettings(data);
-      
-      // Detailed check for the announcement
-      if (data.announcement?.enabled === true) {
-        const hasSeen = sessionStorage.getItem("announcement_shown");
-        if (!hasSeen) {
-          setShowAnnouncement(true);
-        }
-      }
-    }
-  };
-  fetchSettings();
-}, []);
-
-// Add this helper function to your HomePage
-const isWithinWorkingHours = (slotTime, techSchedule) => {
-  const dateObj = new Date(slotTime);
-  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-  const schedule = techSchedule?.[dayName];
-
-  // 1. If no schedule exists or staff is inactive/off, block the booking
-  if (!schedule || !schedule.active) return false;
-
-  // 2. Convert slot time to total minutes from midnight (e.g., 09:30 = 570 mins)
-  const slotTotalMinutes = dateObj.getHours() * 60 + dateObj.getMinutes();
-
-  // 3. Convert open/close strings ("09:00") to total minutes
-  const [openH, openM] = schedule.open.split(':').map(Number);
-  const [closeH, closeM] = schedule.close.split(':').map(Number);
-  
-  const openTotalMinutes = openH * 60 + openM;
-  const closeTotalMinutes = closeH * 60 + closeM;
-
-  // 4. Return true only if the slot is between open and close times
-  return slotTotalMinutes >= openTotalMinutes && slotTotalMinutes < closeTotalMinutes;
-};
-
-const handleSlotSelection = (selectedDate, selectedTech) => {
-  const allPossibleSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]; // Example slots
-  
-  const validSlots = allPossibleSlots.filter(slot => {
-    const slotDateTime = new Date(`${selectedDate} ${slot}`);
-    return isWithinWorkingHours(slotDateTime, selectedTech.schedule);
-  });
-
-  if (validSlots.length === 0) {
-    showToast("Technician unavailable for these hours. Please pick another time or staff.", "error");
-    return;
-  }
-  
-  setAvailableSlots(validSlots);
-};
-
   return (
     <main className="min-h-screen bg-white">
-{/* 1. ELEGANT NAVIGATION */}
-<nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 px-6 py-4">
-  <div className="max-w-7xl mx-auto flex justify-between items-center">
-    <div className="text-2xl font-serif font-bold text-pink-600 tracking-tighter">
-      Nails Express <p className="text-xs text-gray-500 -mt-1">Nails salon &amp; Spa</p>
-    </div>
-    
-    <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600 uppercase tracking-widest">
-      <Link href="#" className="hover:text-pink-600 transition-colors">Home</Link>
-      <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
-      <Link href="#gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
-    </div>
-
-    <button onClick={openModal} className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm">
-      <i className="fas fa-user mr-2"></i> Login
-    </button>
-  </div>
-</nav>
-
-{/* 2. REFINED HERO SECTION */}
-<section className="relative h-[50vh] flex items-center px-6 overflow-hidden">
-  {/* Background remains full width */}
-  <div className="absolute inset-0 z-0">
-    <Image 
-      src="https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80"
-      alt="Luxury Manicure Art"
-      fill
-      priority
-      className="object-cover object-center scale-105 brightness-[0.9]"
-    />
-    <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/50 to-transparent"></div>
-  </div>
-  
-  {/* Content is constrained to the container */}
-  <div className="relative z-10 max-w-7xl mx-auto w-full">
-    <div className="max-w-xl">
-      <span className="text-pink-600 font-bold tracking-[0.2em] uppercase text-xs mb-3 block">
-        Welcome to Nails Express
-      </span>
-      <h1 className="text-4xl md:text-6xl font-serif text-gray-900 mb-6 leading-tight">
-        Elevate Your <br/>
-        <span className="italic text-pink-500">Natural Beauty</span>
-      </h1>
-      <p className="text-base md:text-lg text-gray-700 mb-8 leading-relaxed max-w-md">
-        Experience the finest nail artistry and spa treatments in a serene, sophisticated environment.
-      </p>
-      
-      <div className="flex flex-wrap gap-4 items-center">
-        <Link href="#book" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg">
-          Book Now
-        </Link>
-
-        {/* Social Icons Container */}
-        <div className="flex gap-3">
-          <a href="https://facebook.com/..." target="_blank" className="bg-white/50 backdrop-blur-sm text-blue-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-          </a>
-           {/* YouTube */}
-
-  <a href="https://youtube.com/@NailExpressKY" target="_blank"
-
-     className="bg-white/50 backdrop-blur-sm text-red-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-
-    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-
-  </a>
-
- 
-
-  {/* TikTok */}
-
-  <a href="https://www.tiktok.com/@nailsexpressky" target="_blank"
-
-     className="bg-white/50 backdrop-blur-sm text-black border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-
-    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
-
-  </a>
+      {/* 1. ELEGANT NAVIGATION */}
+      <nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 px-6 py-4 flex justify-between items-center">
+        <div className="text-2xl font-serif font-bold text-pink-600 tracking-tighter">
+          Nails Express
         </div>
-      </div>
-    </div>
-  </div>
-</section>
+        <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600 uppercase tracking-widest">
+          <Link href="#" className="hover:text-pink-600 transition-colors">Home</Link>
+          <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
+          <Link href="#gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
+        </div>
+        {/* In your Header or Footer */}
+<button onClick={openModal}
+  className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm"
+>
+<i className="fas fa-user"></i> Login
+</button>
+      </nav>
+
+      {/* 2. REFINED HERO SECTION */}
+      <section className="relative h-[50vh] flex items-center px-6 md:px-20 overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <Image 
+            src="https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80"
+            alt="Luxury Manicure Art"
+            fill
+            priority
+            className="object-cover object-center scale-105 brightness-[0.9]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/50 to-transparent"></div>
+        </div>
+        
+        <div className="relative z-10 max-w-xl">
+          <span className="text-pink-600 font-bold tracking-[0.2em] uppercase text-xs mb-3 block">
+            Welcome to Nails Express
+          </span>
+          <h1 className="text-4xl md:text-6xl font-serif text-gray-900 mb-6 leading-tight">
+            Elevate Your <br/>
+            <span className="italic text-pink-500">Natural Beauty</span>
+          </h1>
+          <p className="text-base md:text-lg text-gray-700 mb-8 leading-relaxed max-w-md">
+            Experience the finest nail artistry and spa treatments in a serene, sophisticated environment.
+          </p>
+          <div className="flex gap-4">
+            <Link href="#book" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg">
+              Book Now
+            </Link>
+    <div class="flex gap-4 ml-4">
+  <a href="https://www.facebook.com/profile.php?id=61566760681750" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-blue-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+  </a>
+  
+  <a href="https://youtube.com/@NailExpressKY" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-red-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+  </a>
+  
+  <a href="https://www.tiktok.com/@nailsexpressky" target="_blank" 
+     class="bg-white/50 backdrop-blur-sm text-black border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+  </a>
+</div>
+          </div>
+        </div>
+      </section>
 
 {/* --- GIFT CARD SECTION --- */}
 <section id="gift-cards" className="py-10 bg-pink-50">
@@ -1466,42 +1298,9 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
     </div>
   </div>
 </footer>
-{showAnnouncement && (
-  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-      <div className="bg-pink-500 p-6 text-white text-center">
-        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-3xl">📢</span>
-        </div>
-        <h2 className="text-2xl font-black uppercase tracking-tight">
-          {storeSettings?.announcement?.title || "Announcement"}
-        </h2>
-      </div>
-      
-      <div className="p-8 text-center">
-        <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-8">
-          {storeSettings?.announcement?.text}
-        </p>
-        
-        <button 
-          onClick={() => {
-            setShowAnnouncement(false);
-            sessionStorage.setItem("announcement_shown", "true");
-          }}
-          className="w-full py-4 bg-slate-900 dark:bg-pink-600 text-white rounded-2xl font-black uppercase text-sm hover:scale-[1.02] transition-transform"
-        >
-          Got it, thanks!
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
     </main>
   );
 }
-
-
 // Ensure your InputItem looks like this in page.js
 function InputItem({ label, value, onChange, placeholder }) {
   return (

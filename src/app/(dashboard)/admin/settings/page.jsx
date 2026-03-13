@@ -191,7 +191,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-6xl mx-auto pb-20 pt-8 px-6 space-y-10">
       {/* Header */}
-      <div className="flex justify-between items-center border-b pb-6">
+      <div className="flex justify-between items-center border-gray-100 border-b pb-6">
         <h1 className="text-2xl font-black text-gray-800 uppercase italic">General Settings</h1>
         <button onClick={handleSaveSettings} className="bg-pink-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-pink-700 transition-all">
           Save All Changes
@@ -213,23 +213,28 @@ export default function SettingsPage() {
             {/* --- NEW BOOKING CONFIGURATION SECTION --- */}
             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-6">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Booking Configuration</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-[10px] font-black text-gray-800 uppercase ml-1">Minimum Booking Notice (hours)</label>
-                        <p className="text-[9px] text-gray-400 ml-1 mb-2 italic">Set the minimum hours in advance a client can book.</p>
-                        <input type="number" value={bookingConfigs.minBookingNotice} onChange={e => setBookingConfigs({...bookingConfigs, minBookingNotice: e.target.value})} className="old-app-input" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-black text-gray-800 uppercase ml-1">Default Service Duration (minutes)</label>
-                        <p className="text-[9px] text-gray-400 ml-1 mb-2 italic">Used if a service doesn't have a specific duration set.</p>
-                        <input type="number" value={bookingConfigs.defaultServiceDuration} onChange={e => setBookingConfigs({...bookingConfigs, defaultServiceDuration: e.target.value})} className="old-app-input" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-black text-gray-800 uppercase ml-1">Buffer Time (minutes)</label>
-                        <p className="text-[9px] text-gray-400 ml-1 mb-2 italic">Adds extra blocked time after each appointment.</p>
-                        <input type="number" value={bookingConfigs.bufferTime} onChange={e => setBookingConfigs({...bookingConfigs, bufferTime: e.target.value})} className="old-app-input" />
-                    </div>
-                </div>
+               <div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="text-[10px] font-bold text-gray-400 uppercase">Min Notice (Hours)</label>
+    <input 
+      type="number" 
+      value={bookingConfigs.minBookingNotice} 
+      onChange={(e) => setBookingConfigs({...bookingConfigs, minBookingNotice: parseInt(e.target.value)})}
+      className="old-app-input"
+      placeholder="e.g. 12"
+    />
+  </div>
+  <div>
+    <label className="text-[10px] font-bold text-gray-400 uppercase">Service Length (Mins)</label>
+    <input 
+      type="number" 
+      value={bookingConfigs.defaultServiceDuration} 
+      onChange={(e) => setBookingConfigs({...bookingConfigs, defaultServiceDuration: parseInt(e.target.value)})}
+      className="old-app-input"
+      placeholder="e.g. 60"
+    />
+  </div>
+</div>
             </div>
 
             {/* --- NEW LOGIN SECURITY SECTION --- */}
@@ -324,7 +329,7 @@ export default function SettingsPage() {
             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Operating Hours</h3>
                 {DAYS.map(day => (
-                    <div key={day} className="flex items-center justify-between py-2 border-b last:border-0">
+                    <div key={day} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                         <span className="text-xs font-bold text-gray-700 w-24">{day}</span>
                         <div className="flex gap-2">
                             <input type="time" value={storeSettings.hours[day].open} onChange={e => handleHourChange(day, 'open', e.target.value)} className="text-[10px] border border-gray-100 rounded-lg px-2 py-1 bg-gray-50 font-bold" />
@@ -341,7 +346,7 @@ export default function SettingsPage() {
                     <label className="text-[10px] font-bold text-gray-400 uppercase">Closure Message</label>
                     <textarea value={closureMessage} onChange={(e) => setClosureMessage(e.target.value)} className="old-app-input h-24" />
                 </div>
-                <div className="border-t pt-6">
+                <div className="border-t pt-6 border-gray-100">
                     <label className="text-[10px] font-bold text-gray-400 uppercase mb-4 block">Block Dates</label>
                     <input type="date" onChange={(e) => toggleClosure(e.target.value)} className="old-app-input mb-4" />
                     <div className="space-y-2">

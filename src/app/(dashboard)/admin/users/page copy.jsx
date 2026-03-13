@@ -10,7 +10,6 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
-  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   // Initial Form State
 const initialForm = {
     name: "",
@@ -20,16 +19,7 @@ const initialForm = {
     role: "technician",
     payoutType: "standard",
     commission: "60",
-    checkPayout: "70", // Ensure this is a string for the input field
-    schedule: {
-    Monday: { open: "09:00", close: "20:00", active: true },
-    Tuesday: { open: "09:00", close: "20:00", active: true },
-    Wednesday: { open: "09:00", close: "20:00", active: true },
-    Thursday: { open: "09:00", close: "20:00", active: true },
-    Friday: { open: "09:00", close: "20:00", active: true },
-    Saturday: { open: "09:00", close: "20:00", active: true },
-    Sunday: { open: "12:00", close: "17:00", active: true },
-  }
+    checkPayout: "70" // Ensure this is a string for the input field
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -91,8 +81,7 @@ const handleEdit = (user) => {
     payoutType: detectedPayout, // Matches the new select options
     // 2. Ensure commission is pulled exactly as it is (e.g., 70)
     commission: user.commission > 100 ? user.commission / 100 : (user.commission || "60"),
-    checkPayout: user.checkPayout ? user.checkPayout.toString() : "70",
-    schedule: user.schedule || initialForm.schedule
+    checkPayout: user.checkPayout ? user.checkPayout.toString() : "70"
   });
   
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -103,18 +92,7 @@ const handleEdit = (user) => {
       await deleteDoc(doc(db, "users", id));
     }
   };
-const updateSchedule = (day, field, value) => {
-  setFormData(prev => ({
-    ...prev,
-    schedule: {
-      ...prev.schedule,
-      [day]: {
-        ...prev.schedule[day],
-        [field]: value
-      }
-    }
-  }));
-};
+
   return (
     <div className="max-w-[1400px] mx-auto p-8 space-y-10">
       <h1 className="text-2xl font-black text-gray-800 italic uppercase tracking-tighter">Manage Users</h1>
@@ -209,44 +187,13 @@ const updateSchedule = (day, field, value) => {
       placeholder="70"
     />
   </div>
-
-          </div>
-<div>
-  <label className="text-xs font-bold text-gray-500 uppercase block mb-4">Technician Schedule</label>
-  
-  <div className="flex flex-wrap gap-4">
-    {DAYS.map((day) => (
-      <div key={day} className="inline-block p-3 bg-gray-50 rounded-xl border border-gray-100">
-        <span className="w-full text-[9px] font-black uppercase text-gray-400 block mb-1">{day}</span>
-        <div className="flex gap-1 items-center">
-          <input 
-            type="time" 
-            // Use the day name from the array to access the data
-            value={formData.schedule?.[day]?.open || "09:00"} 
-            onChange={(e) => updateSchedule(day, 'open', e.target.value)} 
-            className="w-20 p-1 text-[10px] border border-gray-200 rounded" 
-          />
-          <span className="text-[10px] text-gray-300">-</span>
-          <input 
-            type="time" 
-            value={formData.schedule?.[day]?.close || "20:00"} 
-            onChange={(e) => updateSchedule(day, 'close', e.target.value)} 
-            className="w-20 p-1 text-[10px] border border-gray-200 rounded" 
-          />
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-
-<div className="flex flex-1 justify-center">
             <button 
               type="submit"
-              className="w-120 py-3.5 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 shadow-md transition-all"
+              className="w-full py-3.5 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pink-600 shadow-md transition-all"
             >
               Update User Record
             </button>
-            </div>
+          </div>
         </form>
       </div>
 
