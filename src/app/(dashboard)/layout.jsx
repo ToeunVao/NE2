@@ -3,207 +3,277 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
-import { signOut } from "firebase/auth";
+// ADDED db, doc, getDoc, and onAuthStateChanged
+import { auth, db } from "@/lib/firebase"; 
+import { signOut, onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore"; 
+
 import Sidebar from "@/components/Sidebar";
 import GlobalBookingModal from "@/components/GlobalBookingModal";
 import Header from "@/components/Header";
-import { useConfirm } from "@/context/ConfirmContext"; // Add this import
-import { Sun, Moon } from "lucide-react"; // Import icons
+import { useConfirm } from "@/context/ConfirmContext"; 
+import { 
+  LayoutDashboard, UserCheck, Calendar, BarChart3, Gift, Award, 
+  CreditCard, Package, Sparkles, Users, User, BookOpen, Key, 
+  Settings, CalendarCheck, LogOut, Scissors, UserRound, Store, TrendingUp, Receipt, FileText, Users2, KeyRound
+} from "lucide-react";
 
 export default function DashboardLayout({ children }) {
   const { ask } = useConfirm();
-  const [isCollapsed, setIsCollapsed] = useState(false); // New Stat
   const pathname = usePathname();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+// NEW STATE: Track which sub-menus are open
+  const [openMenus, setOpenMenus] = useState({});
+
+  const toggleSubMenu = (label) => {
+    setOpenMenus(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
+  // --- NEW: STATE FOR ROLE MANAGEMENT ---
+  const [userRole, setUserRole] = useState(null);
+  const [loadingRole, setLoadingRole] = useState(true);
+
+  // --- NEW: FETCH USER ROLE ON LOAD ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          // 1. Check if they are Staff or Admin in the "users" collection
+          const staffDoc = await getDoc(doc(db, "users", currentUser.uid));
+          
+          if (staffDoc.exists()) {
+            setUserRole(staffDoc.data().role); // Will be "admin" or "technician"
+          } else {
+            // 2. If not in "users", they must be a Client
+            setUserRole("client");
+          }
+        } catch (error) {
+          console.error("Error fetching role:", error);
+          setUserRole("client"); // Fallback for safety
+        }
+      } else {
+        setUserRole(null);
+      }
+      setLoadingRole(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      ask("Logout?", "Are you sure you want to exit?", async () => {
+        await signOut(auth);
+        router.push("/"); 
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
-const handleLogout = async () => {
-  try {
-    // Using your new useConfirm hook for a premium feel
-    ask("Logout?", "Are you sure you want to exit?", async () => {
-      await signOut(auth);
-      router.push("/"); // Back to the home page landing
-    });
-  } catch (error) {
-    console.error("Logout error:", error);
+  const handleStartPractice = () => {
+    sessionStorage.setItem("theory_auth", "true");
+    sessionStorage.setItem("access_mode", "staff");
+    router.push("/theory-test/live");
+  };
+
+// --- DYNAMIC NAV LINKS BASED ON ROLE ---
+  let menuItems = [];
+
+  if (userRole === "admin") {
+    menuItems = [
+      { label: "Dash", path: "/admin", icon: LayoutDashboard },
+      { label: "Check-in", path: "/admin/check-in", icon: UserCheck },
+      { label: "Booking", path: "/admin/booking", icon: Calendar },
+      { 
+        label: "Reports", 
+        icon: BarChart3,
+        isDropdown: true,
+        subItems: [
+  { label: "Staff", path: "/admin/reports/staff-earnings", icon: UserRound },
+  { label: "Salon", path: "/admin/reports/salon-earning", icon: Store },
+  { label: "Profit", path: "/admin/reports/profit", icon: TrendingUp },
+  { label: "Expenses", path: "/admin/reports/expenses", icon: Receipt },
+]
+      },
+      { label: "Gifts", path: "/admin/gift-cards", icon: Gift },
+      { label: "Royalty", path: "/admin/royalty", icon: Award },
+      { label: "Members", path: "/admin/membership", icon: CreditCard },
+      { label: "Stock", path: "/admin/inventory", icon: Package },
+      { label: "Services", path: "/admin/services", icon: Sparkles },
+      { label: "Clients", path: "/admin/clients", icon: Users },
+      { label: "Users", path: "/admin/users", icon: User },
+      { 
+        label: "Exams", 
+        icon: BookOpen,
+        isDropdown: true,
+        subItems: [
+  { label: "Theory Exam", path: "/admin/theory-manager", icon: FileText },
+  { label: "Group Test", path: "/admin/theory-manager/group-test", icon: Users2 },
+  { label: "Access Codes", path: "/admin/access-codes", icon: KeyRound },
+]
+      },
+      { label: "Setup", path: "/admin/settings", icon: Settings },
+    ];
+  } else if (userRole === "technician" || userRole === "staff") {
+    menuItems = [
+      { label: "Dash", path: "/staff/dashboard", icon: LayoutDashboard },
+      { label: "Report", path: "/staff/reports", icon: BarChart3 },
+      { label: "Booking", path: "/staff/appointments/book", icon: Calendar },
+      { label: "PSI", path: "/staff/board-exam", icon: BookOpen },
+    ];
+  } else {
+    // Client view
+    menuItems = [
+      { label: "Dash", path: "/client/dashboard", icon: LayoutDashboard },
+      { label: "Gifts", path: "/client/gift-cards", icon: Gift },
+      { label: "Bookings", path: "/client/bookings", icon: CalendarCheck },
+    ];
   }
-};
-const handleStartPractice = () => {
-  sessionStorage.setItem("theory_auth", "true");
-  sessionStorage.setItem("access_mode", "staff");
-  router.push("/theory-test/live");
-};
-
-const [reportOpen, setReportOpen] = useState(false);
-// Add a check for role (you can use a context or state for this)
-const isStaffPath = pathname.startsWith('/staff');
-
-
-const navLinks = isStaffPath ? [
-  { name: "Dashboard", href: "/staff/dashboard", icon: "fa-th-large" },
-  { name: "Report", href: "/staff/matrix", icon: "fa-chart-line" },
-  { name: "Booking", href: "/staff/appointments/book", icon: "fa-calendar-alt" },
-  { name: "State Board Portal", href: "/staff/board-exam", icon: "fa-book" },
-  ] : [
- { name: "Dashboard", href: "/admin", icon: "fa-th-large" },
-  { name: "Check-in", href: "/admin/check-in", icon: "fa-user-check" },
-  { name: "Booking", href: "/admin/booking", icon: "fa-calendar-alt" },
-  // Report is now a dropdown toggle
-  { 
-    name: "Report", 
-    icon: "fa-chart-line",
-    isDropdown: true,
-    subItems: [
-       { name: "Staff Earning", href: "/admin/reports/staff-earnings" },
-      { name: "Salon Earning", href: "/admin/reports/salon-earning" },
-      { name: "Profit Dashboard", href: "/admin/reports/profit" },
-      { name: "Expense", href: "/admin/reports/expenses" },
-    ]
-  },
-  { name: "Gift Cards", href: "/admin/gift-cards", icon: "fas fa-gift group-hover:text-white" },
-   { name: "Royalty", href: "/admin/royalty", icon: "fas fa-gift group-hover:text-white" },
-   { name: "Membership", href: "/admin/membership", icon: "fas fa-gift group-hover:text-white" },
-  { name: "Inventory", href: "/admin/inventory", icon: "fas fa-boxes" },
-  { name: "Service", href: "/admin/services", icon: "fas fa-concierge-bell" },
-   { name: "Clients", href: "/admin/clients", icon: "fas fa-user-friends" },
-  { name: "User", href: "/admin/users", icon: "fa-user" },
-  { 
-    name: "State Board Exam", 
-    icon: "fa-book",
-    isDropdown: true,
-    subItems: [
-      { name: "Theory Examination", href: "/admin/theory-manager", icon: "fa-book" },
-      { name: "Group Fun Test", href: "/admin/theory-manager/group-test", icon: "fas fa-user-friends" },
-      { name: "Access Codes", href: "/admin/access-codes", icon: "fa-key" },
-    ]
-  },
-
-  { name: "Setting", href: "/admin/settings", icon: "fa-cog" },
-];
-
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-slate-950">
       
       {/* --- LEFT SIDEBAR --- */}
- <aside className={`hidden md:block border-slate-200 dark:border-slate-800  bg-white dark:bg-slate-950 border-r border-gray-100 flex flex-col sticky top-0 h-screen transition-all duration-300 ease-in-out ${
-    isCollapsed ? "w-20" : "w-64"
-  }`}>
-    
-    {/* Toggle Button */}
-    <button 
-      onClick={() => setIsCollapsed(!isCollapsed)}
-      className="absolute -right-3 top-10 bg-white border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 rounded-full w-6 h-6 flex items-center justify-center text-[10px] text-pink-600 shadow-sm cursor-pointer hover:bg-pink-50 z-50"
-    >
-      <i className={`fas ${isCollapsed ? "fa-chevron-right" : "fa-chevron-left"}`}></i>
-    </button> 
-    {/* Logo Section */}
-    <div className={`p-6 transition-all duration-300 ${isCollapsed ? "text-center px-2" : "p-8"}`}>
-      <Link href="/admin" className="no-underline group">
-        <span className={`logo-style text-pink-700 block transition-all ${isCollapsed ? "text-xl" : "text-2xl"}`}>
-          {isCollapsed ? "NE" : "Nails Express"}
-        </span>
-        {!isCollapsed && (
-          <p className="text-[9px] font-bold text-pink-600 uppercase tracking-[4px] mt-1 mb-0 animate-in fade-in duration-500">
-            Management Suite
-          </p>
-        )}
-      </Link>
-    </div>
+<aside className="hidden md:flex w-[85px] flex-col h-screen sticky top-0 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 z-[100]">
+        
+        {/* LOGO */}
+        <div className="py-8 flex flex-col items-center border-b border-slate-50 dark:border-slate-800 mb-4">
+          <div className="w-10 h-10 bg-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-pink-200 mb-1">
+            <span className="text-white font-black text-xl tracking-tighter">NE</span>
+          </div>
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Express</span>
+        </div>
 
-     {/* Navigation */}
-    <nav className="flex-1 px-3 space-y-2 mt-4">
-{navLinks.map((link) => (
-    <div key={link.name}>
-      {link.isDropdown ? (
-        <>
-          <button 
-            onClick={() => setReportOpen(!reportOpen)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm border-none bg-transparent cursor-pointer ${
-              pathname.includes('/reports') ? "text-pink-600 bg-pink-50" : "text-gray-400 hover:text-pink-600"
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <i className={`fas ${link.icon} text-lg`}></i>
-              {!isCollapsed && <span>{link.name}</span>}
-            </div>
-            {!isCollapsed && <i className={`fas fa-chevron-${reportOpen ? 'up' : 'down'} text-[10px]`}></i>}
-          </button>
-          
-          {/* Sub Menu Items */}
-          {reportOpen && !isCollapsed && (
-            <div className="ml-12 mt-1 space-y-1 animate-in slide-in-from-top-2 duration-200">
-              {link.subItems.map(sub => (
-                <Link 
-                  key={sub.name} 
-                  href={sub.href}
-                  className={`block py-2 text-xs font-bold no-underline transition-colors ${
-                    pathname === sub.href ? "text-pink-600" : "text-gray-400 hover:text-pink-600"
-                  }`}
-                >
-                  {sub.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <Link 
-          key={link.name} 
-          href={link.href}
-          title={isCollapsed ? link.name : ""} // Show tooltip on hover when collapsed
-          className={`flex items-center rounded-xl transition-all no-underline font-bold text-sm ${
-            isCollapsed ? "justify-center h-12 w-12 mx-auto" : "px-4 py-3 gap-4"
-          } ${
-            pathname === link.href 
-            ? "bg-pink-600 text-white shadow-lg shadow-pink-100" 
-            : "text-gray-400 hover:bg-gray-50 hover:text-pink-600 "
+        {/* NAVIGATION ITEMS */}
+        <div className="flex-1 flex flex-col items-center gap-2 px-2 py-2 overflow-y-auto no-scrollbar">
+          {menuItems.map((item, index) => {
+            const isSubActive = item.subItems?.some(sub => pathname === sub.path);
+            const isActive = pathname === item.path || isSubActive;
+            const isOpen = openMenus[item.label];
+            const Icon = item.icon;
+
+            // --- DROPDOWN STYLE (ACCORDION / TOGGLE DOWN) ---
+            if (item.isDropdown) {
+              return (
+                <div key={index} className="w-full flex flex-col items-center">
+                  <button
+                    onClick={() => toggleSubMenu(item.label)}
+                    className={`w-full flex flex-col items-center justify-center py-3 rounded-2xl transition-all ${
+                      isActive 
+                        ? "bg-pink-50 dark:bg-pink-900/20 text-pink-600" 
+                        : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter mt-1">
+                      {item.label}
+                    </span>
+                    {/* Visual indicator for toggle */}
+                    <div className={`mt-1 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    </div>
+                  </button>
+
+                  {/* SUB-ITEM LIST (Show/Hide) */}
+                  {isOpen && (
+  <div className="w-full border-l border-slate-200 dark:border-slate-600 dark:bg-slate-800 flex flex-col items-center gap-1 mt-1 mb-2 animate-in fade-in slide-in-from-top-2 duration-200">
+     {item.subItems.map((sub, idx) => {
+      const SubIcon = sub.icon; // Get the icon for the sub-item
+      const isSubActive = pathname === sub.path;
+
+      return (
+        <Link
+          key={idx}
+          href={sub.path}
+          className={`rounded-lg text-center leading-tight transition-colors ${
+            isSubActive
+               ? "bg-pink-50 dark:bg-pink-900/20 text-pink-600" 
+                : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
           }`}
         >
-          <i className={`fas ${link.icon} text-lg`}></i>
-          {!isCollapsed && <span className="whitespace-nowrap">{link.name}</span>}
+          {/* Render the Sub Icon - Small size (12-14px) is best for CRM style */}
+          {SubIcon && (
+            <SubIcon 
+              size={16} 
+              strokeWidth={isSubActive ? 2.5 : 2} 
+              className={isSubActive ? "text-pink-600" : "text-slate-400"} 
+            />
+          )}
+          
+         <span className="text-[7px] tracking-tighter mt-1">{sub.label}</span>
         </Link>
-     )}
-    </div>
-  ))}
-</nav>
-       {/* Footer (Logout) */}
-    <div className={`p-4 border-t border-gray-50 space-y-4 dark:border-slate-800  ${isCollapsed ? "items-center" : ""}`}>
-      <button 
-        onClick={handleLogout}
-        className={`flex items-center transition-all border-none cursor-pointer font-bold text-sm text-gray-400 hover:text-red-600 bg-transparent ${
-          isCollapsed ? "justify-center w-full py-4" : "gap-3 px-4 py-3 w-full hover:bg-red-50 rounded-xl"
-        }`}
-      >
-        <i className="fas fa-sign-out-alt text-lg"></i>
-        {!isCollapsed && <span>Logout</span>}
-      </button>
-    </div>
-  </aside>
+      );
+    })}
+  </div>
+)}
+
+                 
+                </div>
+              );
+            }
+
+            // --- STANDARD LINK ---
+            return (
+              <Link
+                key={index}
+                href={item.path}
+                className={`w-full flex flex-col items-center justify-center py-4 rounded-2xl transition-all group ${
+                  isActive 
+                    ? "bg-pink-50 dark:bg-pink-900/20 text-pink-600 shadow-sm" 
+                    : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600"
+                }`}
+              >
+                <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="mb-1" />
+                <span className="text-[8px] font-bold uppercase tracking-tighter text-center leading-none">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* LOGOUT */}
+        <div className="p-2 mt-auto border-t border-slate-50 dark:border-slate-800">
+          <button
+            onClick={handleLogout}
+            className="w-full flex flex-col items-center justify-center py-4 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+          >
+            <LogOut size={22} />
+            <span className="text-[9px] font-bold uppercase mt-1">Exit</span>
+          </button>
+        </div>
+      </aside>
+
       {/* --- MAIN CONTENT AREA --- */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Bar for Notifications/User Profile if needed */}
-<Header />
+        <Header />
 
         <div className="min-h-screen px-0 md:px-0 pb-24 md:pb-0 overflow-y-auto">
           {children}
         </div>
-        {/* GLOBAL FLOATING BUTTON */}
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="fixed bottom-[28px] left-1/2 -translate-x-1/2 z-[110] w-14 h-14 text-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all md:bottom-10 md:right-10 md:left-auto md:translate-x-0 bg-[#db2777] text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-white hover:scale-110 transition-all z-50 print:hidden"
-        >
-          <i className="fas fa-plus text-2xl"></i>
-        </button>
 
+      {/* GLOBAL FLOATING BUTTON - ONLY FOR STAFF/ADMIN */}
+{(userRole === "admin" || userRole === "staff" || userRole === "technician") && (
+  <button 
+    onClick={() => setIsModalOpen(true)}
+    className="fixed bottom-[28px] left-1/2 -translate-x-1/2 z-[110] w-14 h-14 text-white rounded-full flex items-center justify-center shadow-2xl active:scale-90 transition-all md:bottom-10 md:right-10 md:left-auto md:translate-x-0 bg-[#db2777] md:w-16 md:h-16 border-4 border-white hover:scale-110 z-50 print:hidden"
+  >
+    <i className="fas fa-plus text-2xl"></i>
+  </button>
+)}
         {/* GLOBAL BOOKING MODAL */}
         <GlobalBookingModal 
           isOpen={isModalOpen} 

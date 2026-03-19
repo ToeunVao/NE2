@@ -88,37 +88,40 @@ const handleLogout = async () => {
 
 return (
     <>
-      <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-[60] transition-colors duration-300">
+      <header className="h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-[60] transition-colors duration-300">
         
         {/* LEFT: Logo + 3-Dash Menu Icon */}
-        <div className="flex items-center gap-3">
-          {role === "admin" && (
-            <button 
-              onClick={() => setIsMenuOpen(true)}
-              className="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
-              aria-label="Open Admin Menu"
-            >
-              {/* Changed from MoreVertical to Menu (3 dashes) */}
-              <Menu size={24} strokeWidth={2.5} /> 
-            </button>
-          )}
-          
-          <Link href="/admin" className="flex flex-col no-underline">
-            <span className="logo-style text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
-              Nails Express
-            </span>
-            <span className="text-[8px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">
-              Salon Management System
-            </span>
-          </Link>
-        </div>
+       {/* LEFT: Logo + 3-Dash Menu Icon */}
+      <div className="flex items-center gap-3">
+        {role === "admin" && (
+          <button 
+            onClick={() => setIsMenuOpen(true)}
+            className="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+            aria-label="Open Admin Menu"
+          >
+            <Menu size={24} strokeWidth={2.5} /> 
+          </button>
+        )}
+        
+        {/* LOGO: Shown on Mobile (hidden by default), Hidden on Desktop (md:hidden) */}
+        <Link href={role === 'admin' ? "/admin" : "/client/dashboard"} className="flex md:hidden flex-col no-underline">
+          <span className="logo-style text-xl font-black uppercase tracking-tighter text-[#db2777] leading-none">
+            Nails Express
+          </span>
+          <span className="text-[8px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">
+            Salon Management System
+          </span>
+        </Link>
+      </div>
 
         {/* RIGHT: Theme + Notifications */}
         <div className="flex items-center gap-2">
           <button onClick={toggleTheme} className="p-2.5 text-slate-600 dark:text-yellow-400">
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+          {(role === "admin" || role === "staff" || role === "technician") && (
           <NotificationCenter />
+          )}
         </div>
       </header>
 

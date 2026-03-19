@@ -77,11 +77,11 @@ if (!staffId || pathname === "/" || pathname === "/staff/login") {
             <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/dashboard') ? 'text-pink-600' : 'text-slate-400'}`}>Home</span>
           </button>
 
-          <button onClick={() => router.push('/staff/matrix')} className="flex flex-col items-center gap-1">
-            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/matrix') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
-              <BarChart3 size={22} strokeWidth={isActive('/staff/matrix') ? 2.5 : 2} />
+          <button onClick={() => router.push('/staff/reports')} className="flex flex-col items-center gap-1">
+            <div className={`p-2 rounded-xl transition-all ${isActive('/staff/reports') ? 'bg-pink-50 text-pink-600' : 'text-slate-400'}`}>
+              <BarChart3 size={22} strokeWidth={isActive('/staff/reports') ? 2.5 : 2} />
             </div>
-            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/matrix') ? 'text-pink-600' : 'text-slate-400'}`}>Matrix</span>
+            <span className={`text-[8px] font-black uppercase tracking-widest ${isActive('/staff/reports') ? 'text-pink-600' : 'text-slate-400'}`}>Report</span>
           </button>
         </div>
 

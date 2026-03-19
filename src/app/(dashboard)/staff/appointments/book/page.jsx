@@ -358,7 +358,6 @@ const dailyAppts = filteredAppointments.filter(app => {
 
         {/* ==========================================
             2. PAST SECTION
-           ========================================== */}
         {pastAppointments.length > 0 && (
           <div className="space-y-3 pt-4">
             <div className="flex items-center gap-2 px-1 opacity-50">
@@ -390,6 +389,7 @@ const dailyAppts = filteredAppointments.filter(app => {
             ))}
           </div>
         )}
+         ========================================== */}
       </>
     )}
   </div>

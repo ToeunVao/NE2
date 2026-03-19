@@ -356,17 +356,6 @@ const examKits = [
       {activeModal === 'live' && <LiveExamModal staffId={staffId} onClose={() => setActiveModal(null)} />}
 
       {/* STICKY APP HEADER */}
-      <div className="sticky top-0 z-40 dark:bg-slate-900/80 dark:border-slate-800 bg-white/80 backdrop-blur-md border-b border-slate-100 p-6">
-        <div className="flex justify-between items-end">
-          <div>
-            <h1 className="text-2xl font-black dark:text-white text-slate-900 tracking-tighter">Exam Prep</h1>
-            <p className="text-[10px] font-black text-[#db2777] uppercase tracking-widest">State Board Portal</p>
-          </div>
-          <div className="dark:bg-slate-950 dark:border-slate-800 dark:text-white bg-pink-50 px-3 py-1 rounded-lg border border-pink-100">
-            <span className="text-[9px] font-black text-[#db2777] uppercase tracking-tight">Level 1 Staff</span>
-          </div>
-        </div>
-      </div>
 
       <div className="p-4 space-y-6 mt-2 max-w-md mx-auto">
         

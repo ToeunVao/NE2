@@ -56,7 +56,6 @@ export default function RootLayout({ children }) {
         <ToastProvider>
           <ConfirmProvider>
         {children}
-        <PWAInstaller />
         <MobileNavApp />
         </ConfirmProvider>
         </ToastProvider>

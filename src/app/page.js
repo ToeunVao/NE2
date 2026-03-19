@@ -10,14 +10,14 @@ import {
   addDoc, 
   serverTimestamp,
   Timestamp, 
-  orderBy, 
+  orderBy, setDoc,
   where 
 } from "firebase/firestore";
 import { useToast } from "@/context/ToastContext"; // Your new context
 // FIXED: Combined auth and db into one line
 import { auth, db } from "@/lib/firebase"; 
 import { 
-  signInWithEmailAndPassword, 
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
   setPersistence, 
   browserLocalPersistence,
   onAuthStateChanged // ADD THIS
@@ -378,6 +378,39 @@ const handleBookingSubmit = async () => {
         return; // STOPS THE BOOKING
       }
     }
+// --- NEW: CLIENT ACCOUNT AUTO-CREATION & LOGIN ---
+    // Strip spaces/dashes from phone to make it a clean username/password
+    const cleanPhone = bookingData.phone.replace(/\D/g, ''); 
+    if (cleanPhone.length < 6) {
+        showToast("Phone number must be at least 6 digits.", "error");
+        return;
+    }
+
+    const clientEmail = `${cleanPhone}@nailsexpressky.com`;
+    const clientPassword = cleanPhone; // Phone number as default password
+    let currentClientId = "guest";
+
+    try {
+        // Attempt 1: Try to log in existing client
+        const userCred = await signInWithEmailAndPassword(auth, clientEmail, clientPassword);
+        currentClientId = userCred.user.uid;
+    } catch (error) {
+        // Attempt 2: If they don't exist, create an account automatically
+        try {
+            const newCred = await createUserWithEmailAndPassword(auth, clientEmail, clientPassword);
+            currentClientId = newCred.user.uid;
+
+            // Save their profile to a 'clients' collection in Firestore
+            await setDoc(doc(db, "clients", currentClientId), {
+                name: bookingData.name,
+                phone: bookingData.phone,
+                cleanPhone: cleanPhone,
+                createdAt: serverTimestamp()
+            });
+        } catch (createErr) {
+            console.error("Client Creation Error:", createErr);
+        }
+    }
 
     // 4. FINAL SAVE
     await addDoc(collection(db, "appointments"), {
@@ -391,19 +424,17 @@ const handleBookingSubmit = async () => {
       note: bookingData.note || "",
       bookingType: "Online",
       status: "confirmed",
+      clientId: currentClientId, // LINK APPOINTMENT TO THE CLIENT
       createdAt: serverTimestamp(),
       isRead: false
     });
 
-    showToast("Booking Confirmed!", "success");
+    showToast("Booking Confirmed! Taking you to your dashboard...", "success");
     
-    // 5. RESET FORM
-    setBookingData({ 
-      name: "", phone: "", serviceId: "", serviceName: "", price: 0, 
-      staffId: "anyone", staffName: "Any Technician", 
-      dateTime: getCurrentDateTimeLocal(), note: "" 
-    });
-    setServiceSearch("");
+    // REDIRECT TO DASHBOARD
+    setTimeout(() => {
+        router.push("/client/dashboard");
+    }, 1500);
 
   } catch (err) {
     console.error("Critical Booking Error:", err);
@@ -511,7 +542,24 @@ const handleBookAppointment = async (startTime) => {
   });
 };
 
+// Add state for client login
+const [clientLoginPhone, setClientLoginPhone] = useState("");
 
+// Add this function inside HomePage
+const handleClientLogin = async (e) => {
+    e.preventDefault();
+    const cleanPhone = clientLoginPhone.replace(/\D/g, '');
+    const clientEmail = `${cleanPhone}@nailsexpressky.com`;
+
+    try {
+        await signInWithEmailAndPassword(auth, clientEmail, cleanPhone);
+        showToast("Welcome back!", "success");
+        router.push("/client/dashboard");
+        // close modal
+    } catch (err) {
+        showToast("Account not found. Please check your phone number.", "error");
+    }
+};
 
 // Update your existing useEffect that fetches storeSettings:
 useEffect(() => {
