@@ -20,7 +20,45 @@ export default function CompleteAdminCalendar() {
 // ADD this near your other useState hooks
 const [viewMode, setViewMode] = useState("calendar"); // calendar or list
 
+// 1. Expanded Palette (20 distinct combinations)
+const colorPalette = [
+  { bg: "bg-pink-100", text: "text-pink-700", border: "border-pink-200" },
+  { bg: "bg-purple-100", text: "text-purple-700", border: "border-purple-200" },
+  { bg: "bg-indigo-100", text: "text-indigo-700", border: "border-indigo-200" },
+  { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200" },
+  { bg: "bg-cyan-100", text: "text-cyan-700", border: "border-cyan-200" },
+  { bg: "bg-teal-100", text: "text-teal-700", border: "border-teal-200" },
+  { bg: "bg-emerald-100", text: "text-emerald-700", border: "border-emerald-200" },
+  { bg: "bg-green-100", text: "text-green-700", border: "border-green-200" },
+  { bg: "bg-lime-100", text: "text-lime-700", border: "border-lime-200" },
+  { bg: "bg-yellow-100", text: "text-yellow-700", border: "border-yellow-200" },
+  { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-200" },
+  { bg: "bg-orange-100", text: "text-orange-700", border: "border-orange-200" },
+  { bg: "bg-rose-100", text: "text-rose-700", border: "border-rose-200" },
+  { bg: "bg-fuchsia-100", text: "text-fuchsia-700", border: "border-fuchsia-200" },
+  { bg: "bg-violet-100", text: "text-violet-700", border: "border-violet-200" },
+  { bg: "bg-sky-100", text: "text-sky-700", border: "border-sky-200" },
+  { bg: "bg-slate-200", text: "text-slate-800", border: "border-slate-300" },
+  { bg: "bg-red-100", text: "text-red-700", border: "border-red-200" },
+  { bg: "bg-zinc-100", text: "text-zinc-700", border: "border-zinc-200" },
+  { bg: "bg-neutral-200", text: "text-neutral-800", border: "border-neutral-300" },
+];
 
+// 2. Improved Hash Function (DjB2 algorithm - much better at avoiding same colors)
+const getTechColor = (name) => {
+  if (!name || name === "Any Technician") {
+    return { bg: "bg-slate-100", text: "text-slate-500", border: "border-slate-200" };
+  }
+  
+  let hash = 5381;
+  for (let i = 0; i < name.length; i++) {
+    // Bitwise shift and add for better distribution
+    hash = ((hash << 5) + hash) + name.charCodeAt(i);
+  }
+  
+  const index = Math.abs(hash) % colorPalette.length;
+  return colorPalette[index];
+};
 
   const [bookingForm, setBookingForm] = useState({
     name: "", phone: "", email: "", time: "09:00", service: "",
@@ -284,27 +322,34 @@ const dailyAppts = filteredAppointments.filter(app => {
     if (dailyAppts.length > 0) {
       return (
         <div className="flex flex-col gap-1 mt-1 w-full px-1 ">
-          {dailyAppts.map((appt) => (
-            <div 
-              key={appt.id} 
-              onClick={(e) => {
-                e.stopPropagation(); 
-                setSelectedBooking(appt);
-                setIsDetailModalOpen(true);
-              }}
-              className="bg-blue-50  text-blue-700 border border-blue-100 p-1 rounded text-[9px] font-bold cursor-pointer hover:bg-blue-100"
-            >
-              {/* Line 1: Time and Name */}
-              <div className="truncate">
-                {appt.appointmentTimestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - {appt.name}
-              </div>
-              
-              {/* Line 2: SERVICE NAME (This is what was missing) */}
-              <div className="text-[8px] font-normal text-gray-500 italic truncate mt-0.5">
-                {appt.service || appt.services} 
-              </div>
-            </div>
-          ))}
+      
+
+         {dailyAppts.map((appt) => {
+  // Call the dynamic color function
+  const colors = getTechColor(appt.technician);
+  
+  return (
+    <div 
+      key={appt.id} 
+      onClick={(e) => {
+        e.stopPropagation(); 
+        setSelectedBooking(appt);
+        setIsDetailModalOpen(true);
+      }}
+      className={`${colors.bg} ${colors.text} border ${colors.border} p-1 mb-1 rounded text-[9px] font-bold cursor-pointer hover:opacity-80 transition-opacity`}
+    >
+      <div className="truncate flex justify-between items-center">
+        <span>{appt.appointmentTimestamp?.toDate().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        <span className="opacity-70">| {appt.name}</span>
+      </div>
+      <div className="text-[7px] font-normal opacity-80 italic truncate mt-0.5 flex justify-between">
+        <span> {appt.service || appt.services} </span>
+        <span className="font-black uppercase">[{appt.technician || "Any Technician"}]</span>
+      </div>
+    </div>
+  );
+})}
+
         </div>
       );
     }
@@ -346,7 +391,7 @@ const dailyAppts = filteredAppointments.filter(app => {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <span className="bg-pink-50 px-2 py-1 rounded-lg text-[8px] font-black text-pink-600 uppercase border border-pink-100">
+                  <span className="${colors.bg} ${colors.text} border ${colors.border} px-2 py-1 rounded-lg text-[8px] font-black uppercase">
                     {appt.technician}
                   </span>
                   <ChevronRight size={16} className="text-slate-300" />

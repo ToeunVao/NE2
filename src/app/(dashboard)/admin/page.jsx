@@ -620,7 +620,7 @@ const {
   <div style={{ backgroundColor: COLORS.orange }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
     <div>
       <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Gift Cards</p>
-      <h3 style={{ color: COLORS.orangeText }} className="text-2xl font-black">${overviewStats.totalGiftCard.toFixed(2)}</h3>
+      <h3 style={{ color: COLORS.orangeText }} className="text-xl font-black">${overviewStats.totalGiftCard.toFixed(2)}</h3>
     </div>
     <div className="p-3 rounded-full bg-white/30 text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -633,7 +633,7 @@ const {
   <div style={{ backgroundColor: COLORS.red }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
     <div>
       <p style={{ color: COLORS.redText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Expenses</p>
-      <h3 style={{ color: COLORS.redText }} className="text-2xl font-black">${overviewStats.totalExpense.toFixed(2)}</h3>
+      <h3 style={{ color: COLORS.redText }} className="text-xl font-black">${overviewStats.totalExpense.toFixed(2)}</h3>
     </div>
     <div className="p-3 rounded-full bg-white/30 text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -653,7 +653,7 @@ const {
 {overviewStats.staffPerformance.map((staff, idx) => (
   <div key={idx} className="p-5 rounded-xl border border-gray-50 dark:border-slate-800 " style={{backgroundColor: `${staff.color}15`}}>
     <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
-    <p className="text-2xl font-black text-gray-800 mb-4 dark:text-white">${staff.revenue.toFixed(2)}</p>
+    <p className="text-xl font-black text-gray-800 mb-4 dark:text-white">${staff.revenue.toFixed(2)}</p>
     
     <div className="space-y-1 dark:text-white">
       <PayoutRow 
@@ -734,7 +734,7 @@ const {
 {/* SECTION 5: UPCOMING APPOINTMENTS */}
 <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div className="flex justify-between items-center mb-6">
-    <h3 className="text-2xl font-serif text-slate-700 font-bold">Upcoming Appointments</h3>
+    <h3 className="text-xl font-serif text-slate-700 font-bold">Upcoming Appointments</h3>
     <div className="flex gap-4 overflow-x-auto pb-2">
       {['All', 'Any Technician', 'Linda', 'TJ', 'Sokleng'].map((tech) => (
         <button 
@@ -841,7 +841,7 @@ onClick={async () => {
 {/* SECTION: FILTERED STAFF REPORT TABLE */}
   <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mb-8 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div ref={formRef} className="flex flex-col md:flex-row justify-between items-start mb-2 md:items-centergap-4">
-  <h3 className="text-2xl dark:text-white font-black text-gray-800 tracking-tight">
+  <h3 className="text-xl dark:text-white font-black text-gray-800 tracking-tight">
         Staff Earning Report <span className="text-pink-500 ml-2">({filteredStats.clientCount} Clients)</span>
       </h3>
       
@@ -849,11 +849,11 @@ onClick={async () => {
     <div className="flex gap-6">
       <div className="text-right">
         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total Earnings</p>
-        <p className="text-2xl dark:text-pink-500 font-black text-gray-800">${filteredStats.totalEarnings.toFixed(2)}</p>
+        <p className="text-xl dark:text-pink-500 font-black text-gray-800">${filteredStats.totalEarnings.toFixed(2)}</p>
       </div>
       <div className="text-right">
         <p className="text-[10px] font-black uppercase text-green-600 tracking-widest">Total Tips</p>
-        <p className="text-2xl font-black text-green-600">${filteredStats.totalTips.toFixed(2)}</p>
+        <p className="text-xl font-black text-green-600">${filteredStats.totalTips.toFixed(2)}</p>
       </div>
     </div>
     </div>
@@ -898,7 +898,7 @@ onClick={async () => {
         <button 
           key={name} 
           onClick={() => setReportFilterTech(name)}
-          className={`px-4 py-1.5 rounded-full text-xs font-black uppercase transition-all ${
+          className={`px-3 py-1 md:px-2 md:py-0.5 rounded-full text-[9px] md:text-[10px] font-black uppercase transition-all ${
             reportFilterTech === name ? 'bg-pink-600 text-white shadow-md' : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-500 hover:bg-gray-200'
           }`}
         >
