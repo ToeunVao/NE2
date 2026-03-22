@@ -57,6 +57,15 @@ const [users, setUsers] = useState([]);
 const [storeSettings, setStoreSettings] = useState(null);
 const [blockedDates, setBlockedDates] = useState([]);
 
+useEffect(() => {
+  // We fetch from 'settings' collection, 'store' document
+  const unsub = onSnapshot(doc(db, "settings", "store"), (docSnap) => {
+    if (docSnap.exists()) {
+      setStoreSettings(docSnap.data());
+    }
+  });
+  return () => unsub();
+}, []);
 // Add this useEffect to fetch staff from Firestore
 useEffect(() => {
   const q = query(collection(db, "users")); // Ensure 'db' is imported
@@ -235,26 +244,42 @@ useEffect(() => {
 const handleLogin = async (e) => {
   e.preventDefault();
   setLoading(true);
-  setError("");
-
+  
   try {
-    // 1. SET PERSISTENCE BEFORE LOGIN
-    // This is the key to staying logged in until logout
+    // 1. Set persistence
     await setPersistence(auth, browserLocalPersistence);
 
-    // 2. Perform the sign in
+    // 2. Sign in
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // 3. Fetch role and redirect
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists() && userDoc.data().role === "admin") {
-      router.push("/admin");
+    // 3. Get user data - IMPORTANT: Use a direct 'getDoc'
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      const role = userData?.role || 'client'; // Default to client if role is missing
+
+      showToast(`Welcome back, ${userData.name || 'User'}!`, "success");
+
+      // 4. Redirect with a slight delay to ensure Toast shows and Router triggers
+      setTimeout(() => {
+        if (role === "admin") {
+          router.replace("/admin"); // Use replace instead of push for cleaner redirects
+        } else if (role === "staff") {
+          router.replace("/staff/dashboard");
+        } else {
+          router.replace("/client/dashboard");
+        }
+      }, 500); 
+
     } else {
-      router.push("/staff/dashboard");
+      showToast("User profile not found.", "error");
     }
   } catch (err) {
-    setError("Invalid credentials. Please try again.");
+    console.error("Login error:", err);
+    showToast("Invalid credentials. Please try again.", "error");
   } finally {
     setLoading(false);
   }
@@ -1134,12 +1159,15 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
       onChange={v => setBookingData({...bookingData, name: v})} 
       placeholder="Enter your name" 
     />
-    <InputItem 
-      label="" 
-      value={bookingData.phone} 
-      onChange={v => setBookingData({...bookingData, phone: v})} 
-      placeholder="(859) 123-4567" 
-    />
+   <InputItem 
+  label="Phone Number" 
+  value={bookingData.phone} 
+  onChange={v => setBookingData({...bookingData, phone: v})} 
+  placeholder="(859) 123-4567" 
+  minLength={10}   // Prevents submitting if less than 10
+  maxLength={14}   // Prevents typing more than a formatted number
+  type="tel"       // Opens the numeric keypad on mobile/tablet
+/>
     
   </div>
       </section>
@@ -1482,36 +1510,60 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
     </div>
 
     {/* Hours */}
-    <div>
-      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Hours</h4>
-      <ul className="text-gray-400 text-sm space-y-2">
-        {storeSettings?.hours ? (
-          <>
-            <li>Mon - Sat: {storeSettings.hours.MonSat?.open} - {storeSettings.hours.MonSat?.close}</li>
-            <li>Sun: {storeSettings.hours.Sun?.open} - {storeSettings.hours.Sun?.close}</li>
-          </>
-        ) : (
-          <>
-            <li>Mon - Sat: 9:00 AM - 7:00 PM</li>
-            <li>Sun: 11:00 AM - 5:00 PM</li>
-          </>
-        )}
-      </ul>
-    </div>
+<div>
+  <h4 className="font-bold uppercase tracking-widest mb-6 text-white dark:text-white">
+    Hours
+  </h4>
+  <ul className="text-slate-500 dark:text-slate-400 text-[11px] space-y-3 font-medium">
+    {/* Monday - Saturday Grouping */}
+    <li className="flex flex-col">
+      <span className="text-[9px] uppercase opacity-60">Mon - Sat</span>
+      <span>
+        {storeSettings?.hours?.['Monday']?.open ?? "9:00 AM"} - {storeSettings?.hours?.['Monday']?.close ?? "7:00 PM"}
+      </span>
+    </li>
+    
+    {/* Sunday Display (with Closed check) */}
+    <li className="flex flex-col">
+      <span className="text-[9px] uppercase opacity-60">Sunday</span>
+      <span className={storeSettings?.hours?.['Sunday']?.closed ? "text-red-500 font-bold" : ""}>
+        {storeSettings?.hours?.['Sunday']?.closed 
+          ? "CLOSED" 
+          : `${storeSettings?.hours?.['Sunday']?.open ?? "11:00 AM"} - ${storeSettings?.hours?.['Sunday']?.close ?? "5:00 PM"}`
+        }
+      </span>
+    </li>
+  </ul>
+</div>
 
     {/* Location/Link */}
-    <div>
-      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Location</h4>
-      <p className="text-gray-400 text-sm">
-        Visit our Salon Page at <br/>
-        <Link 
-          href={storeSettings?.website || "http://nailsexpressky.com"} 
-          className="text-pink-400 hover:underline"
-        >
-          {storeSettings?.website || "nailsexpressky.com"}
-        </Link>
-      </p>
-    </div>
+<div>
+  <h4 className="font-bold uppercase tracking-widest  mb-6 text-white dark:text-white">
+    Location
+  </h4>
+  <div className="text-slate-500 dark:text-slate-400 text-[11px] space-y-3 font-medium">
+    {/* Display the Address from Firebase */}
+    <p className="leading-relaxed">
+      {storeSettings?.address || "1560 Hustonville Rd #345, Danville, KY"}
+    </p>
+
+    {/* Display the Phone from Firebase */}
+    <p className="text-pink-500 font-bold">
+      {storeSettings?.phone || "859-123-4567"}
+    </p>
+
+    {/* Salon Website Link */}
+    <p className="pt-2">
+      <Link 
+        href={storeSettings?.website || "http://nailsexpressky.com"} 
+        className="text-pink-400 hover:underline flex items-center gap-1"
+      >
+        <span className="text-[9px]">🌐</span>
+        {storeSettings?.website?.replace('http://', '').replace('https://', '') || "nailsexpressky.com"}
+      </Link>
+    </p>
+  </div>
+</div>
   </div>
 </footer>
 {showAnnouncement && (

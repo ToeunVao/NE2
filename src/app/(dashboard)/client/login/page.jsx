@@ -45,7 +45,18 @@ export default function ClientLogin() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6">
-      {/* Decorative Background Element */}
+    
+    <style jsx global>{`
+        /* Hide sidebar and reset margins only for this page */
+        nav, aside, .sidebar { 
+          display: none !important; 
+        }
+        main { 
+          margin-left: 0 !important; 
+          padding: 0 !important;
+        }
+      `}</style>
+        {/* Decorative Background Element */}
       <div className="absolute top-0 left-0 w-full h-64 bg-pink-600 -skew-y-6 -translate-y-32 z-0" />
 
       <div className="w-full max-w-md bg-white rounded-[2.5rem] shadow-2xl shadow-pink-200/50 p-8 md:p-12 z-10 relative overflow-hidden">
@@ -132,7 +143,7 @@ export default function ClientLogin() {
 
       {/* Footer Branding */}
       <p className="mt-8 text-[10px] font-black text-gray-300 uppercase tracking-[0.5em] z-10">
-        KY Luxury Nail Care
+       NailsExpress
       </p>
     </div>
   );
