@@ -246,27 +246,81 @@ const handleLogin = async (e) => {
   setLoading(true);
   
   try {
-    // 1. Set persistence
+    // 1. Fetch Global Security Settings (from settings/store)
+    const settingsSnap = await getDoc(doc(db, "settings", "store"));
+    const security = settingsSnap.data()?.bookingConfigs || { maxLoginAttempts: 3, lockoutDuration: 120 };
+
+    // 2. Look up the user by email BEFORE auth to check if they are locked out
+    const q = query(collection(db, "users"), where("email", "==", email.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    
+    let userDocId = null;
+    let currentFailedAttempts = 0;
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+      userDocId = userDoc.id;
+      currentFailedAttempts = userData.failedAttempts || 0;
+
+      // 3. Check Lockout Status
+      if (userData.lockoutUntil && userData.lockoutUntil.toDate() > new Date()) {
+        const remainingMin = Math.ceil((userData.lockoutUntil.toDate() - new Date()) / 60000);
+        showToast(`Account locked. Try again in ${remainingMin} mins.`, "error");
+        setLoading(false);
+        return; // Stop login process completely
+      }
+    }
+
+    // 4. Set persistence
     await setPersistence(auth, browserLocalPersistence);
 
-    // 2. Sign in
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    // 5. Attempt Sign in
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, email, password);
+    } catch (authError) {
+      // IF PASSWORD FAILS: Increment attempts and trigger lockout if necessary
+      if (userDocId) {
+        const userRef = doc(db, "users", userDocId);
+        const newAttempts = currentFailedAttempts + 1;
+        
+        if (newAttempts >= security.maxLoginAttempts) {
+          const lockoutTime = new Date(Date.now() + security.lockoutDuration * 60000);
+          await setDoc(userRef, { 
+            failedAttempts: newAttempts, 
+            lockoutUntil: Timestamp.fromDate(lockoutTime) 
+          }, { merge: true });
+          showToast(`Too many attempts. Locked for ${security.lockoutDuration} mins.`, "error");
+        } else {
+          await setDoc(userRef, { failedAttempts: newAttempts }, { merge: true });
+          showToast(`Invalid password. ${security.maxLoginAttempts - newAttempts} attempts left.`, "error");
+        }
+      } else {
+        showToast("Invalid credentials. Please try again.", "error");
+      }
+      setLoading(false);
+      return; // Stop execution on failure
+    }
+
+    // 6. IF LOGIN SUCCESS: Get user data and redirect (Your original logic)
     const user = userCredential.user;
-
-    // 3. Get user data - IMPORTANT: Use a direct 'getDoc'
-    const userRef = doc(db, "users", user.uid);
-    const userSnap = await getDoc(userRef);
+    const finalUserRef = doc(db, "users", user.uid);
+    const finalUserSnap = await getDoc(finalUserRef);
     
-    if (userSnap.exists()) {
-      const userData = userSnap.data();
-      const role = userData?.role || 'client'; // Default to client if role is missing
+    if (finalUserSnap.exists()) {
+      const finalUserData = finalUserSnap.data();
+      const role = finalUserData?.role || 'client';
 
-      showToast(`Welcome back, ${userData.name || 'User'}!`, "success");
+      // Reset failed attempts to 0 on successful login
+      await setDoc(finalUserRef, { failedAttempts: 0, lockoutUntil: null }, { merge: true });
 
-      // 4. Redirect with a slight delay to ensure Toast shows and Router triggers
+      showToast(`Welcome back, ${finalUserData.name || 'User'}!`, "success");
+
+      // Redirect with a slight delay to ensure Toast shows and Router triggers
       setTimeout(() => {
         if (role === "admin") {
-          router.replace("/admin"); // Use replace instead of push for cleaner redirects
+          router.replace("/admin");
         } else if (role === "staff") {
           router.replace("/staff/dashboard");
         } else {
@@ -279,7 +333,7 @@ const handleLogin = async (e) => {
     }
   } catch (err) {
     console.error("Login error:", err);
-    showToast("Invalid credentials. Please try again.", "error");
+    showToast("An unexpected error occurred. Please try again.", "error");
   } finally {
     setLoading(false);
   }
