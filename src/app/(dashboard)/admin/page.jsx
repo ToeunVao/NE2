@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"; // Add this line
 import { db } from "@/lib/firebase";
 import { 
   collection, onSnapshot, query, orderBy, where, 
-  doc, updateDoc, addDoc, setDoc, deleteDoc, Timestamp 
+  doc, updateDoc, addDoc, setDoc, deleteDoc, Timestamp, collectionGroup
 } from "firebase/firestore";
 // ... other imports
 import { 
@@ -68,6 +68,7 @@ const [showAllRows, setShowAllRows] = useState(false);
   // --- NEW STATES FOR FILTERED TABLE ---
   const [serviceLogs, setServiceLogs] = useState([]); // Raw logs from Firestore
   const [reportFilterTech, setReportFilterTech] = useState('All'); // Technician Tab
+const [liveExpenses, setLiveExpenses] = useState([]); // NEW: Store data from expenses collection
 
 const todayStr = getLocalDate(); // This will correctly return 2026-01-16
 const formatDisplayDate = (dateStr) => {
@@ -112,6 +113,28 @@ const overviewStats = useMemo(() => {
   let totalGiftCard = 0;
   let totalExpense = 0;
   const dailyDataMap = {}; 
+
+// 2. ADD MANUAL REPORTS (Now using 'filteredReports' which is defined above)
+  filteredReports.forEach(report => {
+    // This adds product + supply from the manual end-of-day entry
+    totalExpense += (parseMoney(report.product) + parseMoney(report.supply));
+    
+    // Also check for a specific 'totalExpense' field if your manual reports use one
+    if(report.totalExpense) {
+       totalExpense += parseMoney(report.totalExpense);
+    }
+  });
+
+  // 3. ADD LIVE EXPENSES (The $3716.70 from the expense page)
+const filteredLiveEx = liveExpenses.filter(ex => {
+  const d = String(ex.dateStr || "");
+  return d >= overviewStart && d <= overviewEnd;
+});
+
+filteredLiveEx.forEach(ex => {
+  // Use Number() to ensure it doesn't treat it as text
+  totalExpense += Number(ex.amount || 0);
+});
 
   // --- NEW: Calculate Online Gift Cards ---
   const filteredGCs = giftCards.filter(gc => gc.dateStr >= overviewStart && gc.dateStr <= overviewEnd);
@@ -250,6 +273,21 @@ const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
     setGiftCards(cards);
   });
 
+  // --- STEP 2: FETCH LIVE EXPENSES ---
+// Change 'collectionGroup' to 'collection' to target the top-level "expenses" folder
+const unsubLiveExpenses = onSnapshot(collection(db, "expenses"), (snap) => {
+  const exData = snap.docs.map(doc => {
+    const data = doc.data();
+    // Use the same date logic as your MonthlyExpensePage
+    let dStr = "";
+    if (data.date) {
+      dStr = typeof data.date === 'string' ? data.date : new Date(data.date.seconds * 1000).toISOString().split('T')[0];
+    }
+    return { id: doc.id, ...data, dateStr: dStr };
+  });
+  setLiveExpenses(exData);
+});
+
   const qAppts = query(collection(db, "appointments"), orderBy("appointmentTimestamp", "asc"));
   const unsubAppts = onSnapshot(qAppts, (snap) => {
     const appts = snap.docs.map(doc => ({ 
@@ -270,7 +308,7 @@ const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
     
   setLoading(false);
 
- return () => { unsubEarnings(); unsubStaff(); unsubAppts(); unsubFinished(); unsubLogs(); unsubGiftCards(); };
+ return () => { unsubEarnings(); unsubStaff(); unsubAppts(); unsubFinished(); unsubLogs(); unsubGiftCards(); unsubLiveExpenses(); };
 }, []);
 // --- SUBMISSION LOGIC ---
 const handleAddEarning = async () => {
@@ -327,7 +365,23 @@ const dashboardData = useMemo(() => {
   let totalCash = 0;
   let totalClients = 0;
   let totalGiftCard = 0;
-  let totalExpense = 0;
+let totalExpense = 0;
+    
+// 1. Add manual ones (Changed name to monthReports)
+  monthReports.forEach(report => {
+    totalExpense += (parseMoney(report.product) + parseMoney(report.supply));
+    if(report.totalExpense) totalExpense += parseMoney(report.totalExpense);
+  });
+
+  // 2. Add live ones from the expense page
+  const monthLiveEx = liveExpenses.filter(ex => {
+    const d = String(ex.dateStr || ex.date || "");
+    return d && d.startsWith(selectedMonth);
+  });
+
+  monthLiveEx.forEach(ex => {
+    totalExpense += Number(ex.amount || 0);
+  });
 
 // --- NEW: Calculate Monthly Online Gift Cards ---
   const monthGCs = giftCards.filter(gc => gc.dateStr && gc.dateStr.startsWith(selectedMonth));
