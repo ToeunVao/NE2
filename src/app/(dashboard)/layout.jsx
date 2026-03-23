@@ -149,13 +149,14 @@ export default function DashboardLayout({ children }) {
 <aside className="hidden md:flex w-[85px] flex-col h-screen sticky top-0 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 z-[100]">
         
         {/* LOGO */}
+        <a href="/admin/">
         <div className="py-8 flex flex-col items-center border-b border-slate-50 dark:border-slate-800 mb-4">
           <div className="w-10 h-10 bg-pink-600 rounded-xl flex items-center justify-center shadow-lg shadow-pink-200 mb-1">
             <span className="text-white font-black text-xl tracking-tighter">NE</span>
           </div>
           <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Express</span>
         </div>
-
+</a>
         {/* NAVIGATION ITEMS */}
         <div className="flex-1 flex flex-col items-center gap-2 px-2 py-2 overflow-y-auto no-scrollbar">
           {menuItems.map((item, index) => {

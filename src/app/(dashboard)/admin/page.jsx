@@ -8,8 +8,17 @@ import {
 } from "firebase/firestore";
 // ... other imports
 import { 
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, Cell 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  Legend,
+  BarChart, // Keep these if you are still using BarCharts elsewhere
+  Bar,
+  Cell
 } from 'recharts';
 
 // Pastel Colors from your UI
@@ -91,6 +100,7 @@ const BASE_PATH = `artifacts/${APP_ID}/public/data`;
   const [earningsData, setEarningsData] = useState([]);
   const [staffList, setStaffList] = useState([]);
 const [appointments, setAppointments] = useState([]); // Add this line
+const [giftCards, setGiftCards] = useState([]); // NEW: Store online gift cards
 const [selectedTechFilter, setSelectedTechFilter] = useState('All'); // Add this!
   // --- 1. SYNC DATABASE ---
 const overviewStats = useMemo(() => {
@@ -102,6 +112,13 @@ const overviewStats = useMemo(() => {
   let totalGiftCard = 0;
   let totalExpense = 0;
   const dailyDataMap = {}; 
+
+  // --- NEW: Calculate Online Gift Cards ---
+  const filteredGCs = giftCards.filter(gc => gc.dateStr >= overviewStart && gc.dateStr <= overviewEnd);
+  filteredGCs.forEach(gc => {
+    // Uses 'amount' which matches your page.js save logic
+    totalGiftCard += parseMoney(gc.amount || gc.balance); 
+  });
 
   // 1. Calculate Revenue from individual logs
   filteredLogs.forEach(log => {
@@ -191,7 +208,7 @@ const overviewStats = useMemo(() => {
   };
 }, [serviceLogs, earningsData, staffList, overviewStart, overviewEnd, appointments]);
 useEffect(() => {
-  console.log("--- STARTING FIREBASE SYNC ---");
+  //console.log("--- STARTING FIREBASE SYNC ---");
   setLoading(true);
 
 // 1. Point directly to the "users" collection
@@ -217,6 +234,21 @@ const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
   });
   setServiceLogs(logs);
 });
+// 4. Point directly to "gift_cards"
+  const unsubGiftCards = onSnapshot(collection(db, "gift_cards"), (snap) => {
+    const cards = snap.docs.map(doc => {
+      const data = doc.data();
+      let dStr = "";
+      // Safely extract the date string (YYYY-MM-DD) from the createdAt timestamp
+      if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+        dStr = data.createdAt.toDate().toISOString().split('T')[0];
+      } else if (data.createdAt) {
+        dStr = new Date(data.createdAt).toISOString().split('T')[0];
+      }
+      return { id: doc.id, ...data, dateStr: dStr };
+    });
+    setGiftCards(cards);
+  });
 
   const qAppts = query(collection(db, "appointments"), orderBy("appointmentTimestamp", "asc"));
   const unsubAppts = onSnapshot(qAppts, (snap) => {
@@ -238,7 +270,7 @@ const unsubLogs = onSnapshot(collection(db, "earnings"), (snap) => {
     
   setLoading(false);
 
-  return () => { unsubEarnings(); unsubStaff(); unsubAppts(); unsubFinished(); unsubLogs();};
+ return () => { unsubEarnings(); unsubStaff(); unsubAppts(); unsubFinished(); unsubLogs(); unsubGiftCards(); };
 }, []);
 // --- SUBMISSION LOGIC ---
 const handleAddEarning = async () => {
@@ -296,6 +328,12 @@ const dashboardData = useMemo(() => {
   let totalClients = 0;
   let totalGiftCard = 0;
   let totalExpense = 0;
+
+// --- NEW: Calculate Monthly Online Gift Cards ---
+  const monthGCs = giftCards.filter(gc => gc.dateStr && gc.dateStr.startsWith(selectedMonth));
+  monthGCs.forEach(gc => {
+    totalGiftCard += parseMoney(gc.amount || gc.balance);
+  });
 
   monthReports.forEach(report => {
     let dailyTechSum = 0;
@@ -687,47 +725,72 @@ const {
       {/* SECTION 4: REVENUE TREND */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
          <h3 className="text-xl font-black text-gray-700 italic mb-6">Salon Revenue Trend</h3>
-         <div className="h-[300px] w-full">
-           {/* Change dashboardData.trendData to overviewStats.trendData */}
-<ResponsiveContainer width="100%" height="100%">
-  <LineChart data={overviewStats.trendData}>
-    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-    <XAxis 
-      dataKey="name" 
-      axisLine={false} 
-      tickLine={false} 
-      tick={{fontSize: 10, fill: '#9ca3af'}} 
-    />
-    <YAxis 
-      axisLine={false} 
-      tickLine={false} 
-      tick={{fontSize: 10, fill: '#9ca3af'}} 
-      tickFormatter={(val) => `$${val}`}
-    />
-    <Tooltip 
-      contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'}}
-    />
-    <Legend />
-    <Line 
-      type="monotone" 
-      dataKey="revenue" 
-      name="Total Revenue"
-      stroke={COLORS.pinkText} 
-      strokeWidth={3} 
-      dot={{ r: 4, fill: COLORS.pinkText }}
-      activeDot={{ r: 6 }} 
-    />
-    <Line 
-      type="monotone" 
-      dataKey="cash" 
-      name="Cash Revenue"
-      stroke={COLORS.greenText} 
-      strokeWidth={3} 
-      dot={{ r: 4, fill: COLORS.greenText }}
-    />
-  </LineChart>
-</ResponsiveContainer>
-         </div>
+      <div className="h-[300px] w-full">
+  <ResponsiveContainer width="100%" height="100%">
+    <AreaChart data={overviewStats.trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+      <defs>
+        {/* Pink Gradient for Total Revenue */}
+        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLORS.pinkText} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={COLORS.pinkText} stopOpacity={0} />
+        </linearGradient>
+        {/* Green Gradient for Cash */}
+        <linearGradient id="colorCash" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="5%" stopColor={COLORS.greenText} stopOpacity={0.3} />
+          <stop offset="95%" stopColor={COLORS.greenText} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      
+      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+      
+      <XAxis 
+        dataKey="name" 
+        axisLine={false} 
+        tickLine={false} 
+        tick={{fontSize: 10, fontWeight: 700, fill: '#9ca3af'}} 
+        dy={10}
+      />
+      
+      <YAxis 
+        axisLine={false} 
+        tickLine={false} 
+        tick={{fontSize: 10, fontWeight: 700, fill: '#9ca3af'}} 
+        tickFormatter={(val) => `$${val}`}
+      />
+      
+      <Tooltip 
+        contentStyle={{
+          borderRadius: '12px', // Matches your rounded-xl feel
+          border: 'none', 
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          fontSize: '11px',
+          fontWeight: 'bold'
+        }}
+      />
+      
+      <Area 
+        type="monotone" 
+        dataKey="revenue" 
+        name="Total Revenue"
+        stroke={COLORS.pinkText} 
+        strokeWidth={4} 
+        fillOpacity={1} 
+        fill="url(#colorRevenue)" 
+        activeDot={{ r: 6, strokeWidth: 0 }}
+      />
+      
+      <Area 
+        type="monotone" 
+        dataKey="cash" 
+        name="Cash Revenue"
+        stroke={COLORS.greenText} 
+        strokeWidth={4} 
+        fillOpacity={1} 
+        fill="url(#colorCash)" 
+      />
+    </AreaChart>
+  </ResponsiveContainer>
+</div>
       </div>
 
       {/* SECTION 5: UPCOMING APPOINTMENTS */}
@@ -1095,6 +1158,7 @@ onClick={async () => {
         </div>
       )}
 </div>
+
     </div>
   );
 }

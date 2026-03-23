@@ -34,10 +34,13 @@ export default function GiftCardPage() {
 const [transaction, setTransaction] = useState({ type: 'Redeem', amount: '', note: '' });
 const [isEditingCode, setIsEditingCode] = useState(false);
 const [newCodeInput, setNewCodeInput] = useState("");
-
+// Add this near your other useState hooks
+const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+const [activeFilter, setActiveFilter] = useState('month'); // Default to month
   const [giftCards, setGiftCards] = useState([]);
 // 1. Add this state
-    const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState([]);
 
     // 2. Add this useEffect to get your clients
     useEffect(() => {
@@ -56,9 +59,8 @@ const [newCodeInput, setNewCodeInput] = useState("");
         return clients.map(c => c.name).filter(Boolean);
     }, [clients]);
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCard, setSelectedCard] = useState(null); // Controls the Modal
-
+const [searchTerm, setSearchTerm] = useState("");
+const [selectedCard, setSelectedCard] = useState(null); // Controls the Modal
 const [expValue, setExpValue] = useState(6);
 const [expUnit, setExpUnit] = useState('months');
 
@@ -429,9 +431,159 @@ const handleActivate = async (id) => {
   alert("Gift Card is now ACTIVE and ready for use!");
 };
 
+const stats = useMemo(() => {
+  let totalSales = 0;      
+  let totalReturned = 0;   
+  let totalRemaining = 0;  
+  let onlineSales = 0;
+  let allTimeRemaining = 0; // NEW: To track every dollar in the system
+
+  giftCards.forEach(card => {
+    const current = Number(card.balance || 0);
+    
+    // Always add to All-Time, regardless of date
+    allTimeRemaining += current;
+
+    // Date Filtering Logic
+    let cardDate = "";
+    if (card.createdAt?.toDate) {
+      cardDate = card.createdAt.toDate().toISOString().split('T')[0];
+    } else if (card.date) {
+      cardDate = card.date; 
+    }
+
+    if (cardDate >= startDate && cardDate <= endDate) {
+      const initial = Number(card.initialAmount || card.amount || 0);
+      
+      totalSales += initial;
+      totalRemaining += current;
+      totalReturned += (initial - current);
+
+      if (card.isOnline || card.customerEmail) {
+        onlineSales += initial;
+      }
+    }
+  });
+
+  return { totalSales, totalReturned, totalRemaining, onlineSales, allTimeRemaining };
+}, [giftCards, startDate, endDate]);
+
+const setFilterToday = () => {
+  const today = new Date().toISOString().split('T')[0];
+  setStartDate(today);
+  setEndDate(today);
+  setActiveFilter('today'); // Set active state
+};
+
+const setFilterMonth = () => {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  setStartDate(firstDay);
+  setEndDate(lastDay);
+  setActiveFilter('month'); // Set active state
+};
+
+// Also, reset the active state if the user manually picks a date
+const handleCustomDate = (type, value) => {
+  if (type === 'start') setStartDate(value);
+  else setEndDate(value);
+  setActiveFilter('custom'); 
+};
+
   return (
     <div className="max-w-[95%] mx-auto space-y-8 pb-20 pt-4">
-      
+
+<div className="space-y-6 mb-8">
+ {/* DATE FILTER BAR */}
+<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+  <div>
+    <h1 className="text-xl font-black uppercase tracking-tight text-gray-900">Gift Card Reports</h1>
+    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Financial Performance</p>
+  </div>
+  
+  <div className="flex flex-wrap items-center gap-3">
+    {/* Quick Filters */}
+{/* Quick Filters */}
+<div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+  <button 
+    onClick={setFilterToday}
+    className={`px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${
+      activeFilter === 'today' 
+      ? 'bg-white shadow-sm text-pink-600' 
+      : 'text-gray-500 hover:text-gray-700'
+    }`}
+  >
+    Today
+  </button>
+  <button 
+    onClick={setFilterMonth}
+    className={`px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${
+      activeFilter === 'month' 
+      ? 'bg-white shadow-sm text-pink-600' 
+      : 'text-gray-500 hover:text-gray-700'
+    }`}
+  >
+    This Month
+  </button>
+</div>
+
+{/* Custom Date Inputs */}
+<div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
+  activeFilter === 'custom' ? 'bg-white border-pink-200 shadow-sm' : 'bg-gray-50 border-gray-100'
+}`}>
+  <input 
+    type="date" 
+    value={startDate} 
+    onChange={(e) => handleCustomDate('start', e.target.value)}
+    className="bg-transparent border-none text-[10px] font-black uppercase focus:ring-0 cursor-pointer text-gray-700" 
+  />
+  <span className="text-gray-300 text-[9px] font-black">TO</span>
+  <input 
+    type="date" 
+    value={endDate} 
+    onChange={(e) => handleCustomDate('end', e.target.value)}
+    className="bg-transparent border-none text-[10px] font-black uppercase focus:ring-0 cursor-pointer text-gray-700" 
+  />
+</div>
+
+  </div>
+</div>
+
+  {/* STATS CARDS GRID */}
+{/* STATS CARDS GRID */}
+  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <ReportCard 
+      label="Gift Cards Sale" 
+      value={`$${stats.totalSales.toFixed(2)}`} 
+      bg="#F9D5E5" 
+      text="#D63384" 
+      sub="Gross Revenue"
+    />
+    <ReportCard 
+      label="Gift Cards Return" 
+      value={`$${stats.totalReturned.toFixed(2)}`} 
+      bg="#D6E4FF" 
+      text="#0D6EFD" 
+      sub="Redeemed Value"
+    />
+    <ReportCard 
+      label="Remain Balance" 
+      value={`$${stats.totalRemaining.toFixed(2)}`} 
+      bg="#FFE5B4" 
+      text="#D97706" 
+      sub="Unused Credit"
+    />
+    <ReportCard 
+      label="Online Buy" 
+      value={`$${stats.onlineSales.toFixed(2)}`} 
+      bg="#D5F9DE" 
+      text="#198754" 
+      sub="Website/App Sales"
+    />
+  </div>
+</div>     
+
 {/* =======================
     SIMPLE GIFT CARD CREATOR 
 ======================= */}
@@ -448,7 +600,7 @@ const handleActivate = async (id) => {
         </div>
  <hr className="mb-3 border-gray-100 dark:border-slate-800" />
       {/* Redesigned Input Grid */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div className="grid grid-cols-2 md:grid-cols-4 gap-6">
       {/* Row 1: Names with Autocomplete */}
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Name</label>
@@ -540,8 +692,7 @@ const handleActivate = async (id) => {
         <button 
             onClick={handleSaveAndPrint}
             className="w-full py-5 bg-pink-700 hover:bg-black text-white rounded-xl font-black uppercase tracking-widest transition-all shadow-xl active:scale-95"
-        >
-            <i className="fas fa-save mr-2"></i> Save Gift Card
+        >Save Gift Card
         </button>
         </div>
 </div>
@@ -551,6 +702,7 @@ const handleActivate = async (id) => {
         
     </div>
 </div>
+
 
 {/* Keep your datalist here */}
 <datalist id="client-list">
@@ -592,8 +744,14 @@ const handleActivate = async (id) => {
       ======================= */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
             <h2 className="text-xl font-black text-gray-800 uppercase italic">Gift Card Registry</h2>
-            <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white dark:bg-slate-900/80 dark:border-slate-80 border rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
+           
+      <span className="text-[12px] font-black text-orange-600 uppercase tracking-widest bg-orange-100 border border-orange-200 px-3 py-1 rounded-3xl flex items-center gap-1 shadow-sm">
+       ${stats.allTimeRemaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </span>
+      </div>
+      <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white dark:bg-slate-900/80 dark:border-slate-80 border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 shadow-sm overflow-hidden text-nowrap overflow-x-auto">
@@ -868,6 +1026,23 @@ const handleActivate = async (id) => {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+function ReportCard({ label, value, bg, text, sub }) {
+  return (
+    <div style={{ backgroundColor: bg }} className="p-5 rounded-xl flex flex-col justify-between min-h-[110px] shadow-sm">
+      <div>
+        <span style={{ color: text }} className="text-[9px] font-black uppercase tracking-widest opacity-70 block mb-1">
+          {label}
+        </span>
+        <span style={{ color: text }} className="text-2xl font-black tracking-tight leading-none">
+          {value}
+        </span>
+      </div>
+      <span style={{ color: text }} className="text-[8px] font-bold uppercase opacity-60">
+        {sub}
+      </span>
     </div>
   );
 }

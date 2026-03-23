@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/context/ToastContext"; // Your new context
 // FIXED: Combined auth and db into one line
 import { auth, db } from "@/lib/firebase"; 
+import { Loader2 } from "lucide-react";
 import { 
   signInWithEmailAndPassword, createUserWithEmailAndPassword,
   setPersistence, 
@@ -56,6 +57,40 @@ const [users, setUsers] = useState([]);
   // --- NEW EFFECT TO FETCH STORE INFO ---
 const [storeSettings, setStoreSettings] = useState(null);
 const [blockedDates, setBlockedDates] = useState([]);
+const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User IS logged in. Let's find their role to route them correctly.
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const role = userDoc.data().role || 'client';
+            
+            // Redirect based on role
+            if (role === "admin") router.replace("/admin");
+            else if (role === "staff") router.replace("/staff/dashboard");
+            else router.replace("/client/dashboard");
+            
+            // NOTE: We intentionally DO NOT set isCheckingAuth to false here.
+            // We want the loading screen to stay visible while Next.js changes the page!
+          } else {
+            // Failsafe: User auth exists, but no database profile
+            setIsCheckingAuth(false);
+          }
+        } catch (error) {
+          console.error("Auth check error:", error);
+          setIsCheckingAuth(false);
+        }
+      } else {
+        // No user is logged in. Safe to show the landing page.
+        setIsCheckingAuth(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
 
 useEffect(() => {
   // We fetch from 'settings' collection, 'store' document
@@ -700,6 +735,17 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
   
   setAvailableSlots(validSlots);
 };
+// 3. The Loading Gate
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-900">
+        <Loader2 className="animate-spin text-pink-600 mb-4" size={40} />
+        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
+          Opening Salon...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white">
