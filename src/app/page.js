@@ -356,7 +356,7 @@ const handleLogin = async (e) => {
       setTimeout(() => {
         if (role === "admin") {
           router.replace("/admin");
-        } else if (role === "staff") {
+        } else if (role === "staff" || role === "technician") {
           router.replace("/staff/dashboard");
         } else {
           router.replace("/client/dashboard");

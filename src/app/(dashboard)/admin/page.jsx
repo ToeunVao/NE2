@@ -82,7 +82,7 @@ const [endDate, setEndDate] = useState(todayStr);
 
 const [newEarning, setNewEarning] = useState({
   date: getLocalDate(),
-  staffName: "",
+  staffName: "TJ",
   service: "",
   earning: "",
   tip: ""
@@ -343,10 +343,10 @@ const handleAddEarning = async () => {
     }, { merge: true });
 
     setNewEarning({...newEarning, earning: "", tip: "", service: ""});
-    alert("Saved Successfully! Old app is safe.");
+    //alert("Saved Successfully! Old app is safe.");
   } catch (e) {
     console.error("Firebase Error:", e);
-    alert("Error: " + e.message);
+    //alert("Error: " + e.message);
   }
 };
   
@@ -974,24 +974,24 @@ onClick={async () => {
       </div>
     </div>
     </div>
-  <div className="grid dark:bg-slate-950 dark:border-slate-800 grid-cols-1 md:grid-cols-6 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+  <div className="grid dark:bg-slate-950 dark:border-slate-800 grid-cols-2 md:grid-cols-6 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Date</label>
       <input type="date" value={newEarning.date} onChange={e => setNewEarning({...newEarning, date: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
     
     <div className="space-y-2">
+      <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Service</label>
+      <input placeholder="Service..." value={newEarning.service} onChange={e => setNewEarning({...newEarning, service: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
+    </div>
+    <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Staff Name</label>
       <select value={newEarning.staffName} onChange={e => setNewEarning({...newEarning, staffName: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none">
-        <option value="">Select Staff</option>
+        
         {staffList.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
       </select>
     </div>
 
-    <div className="space-y-2">
-      <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Service</label>
-      <input placeholder="Service..." value={newEarning.service} onChange={e => setNewEarning({...newEarning, service: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
-    </div>
 
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Earning ($)</label>

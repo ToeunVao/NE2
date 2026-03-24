@@ -3,14 +3,20 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, addDoc, onSnapshot, query, where, 
-  serverTimestamp, Timestamp 
+  serverTimestamp, Timestamp, doc, getDoc // <-- ADD THESE HERE 
 } from "firebase/firestore";
+// Import your toast function from your context file
+import { useToast } from "@/context/ToastContext";
 
 export default function GlobalBookingModal({ isOpen, onClose }) {
+
   const [allServices, setAllServices] = useState([]); 
   const [technicians, setTechnicians] = useState([]);
   const [loading, setLoading] = useState(false);
-
+const [clients, setClients] = useState([]);
+const { showToast } = useToast();
+const [storeSettings, setStoreSettings] = useState(null);
+const [blockedDates, setBlockedDates] = useState([]);
   const [bookingForm, setBookingForm] = useState({
     name: "", 
     phone: "", 
@@ -23,6 +29,69 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
     technician: "Any Technician", 
     notes: ""
   });
+
+  // Fetch hours when modal opens
+useEffect(() => {
+  if (!isOpen) return;
+
+  // 1. Fetch Store Hours & Closure Message
+  const fetchSettings = async () => {
+    const docRef = doc(db, "settings", "store_info");
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) setStoreSettings(docSnap.data());
+  };
+  fetchSettings();
+
+  // 2. Fetch Holiday & Scheduled Closures
+  const unsubClosures = onSnapshot(collection(db, "closures"), (snap) => {
+    setBlockedDates(snap.docs.map(d => d.data().date));
+  });
+
+  return () => unsubClosures();
+}, [isOpen]);
+
+const validateBookingTime = (selectedDateTime) => {
+  if (!storeSettings) return true;
+
+  const dateObj = new Date(selectedDateTime);
+  
+  // Format to YYYY-MM-DD for holiday check
+  const dateString = dateObj.toLocaleDateString('en-CA'); // e.g., "2023-10-28"
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  
+  // Format to HH:mm for time check
+  const selectedTime = dateObj.getHours().toString().padStart(2, '0') + ":" + 
+                       dateObj.getMinutes().toString().padStart(2, '0');
+
+  // --- 1. Check Holiday/Closure Dates ---
+  if (blockedDates.includes(dateString)) {
+    const holidayMsg = storeSettings.closureMessage || "Salon is closed today.";
+    // Try passing message first if "Error" is showing up as the title
+   showToast(
+    `SALON CLOSED: ${holidayMsg} (Date: ${dateString}). Please select another day.`, 
+    "error"
+  );
+    return false;
+  }
+
+  // --- 2. Check Operating Hours ---
+  const daySettings = storeSettings.hours[dayName];
+  if (!daySettings || daySettings.isClosed) {
+  showToast(`CLOSED: We are closed on ${dayName}s.`, "error");
+    return false;
+  }
+
+  // --- 3. Check Time Window ---
+  if (selectedTime < daySettings.open || selectedTime > daySettings.close) {
+  showToast(
+  `OUTSIDE HOURS: ${dayName} hours are ${daySettings.open} - ${daySettings.close}. Please pick a different time.`, 
+  "error"
+);
+    return false;
+  }
+
+  return true;
+};
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,8 +120,17 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
       setTechnicians(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    return () => { unsubServices(); unsubTechs(); };
-  }, [isOpen]);
+// Add this new fetch for clients
+  const unsubClients = onSnapshot(collection(db, "clients"), (snap) => {
+    setClients(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+
+  return () => { 
+    unsubServices(); 
+    unsubTechs(); 
+    unsubClients(); // Cleanup
+  };
+}, [isOpen]);
 
   const handleServiceChange = (val) => {
     const match = allServices.find(s => s.name.toLowerCase() === val.toLowerCase());
@@ -62,22 +140,50 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
       price: match ? match.price : 0 
     }));
   };
-
+const handleClientSelect = (name) => {
+  const selectedClient = clients.find(c => c.name === name);
+  
+  setBookingForm(prev => ({
+    ...prev,
+    name: name,
+    phone: selectedClient ? (selectedClient.phone || "") : prev.phone,
+    email: selectedClient ? (selectedClient.email || "") : prev.email
+  }));
+};
   const handleBooking = async (e) => {
     e.preventDefault();
+
+    // TRIGGER VALIDATION
+  if (!validateBookingTime(bookingForm.dateTime)) {
+    return; // STOP EXECUTION
+  }
+
     setLoading(true);
 
     try {
       const finalDate = new Date(bookingForm.dateTime);
-      await addDoc(collection(db, "appointments"), {
-        ...bookingForm,
-        groupSize: Number(bookingForm.groupSize),
-        appointmentTimestamp: Timestamp.fromDate(finalDate),
-        status: "confirmed",
-        createdAt: serverTimestamp()
-      });
+    // 1. ADD const docRef = to "catch" the new appointment ID
+    const docRef = await addDoc(collection(db, "appointments"), {
+      ...bookingForm,
+      groupSize: Number(bookingForm.groupSize),
+      appointmentTimestamp: Timestamp.fromDate(finalDate),
+      status: "confirmed",
+      createdAt: serverTimestamp()
+    });
 
-      alert("Booking Added Successfully!");
+    // 2. CREATE THE NOTIFICATION using the captured docRef.id
+    await addDoc(collection(db, "notifications"), {
+      title: "New Booking",
+      message: `${bookingForm.name} booked ${bookingForm.service} with ${bookingForm.technician}`,
+      type: "booking",
+      staffName: bookingForm.technician, // Filters for the specific staff
+      read: false,                       // This triggers the alert/glow in the header
+      appointmentId: docRef.id,          // Link to the actual appointment
+      createdAt: serverTimestamp(),
+      dateTime: bookingForm.dateTime
+    });
+
+      showToast("Success", "Booking created successfully!", "success");
       onClose();
       setBookingForm({
         name: "", phone: "", email: "", 
@@ -87,7 +193,7 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
       });
     } catch (err) {
       console.error("Booking Error:", err);
-      alert("Error: " + err.message);
+      showToast("Error", "Error creating booking.", "error");
     }
     setLoading(false);
   };
@@ -121,11 +227,23 @@ export default function GlobalBookingModal({ isOpen, onClose }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 pb-24 md:pb-0">
             
             {/* Name & Phone */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Client Name</label>
-              <input required className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
-                value={bookingForm.name} onChange={e => setBookingForm({...bookingForm, name: e.target.value})} />
-            </div>
+           <div className="space-y-1">
+  <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Client Name</label>
+  <input 
+    required 
+    list="client-list" // Connects to the datalist below
+    className="dark:bg-slate-950 dark:text-white w-full p-4 md:p-2.5 bg-gray-50 border border-gray-200 text-sm outline-none rounded-xl focus:border-[#db2777] font-bold" 
+    value={bookingForm.name} 
+    onChange={e => handleClientSelect(e.target.value)} // Trigger auto-fill
+  />
+  
+  {/* The Autocomplete Data List */}
+  <datalist id="client-list">
+    {clients.map(c => (
+      <option key={c.id} value={c.name} />
+    ))}
+  </datalist>
+</div>
 
             <div className="space-y-1">
               <label className="text-[10px] font-black text-gray-400 uppercase ml-1">Phone Number</label>

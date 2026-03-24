@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { 
-  collection, addDoc, onSnapshot, query, where, 
+  collection, addDoc, onSnapshot, query, where, getDocs,
   serverTimestamp, Timestamp, doc, getDoc // <-- ADD THESE HERE 
 } from "firebase/firestore";
 // Import your toast function from your context file
@@ -50,49 +50,71 @@ useEffect(() => {
   return () => unsubClosures();
 }, [isOpen]);
 
-const validateBookingTime = (selectedDateTime) => {
+const validateBookingTime = async (selectedDateTime, technician) => {
   if (!storeSettings) return true;
 
   const dateObj = new Date(selectedDateTime);
-  
-  // Format to YYYY-MM-DD for holiday check
-  const dateString = dateObj.toLocaleDateString('en-CA'); // e.g., "2023-10-28"
-  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-  
-  // Format to HH:mm for time check
-  const selectedTime = dateObj.getHours().toString().padStart(2, '0') + ":" + 
-                       dateObj.getMinutes().toString().padStart(2, '0');
+  const selectedTimeMs = dateObj.getTime();
+  const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
 
-  // --- 1. Check Holiday/Closure Dates ---
+  // 1. Basic Date/Time/Holiday Checks (Your existing logic)
+  const dateString = dateObj.toLocaleDateString('en-CA');
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const selectedTimeStr = dateObj.getHours().toString().padStart(2, '0') + ":" + 
+                         dateObj.getMinutes().toString().padStart(2, '0');
+
   if (blockedDates.includes(dateString)) {
-    const holidayMsg = storeSettings.closureMessage || "Salon is closed today.";
-    // Try passing message first if "Error" is showing up as the title
-   showToast(
-    `SALON CLOSED: ${holidayMsg} (Date: ${dateString}). Please select another day.`, 
-    "error"
-  );
+    showToast(`SALON CLOSED: ${storeSettings.closureMessage || "Salon is closed today."}`, "error");
     return false;
   }
 
-  // --- 2. Check Operating Hours ---
   const daySettings = storeSettings.hours[dayName];
   if (!daySettings || daySettings.isClosed) {
-  showToast(`CLOSED: We are closed on ${dayName}s.`, "error");
+    showToast(`CLOSED: We are closed on ${dayName}s.`, "error");
     return false;
   }
 
-  // --- 3. Check Time Window ---
-  if (selectedTime < daySettings.open || selectedTime > daySettings.close) {
-  showToast(
-  `OUTSIDE HOURS: ${dayName} hours are ${daySettings.open} - ${daySettings.close}. Please pick a different time.`, 
-  "error"
-);
+  if (selectedTimeStr < daySettings.open || selectedTimeStr > daySettings.close) {
+    showToast(`OUTSIDE HOURS: We are open ${daySettings.open} - ${daySettings.close}.`, "error");
     return false;
+  }
+
+  // --- 2. NEW: CHECK FOR TECHNICIAN CONFLICTS (1-HOUR BLOCK) ---
+  if (technician !== "Any Technician") {
+    // Fetch all confirmed bookings for this technician on this day
+    const startOfDay = new Date(selectedDateTime);
+    startOfDay.setHours(0,0,0,0);
+    const endOfDay = new Date(selectedDateTime);
+    endOfDay.setHours(23,59,59,999);
+
+    const q = query(
+      collection(db, "appointments"),
+      where("technician", "==", technician),
+      where("status", "==", "confirmed"),
+      where("appointmentTimestamp", ">=", Timestamp.fromDate(startOfDay)),
+      where("appointmentTimestamp", "<=", Timestamp.fromDate(endOfDay))
+    );
+
+    const querySnapshot = await getDocs(q);
+    
+    // Check if any existing booking overlaps with the 1-hour window
+    const conflict = querySnapshot.docs.some(doc => {
+      const apptData = doc.data();
+      const apptStartTime = new Date(apptData.dateTime).getTime();
+      const apptEndTime = apptStartTime + ONE_HOUR;
+
+      // Logic: If new booking starts during an existing 1-hour block
+      return selectedTimeMs >= apptStartTime && selectedTimeMs < apptEndTime;
+    });
+
+    if (conflict) {
+      showToast(`UNAVAILABLE: ${technician} is already booked for 1 hour at this time.`, "error");
+      return false;
+    }
   }
 
   return true;
 };
-
   useEffect(() => {
     if (!isOpen) return;
 
@@ -154,23 +176,38 @@ const handleClientSelect = (name) => {
     e.preventDefault();
 
     // TRIGGER VALIDATION
-  if (!validateBookingTime(bookingForm.dateTime)) {
-    return; // STOP EXECUTION
-  }
+// Add 'await' and pass 'bookingForm.technician' as the second argument
+if (!(await validateBookingTime(bookingForm.dateTime, bookingForm.technician))) {
+  setLoading(false); // Make sure to stop loading if validation fails
+  return; 
+}
 
     setLoading(true);
 
     try {
       const finalDate = new Date(bookingForm.dateTime);
-      await addDoc(collection(db, "appointments"), {
-        ...bookingForm,
-        groupSize: Number(bookingForm.groupSize),
-        appointmentTimestamp: Timestamp.fromDate(finalDate),
-        status: "confirmed",
-        createdAt: serverTimestamp()
-      });
+    // 1. ADD const docRef = to "catch" the new appointment ID
+    const docRef = await addDoc(collection(db, "appointments"), {
+      ...bookingForm,
+      groupSize: Number(bookingForm.groupSize),
+      appointmentTimestamp: Timestamp.fromDate(finalDate),
+      status: "confirmed",
+      createdAt: serverTimestamp()
+    });
 
-      showToast("Success", "Booking created successfully!", "success");
+    // 2. CREATE THE NOTIFICATION using the captured docRef.id
+    await addDoc(collection(db, "notifications"), {
+      title: "New Booking",
+      message: `${bookingForm.name} booked ${bookingForm.service} with ${bookingForm.technician}`,
+      type: "booking",
+      staffName: bookingForm.technician, // Filters for the specific staff
+      read: false,                       // This triggers the alert/glow in the header
+      appointmentId: docRef.id,          // Link to the actual appointment
+      createdAt: serverTimestamp(),
+      dateTime: bookingForm.dateTime
+    });
+
+      showToast("Booking created successfully!", "success");
       onClose();
       setBookingForm({
         name: "", phone: "", email: "", 

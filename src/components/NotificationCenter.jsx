@@ -13,7 +13,7 @@ import {
   writeBatch 
 } from "firebase/firestore";
 import { format } from "date-fns";
-
+import { Bell } from 'lucide-react';
 export default function NotificationCenter() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -46,11 +46,11 @@ export default function NotificationCenter() {
     });
   };
 
-  useEffect(() => {
+ useEffect(() => {
     const unsubscribers = [];
 
-    // 1. Listen for UNREAD Bookings
-    const qAppts = query(collection(db, "appointments"), where("isRead", "==", false));
+    // 1. Listen for UNREAD Bookings (Fixed field to 'read')
+    const qAppts = query(collection(db, "appointments"), where("read", "==", false));
     unsubscribers.push(onSnapshot(qAppts, (snap) => {
       const data = snap.docs.map(doc => ({
         id: doc.id, col: "appointments", type: 'booking',
@@ -61,7 +61,19 @@ export default function NotificationCenter() {
       updateNotifications('bookings', data);
     }));
 
-    // 2. Listen for Low Stock
+    // 2. NEW: Listen for Manual Notifications (The ones from Global Modal)
+    const qManual = query(collection(db, "notifications"), where("read", "==", false));
+    unsubscribers.push(onSnapshot(qManual, (snap) => {
+      const data = snap.docs.map(doc => ({
+        id: doc.id, col: "notifications", type: 'manual',
+        message: doc.data().message || "New Staff Booking",
+        icon: 'fa-bell', color: 'bg-purple-100 text-purple-600',
+        timestamp: doc.data().createdAt
+      }));
+      updateNotifications('manual', data);
+    }));
+
+    // 3. Listen for Low Stock
     unsubscribers.push(onSnapshot(collection(db, "inventory"), (snap) => {
       const data = snap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -74,8 +86,8 @@ export default function NotificationCenter() {
       updateNotifications('inventory', data);
     }));
 
-    // 3. Listen for UNREAD Gift Cards
-    const qGift = query(collection(db, "gift_cards"), where("isRead", "==", false));
+    // 4. Listen for UNREAD Gift Cards (Fixed field to 'read')
+    const qGift = query(collection(db, "gift_cards"), where("read", "==", false));
     unsubscribers.push(onSnapshot(qGift, (snap) => {
       const data = snap.docs.map(doc => ({
         id: doc.id, col: "gift_cards",
@@ -108,7 +120,7 @@ export default function NotificationCenter() {
   return (
     <div className="relative" ref={menuRef}>
       <button onClick={() => setIsOpen(!isOpen)} className="relative p-2 text-gray-400 hover:text-pink-600 transition-colors">
-        <i className="fas fa-bell text-xl"></i>
+        <Bell className="w-5 h-5" />
         {notifications.length > 0 && (
           <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold animate-bounce">
             {notifications.length}
