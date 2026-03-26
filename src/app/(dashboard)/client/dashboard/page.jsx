@@ -90,7 +90,6 @@ useEffect(() => {
 
   // Add this function inside your ClientDashboard component
 const handleCancel = async (apptId) => {
-  // Use your confirm context or a simple window.confirm
   const confirmCancel = window.confirm("Do you want to cancel this appointment?");
   if (!confirmCancel) return;
 
@@ -98,9 +97,11 @@ const handleCancel = async (apptId) => {
     const apptRef = doc(db, "appointments", apptId);
     await updateDoc(apptRef, {
       status: "cancelled",
-      cancelledAt: serverTimestamp()
+      isRead: false, // CRITICAL: This makes it appear in the Admin Notification Center
+      cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp() 
     });
-    // showToast("Appointment removed", "success");
+    // If you have showToast: showToast("Appointment cancelled", "success");
   } catch (err) {
     console.error("Error cancelling:", err);
   }

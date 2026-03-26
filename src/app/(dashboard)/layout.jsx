@@ -120,9 +120,9 @@ export default function DashboardLayout({ children }) {
         icon: BookOpen,
         isDropdown: true,
         subItems: [
-  { label: "Theory Exam", path: "/admin/theory-manager", icon: FileText },
-  { label: "Group Test", path: "/admin/theory-manager/group-test", icon: Users2 },
-  { label: "Access Codes", path: "/admin/access-codes", icon: KeyRound },
+  { label: "Theory", path: "/admin/theory-manager", icon: FileText },
+  { label: "Test", path: "/admin/theory-manager/group-test", icon: Users2 },
+  { label: "Codes", path: "/admin/access-codes", icon: KeyRound },
 ]
       },
       { label: "Setup", path: "/admin/settings", icon: Settings },
@@ -204,7 +204,7 @@ export default function DashboardLayout({ children }) {
                 : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
           }`}
         >
-          {/* Render the Sub Icon - Small size (12-14px) is best for CRM style */}
+          {/* Render the Sub Icon - Small size (12-14px) is best for CRM style 
           {SubIcon && (
             <SubIcon 
               size={16} 
@@ -212,8 +212,8 @@ export default function DashboardLayout({ children }) {
               className={isSubActive ? "text-pink-600" : "text-slate-400"} 
             />
           )}
-          
-         <span className="text-[7px] tracking-tighter mt-1">{sub.label}</span>
+          */}
+         <span className="text-[10px] tracking-tighter mt-1 p-2">{sub.label}</span>
         </Link>
       );
     })}

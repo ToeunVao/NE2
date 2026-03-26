@@ -187,26 +187,23 @@ if (!(await validateBookingTime(bookingForm.dateTime, bookingForm.technician))) 
     try {
       const finalDate = new Date(bookingForm.dateTime);
     // 1. ADD const docRef = to "catch" the new appointment ID
-    const docRef = await addDoc(collection(db, "appointments"), {
-      ...bookingForm,
-      groupSize: Number(bookingForm.groupSize),
-      appointmentTimestamp: Timestamp.fromDate(finalDate),
-      status: "confirmed",
-      createdAt: serverTimestamp()
-    });
-
+  const docRef = await addDoc(collection(db, "appointments"), {
+  ...bookingForm,
+  groupSize: Number(bookingForm.groupSize),
+  appointmentTimestamp: Timestamp.fromDate(finalDate),
+  bookingType: "Calendar",
+  status: "confirmed",
+  isRead: true, // <--- ADD THIS HERE TOO
+  createdAt: serverTimestamp()
+});
+// ADD THIS BLOCK BELOW TO SEND THE CUSTOM MESSAGE
+await addDoc(collection(db, "notifications"), {
+  message: `${bookingForm.name} booked ${bookingForm.service} with ${bookingForm.technician}`,
+  isRead: false, // Must match the listener in NotificationCenter
+  type: "manual",
+  createdAt: serverTimestamp()
+});
     // 2. CREATE THE NOTIFICATION using the captured docRef.id
-    await addDoc(collection(db, "notifications"), {
-      title: "New Booking",
-      message: `${bookingForm.name} booked ${bookingForm.service} with ${bookingForm.technician}`,
-      type: "booking",
-      staffName: bookingForm.technician, // Filters for the specific staff
-      read: false,                       // This triggers the alert/glow in the header
-      appointmentId: docRef.id,          // Link to the actual appointment
-      createdAt: serverTimestamp(),
-      dateTime: bookingForm.dateTime
-    });
-
       showToast("Booking created successfully!", "success");
       onClose();
       setBookingForm({

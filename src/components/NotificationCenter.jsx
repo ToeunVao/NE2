@@ -49,30 +49,51 @@ export default function NotificationCenter() {
  useEffect(() => {
     const unsubscribers = [];
 
-    // 1. Listen for UNREAD Bookings (Fixed field to 'read')
-    const qAppts = query(collection(db, "appointments"), where("read", "==", false));
-    unsubscribers.push(onSnapshot(qAppts, (snap) => {
-      const data = snap.docs.map(doc => ({
-        id: doc.id, col: "appointments", type: 'booking',
-        message: `New booking: ${doc.data().name || 'Client'}`,
-        icon: 'fa-calendar-plus', color: 'bg-blue-100 text-blue-600',
-        timestamp: doc.data().createdAt
-      }));
-      updateNotifications('bookings', data);
-    }));
+// Inside NotificationCenter.jsx -> useEffect
 
-    // 2. NEW: Listen for Manual Notifications (The ones from Global Modal)
-    const qManual = query(collection(db, "notifications"), where("read", "==", false));
-    unsubscribers.push(onSnapshot(qManual, (snap) => {
-      const data = snap.docs.map(doc => ({
-        id: doc.id, col: "notifications", type: 'manual',
-        message: doc.data().message || "New Staff Booking",
-        icon: 'fa-bell', color: 'bg-purple-100 text-purple-600',
-        timestamp: doc.data().createdAt
-      }));
-      updateNotifications('manual', data);
-    }));
+// 1. Listen for UNREAD Online Bookings
+const qAppts = query(
+  collection(db, "appointments"), 
+  where("isRead", "==", false),
+  where("bookingType", "==", "Online") // Only alert for online bookings here
+);
 
+unsubscribers.push(onSnapshot(qAppts, (snap) => {
+  const data = snap.docs.map(doc => {
+    const d = doc.data();
+    
+    return {
+      id: doc.id, 
+      col: "appointments", 
+      type: 'booking',
+      // YOUR NEW MESSAGE FORMAT:
+      message: `New Online Booking: ${d.service} from ${d.name} with ${d.technician}`,
+      
+      icon: 'fa-globe', 
+      color: 'bg-blue-100 text-blue-600',
+      timestamp: d.createdAt
+    };
+  });
+  updateNotifications('bookings', data);
+}));
+// 2. Listen for Manual Notifications (Staff Bookings)
+const qManual = query(collection(db, "notifications"), where("isRead", "==", false));
+unsubscribers.push(onSnapshot(qManual, (snap) => {
+  const data = snap.docs.map(doc => {
+    const d = doc.data();
+    return {
+      id: doc.id, 
+      col: "notifications", 
+      type: 'manual',
+      // This will now show "kou booked Nail with TJ"
+      message: d.message || "New Booking", 
+      icon: 'fa-bell', 
+      color: 'bg-purple-100 text-purple-600',
+      timestamp: d.createdAt
+    };
+  });
+  updateNotifications('manual', data);
+}));
     // 3. Listen for Low Stock
     unsubscribers.push(onSnapshot(collection(db, "inventory"), (snap) => {
       const data = snap.docs
@@ -87,7 +108,7 @@ export default function NotificationCenter() {
     }));
 
     // 4. Listen for UNREAD Gift Cards (Fixed field to 'read')
-    const qGift = query(collection(db, "gift_cards"), where("read", "==", false));
+    const qGift = query(collection(db, "gift_cards"), where("isRead", "==", false));
     unsubscribers.push(onSnapshot(qGift, (snap) => {
       const data = snap.docs.map(doc => ({
         id: doc.id, col: "gift_cards",

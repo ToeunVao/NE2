@@ -436,14 +436,14 @@ const dailyAppts = filteredAppointments.filter(app => {
         
         <div className="space-y-4">
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Client Details</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-200 pb-1 mb-2">Client Details</h3>
             <p className="text-sm"><strong>Name:</strong> {selectedBooking.name}</p>
             <p className="text-sm"><strong>Phone:</strong> {selectedBooking.phone}</p>
             <p className="text-sm"><strong>Group Size:</strong> {selectedBooking.groupSize || "1"}</p>
           </section>
 
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Appointment Details</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-200 pb-1 mb-2">Appointment Details</h3>
             <p className="text-sm"><strong>Date:</strong> {selectedBooking.appointmentTimestamp?.toDate().toLocaleString()}</p>
             <p className="text-sm"><strong>Services:</strong> {selectedBooking.service || selectedBooking.services || "No service selected"}</p>
             <p className="text-sm"><strong>Technician:</strong> {selectedBooking.technician}</p>
@@ -451,7 +451,7 @@ const dailyAppts = filteredAppointments.filter(app => {
           </section>
 
           <section>
-            <h3 className="text-gray-800 font-bold border-b pb-1 mb-2">Next Appointment</h3>
+            <h3 className="text-gray-800 font-bold border-b border-gray-200 pb-1 mb-2">Next Appointment</h3>
             <p className="text-pink-500 font-bold">Not scheduled</p>
           </section>
         </div>

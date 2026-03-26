@@ -187,11 +187,18 @@ const handleGiftPurchase = async () => {
     const digitCode = randomNum.toString().padStart(6, '0');
     const cardCode = `GC-${digitCode}`; // Result: GC-000001
     const amountNum = Number(giftAmount);
-
+const localDateString = new Date().toLocaleDateString('en-CA');
     const newGiftCard = {
       code: cardCode,
       recipientName: giftData.toName || "Customer",
       recipientEmail: giftData.toEmail,
+      // --- ADDED FOR ADMIN REPORTS ---
+  customerEmail: giftData.toEmail, 
+  type: "Online",             
+  isOnline: true,            
+  origin: "online",          
+  date: localDateString,     // Forces correct timezone for your filters
+  // -------------------------------
       amount: amountNum, 
       balance: amountNum,
       status: "pending", // This ensures Admin sees it as 'Pending'

@@ -5,7 +5,7 @@ import {
   collection, onSnapshot, doc, deleteDoc, 
   serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion, Timestamp
 } from "firebase/firestore";
-
+import { useToast } from "@/context/ToastContext";
 // --- ASSETS ---
 const giftCardBackgrounds = {
     'General': [
@@ -30,13 +30,15 @@ const giftCardBackgrounds = {
     ]
 };
 export default function GiftCardPage() {
+  const { showToast } = useToast();
   // Add these near your other useState hooks
 const [transaction, setTransaction] = useState({ type: 'Redeem', amount: '', note: '' });
 const [isEditingCode, setIsEditingCode] = useState(false);
 const [newCodeInput, setNewCodeInput] = useState("");
 // Add this near your other useState hooks
-const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+// TO THIS:
+const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
+const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
 const [activeFilter, setActiveFilter] = useState('month'); // Default to month
   const [giftCards, setGiftCards] = useState([]);
 // 1. Add this state
@@ -87,6 +89,7 @@ const [expUnit, setExpUnit] = useState('months');
     return () => unsub();
   }, []);
 
+  
   const filteredCards = useMemo(() => {
     return giftCards.filter(card => 
       (card.code && card.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -436,22 +439,25 @@ const stats = useMemo(() => {
   let totalReturned = 0;   
   let totalRemaining = 0;  
   let onlineSales = 0;
-  let allTimeRemaining = 0; // NEW: To track every dollar in the system
+  let allTimeRemaining = 0;
 
   giftCards.forEach(card => {
     const current = Number(card.balance || 0);
-    
-    // Always add to All-Time, regardless of date
     allTimeRemaining += current;
 
-    // Date Filtering Logic
+    // 1. Better Date Parsing
+// --- FIX: BETTER DATE PARSING ---
     let cardDate = "";
-    if (card.createdAt?.toDate) {
-      cardDate = card.createdAt.toDate().toISOString().split('T')[0];
-    } else if (card.date) {
+    if (card.date) {
+      // Prioritize the hardcoded local date from the landing page
       cardDate = card.date; 
+    } else if (card.createdAt?.toDate) {
+      // If it's an older card, convert UTC to local YYYY-MM-DD
+      cardDate = card.createdAt.toDate().toLocaleDateString('en-CA'); 
     }
+    // ---------------------------------
 
+    // 2. Filter by Date Range
     if (cardDate >= startDate && cardDate <= endDate) {
       const initial = Number(card.initialAmount || card.amount || 0);
       
@@ -459,7 +465,15 @@ const stats = useMemo(() => {
       totalRemaining += current;
       totalReturned += (initial - current);
 
-      if (card.isOnline || card.customerEmail) {
+      // 3. IMPROVED ONLINE CHECK: 
+      // Checks for 'isOnline', 'origin', 'type', or if an email exists
+      const isOnlinePurchase = 
+        card.isOnline === true || 
+        card.origin === 'online' || 
+        card.type === 'Online' || 
+        (card.customerEmail && card.customerEmail.trim() !== "");
+
+      if (isOnlinePurchase) {
         onlineSales += initial;
       }
     }
@@ -468,29 +482,56 @@ const stats = useMemo(() => {
   return { totalSales, totalReturned, totalRemaining, onlineSales, allTimeRemaining };
 }, [giftCards, startDate, endDate]);
 
+// Add this helper at the top of your component or outside it
+const getLocalDate = (date = new Date()) => {
+  // 'en-CA' format is specifically YYYY-MM-DD
+  return date.toLocaleDateString('en-CA'); 
+};
+
 const setFilterToday = () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDate();
   setStartDate(today);
   setEndDate(today);
-  setActiveFilter('today'); // Set active state
+  setActiveFilter('today');
 };
 
 const setFilterMonth = () => {
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  // First day of current month in local time
+  const firstDay = getLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
+  // Last day of current month in local time
+  const lastDay = getLocalDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  
   setStartDate(firstDay);
   setEndDate(lastDay);
-  setActiveFilter('month'); // Set active state
+  setActiveFilter('month');
 };
 
-// Also, reset the active state if the user manually picks a date
-const handleCustomDate = (type, value) => {
-  if (type === 'start') setStartDate(value);
-  else setEndDate(value);
-  setActiveFilter('custom'); 
+const handleCustomDate = (type, val) => {
+  if (type === 'start') setStartDate(val);
+  else setEndDate(val);
+  setActiveFilter('custom');
 };
 
+const handleDelete = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this gift card?")) return;
+
+  try {
+    await deleteDoc(doc(db, "gift_cards", id));
+    
+    // --- ADDED TOAST ---
+    showToast("Gift card deleted successfully", "success");
+    // -------------------
+
+    setSelectedCard(null);
+  } catch (error) {
+    console.error("Error deleting document: ", error);
+    
+    // --- ADDED ERROR TOAST ---
+    showToast("Failed to delete gift card", "error");
+    // ------------------------
+  }
+};
   return (
     <div className="max-w-[95%] mx-auto space-y-8 pb-20 pt-4">
 
@@ -574,13 +615,13 @@ const handleCustomDate = (type, value) => {
       text="#D97706" 
       sub="Unused Credit"
     />
-    <ReportCard 
-      label="Online Buy" 
-      value={`$${stats.onlineSales.toFixed(2)}`} 
-      bg="#D5F9DE" 
-      text="#198754" 
-      sub="Website/App Sales"
-    />
+   <ReportCard 
+  label="Online Buy" 
+  value={`$${stats.onlineSales.toFixed(2)}`} 
+  sub="Revenue from Website"
+  bg="#fdf2f8" 
+  text="#be185d" 
+/>
   </div>
 </div>     
 
@@ -822,8 +863,13 @@ const handleCustomDate = (type, value) => {
   <i className="fas fa-edit"></i>
 </button>
  <button onClick={() => printCards([card])} className="text-gray-400 hover:text-pink-600 transition-colors" title="Print"><i className="fas fa-print"></i></button>
-                    <button onClick={() => deleteDoc(doc(db, "gift_cards", card.id))} className="text-gray-400 hover:text-red-600 transition-colors" title="Delete"><i className="fas fa-trash"></i></button>
-                  </td>
+                 <button 
+  onClick={() => handleDelete(card.id)} 
+  className="text-gray-400 hover:text-red-600 transition-colors" 
+  title="Delete"
+>
+  <i className="fas fa-trash"></i>
+</button> </td>
                 </tr>
               )) : (
                 <tr><td colSpan="6" className="p-10 text-center text-gray-400 font-medium">No gift cards found.</td></tr>

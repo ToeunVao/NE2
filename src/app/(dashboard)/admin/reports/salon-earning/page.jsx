@@ -276,7 +276,7 @@ const handleSave = async () => {
     await setDoc(doc(db, "salon_earnings", docId), dataToSave, { merge: true });
     
     setFormData(initialFormState);
-    alert("Saved! Data is now cleaned and the old app will stop crashing.");
+    //alert("Saved! Data is now cleaned and the old app will stop crashing.");
   } catch (e) {
     console.error("Save Error:", e);
   }

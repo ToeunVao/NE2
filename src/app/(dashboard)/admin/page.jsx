@@ -2,9 +2,10 @@
 import { useState, useEffect, useMemo, useRef  } from "react";
 import { useRouter } from "next/navigation"; // Add this line
 import { db } from "@/lib/firebase";
+import ClientProfileModal from "@/components/ClientProfileModal";
 import { 
   collection, onSnapshot, query, orderBy, where, 
-  doc, updateDoc, addDoc, setDoc, deleteDoc, Timestamp, collectionGroup
+  doc, updateDoc, addDoc, setDoc, deleteDoc, Timestamp, collectionGroup, serverTimestamp 
 } from "firebase/firestore";
 // ... other imports
 import { 
@@ -42,6 +43,18 @@ const STAFF_BAR_COLORS = ['#FFB6C1', '#87CEEB', '#98FB98', '#FFD700', '#DDA0DD',
   };
 
 export default function AdminDashboard() {
+  const [selectedClientProfile, setSelectedClientProfile] = useState(null);
+  const [finishedClients, setFinishedClients] = useState([]);
+  useEffect(() => {
+  // Fetch Finished Clients so the Profile Modal can show history
+  const unsubFinished = onSnapshot(collection(db, "finished_clients"), (snap) => {
+    const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setFinishedClients(docs);
+  });
+
+  return () => unsubFinished();
+}, []);
+
 // 1. Move the helper function INSIDE the component at the very top
   const getLocalDate = () => {
     const now = new Date();
@@ -81,10 +94,12 @@ const [startDate, setStartDate] = useState(todayStr);
 const [endDate, setEndDate] = useState(todayStr);
 
 const [newEarning, setNewEarning] = useState({
+  id: null, // NEW: Tracks if we are editing
   date: getLocalDate(),
   staffName: "TJ",
   service: "",
   earning: "",
+  oldEarningAmount: 0, // NEW: Tracks the old amount to fix the daily totals
   tip: ""
 });
 
@@ -315,21 +330,10 @@ const handleAddEarning = async () => {
   if (!newEarning.staffName || !newEarning.earning) return alert("Select staff and amount");
   
   try {
-    // 1. Create a Javascript Date object from the input string
-    // We add 'T12:00:00' to ensure it doesn't shift days due to timezones
     const dateObject = new Date(newEarning.date + 'T12:00:00');
+    const earningVal = parseMoney(newEarning.earning);
+    const tipVal = parseMoney(newEarning.tip);
 
-    // 2. Add individual log to root /earnings
-    await addDoc(collection(db, "earnings"), {
-      staffName: newEarning.staffName,
-      service: newEarning.service,
-      earning: parseMoney(newEarning.earning),
-      tip: parseMoney(newEarning.tip),
-      // SAVE AS TIMESTAMP SO OLD APP DOESN'T CRASH
-      date: Timestamp.fromDate(dateObject) 
-    });
-
-    // 3. Update the day's summary in root /salon_earnings
     const [y, m, d] = newEarning.date.split('-');
     const docId = `${y}-${parseInt(m)}-${parseInt(d)}`; 
     const staffKey = newEarning.staffName.toLowerCase().trim();
@@ -337,16 +341,55 @@ const handleAddEarning = async () => {
     const currentReport = earningsData.find(r => r.id === docId);
     const prevVal = parseMoney(currentReport?.[staffKey]);
 
-    const reportRef = doc(db, "salon_earnings", docId);
-    await setDoc(reportRef, { 
-      [staffKey]: prevVal + parseMoney(newEarning.earning) 
-    }, { merge: true });
+    if (newEarning.id) {
+      // --- EDIT MODE ---
+      // 1. Update the individual log
+      await updateDoc(doc(db, "earnings", newEarning.id), {
+        staffName: newEarning.staffName,
+        service: newEarning.service,
+        earning: earningVal,
+        tip: tipVal,
+        date: Timestamp.fromDate(dateObject)
+      });
 
-    setNewEarning({...newEarning, earning: "", tip: "", service: ""});
-    //alert("Saved Successfully! Old app is safe.");
+      // 2. Adjust the daily total by the *difference*
+      const oldEarningVal = parseMoney(newEarning.oldEarningAmount || 0);
+      const difference = earningVal - oldEarningVal;
+
+      await setDoc(doc(db, "salon_earnings", docId), { 
+        [staffKey]: prevVal + difference 
+      }, { merge: true });
+
+    } else {
+      // --- ADD MODE ---
+      // 1. Create new log
+      await addDoc(collection(db, "earnings"), {
+        staffName: newEarning.staffName,
+        service: newEarning.service,
+        earning: earningVal,
+        tip: tipVal,
+        date: Timestamp.fromDate(dateObject),
+        createdAt: serverTimestamp() // NEW: Allows us to sort by latest input!
+      });
+
+      // 2. Add to daily total
+      await setDoc(doc(db, "salon_earnings", docId), { 
+        [staffKey]: prevVal + earningVal 
+      }, { merge: true });
+    }
+
+    // Reset Form
+    setNewEarning({
+      id: null,
+      date: getLocalDate(),
+      staffName: "TJ",
+      service: "",
+      earning: "",
+      oldEarningAmount: 0,
+      tip: ""
+    });
   } catch (e) {
     console.error("Firebase Error:", e);
-    //alert("Error: " + e.message);
   }
 };
   
@@ -526,12 +569,24 @@ upcomingAppts: (appointments || [])
     dailyReports: [] 
   };
 }, [selectedMonth, earningsData, staffList, appointments, selectedTechFilter, finishedCount, serviceLogs]);
+
 const filteredStats = useMemo(() => {
-  const filtered = serviceLogs.filter(log => {
-    // Range check: Is the log date between start and end?
+  let filtered = serviceLogs.filter(log => {
     const isWithinRange = log.dateStr >= startDate && log.dateStr <= endDate;
     const isTechMatch = reportFilterTech === 'All' || log.staffName === reportFilterTech;
     return isWithinRange && isTechMatch;
+  });
+
+  // --- NEW: SORT BY LATEST FIRST ---
+  filtered.sort((a, b) => {
+    // 1. Sort by Date String (Newest Day First)
+    if (a.dateStr > b.dateStr) return -1;
+    if (a.dateStr < b.dateStr) return 1;
+    
+    // 2. Sort by exact input time (Latest input on top for the same day)
+    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+    return timeB - timeA;
   });
 
   return {
@@ -540,7 +595,8 @@ const filteredStats = useMemo(() => {
     clientCount: filtered.length,
     rows: filtered
   };
-}, [serviceLogs, startDate, endDate, reportFilterTech]); // Update dependencies here too!
+}, [serviceLogs, startDate, endDate, reportFilterTech]);
+
 
 
 // if (loading || !dashboardData) return <div className="p-20 text-center font-black text-gray-300 tracking-widest uppercase">Loading Data...</div>;
@@ -883,7 +939,10 @@ const {
        {upcomingAppts.length > 0 ? (
     upcomingAppts.map((appt) => (
             <tr key={appt.id} className="hover:bg-gray-50/50 transition-colors group">
-              <td className="px-6 py-5 font-bold text-indigo-600">{appt.name || "Phone Call"}</td>
+              <td className="px-6 py-5 font-bold text-indigo-600"><span 
+  onClick={() => setSelectedClientProfile(appt)} 
+  className="font-bold text-indigo-600 cursor-pointer hover:text-pink-600 hover:underline transition-all"
+>{appt.name || "Phone Call"} </span></td>
               <td className="px-6 py-5 text-gray-500 text-sm">{appt.services || "N/A"}</td>
               <td className="px-6 py-5 text-gray-500 text-sm">{appt.technician || "Any Technician"}</td>
               <td className="px-6 py-5 text-gray-500 text-sm">{appt.group || "1"}</td>
@@ -900,7 +959,10 @@ const {
               <td className="px-6 py-5 text-right">
                 <div className="flex items-center justify-end gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                   <span 
+  onClick={() => setSelectedClientProfile(appt)} 
+  className="font-bold text-indigo-600 cursor-pointer hover:text-pink-600 hover:underline transition-all"
+> <svg className="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
                   </div>
 <button 
 onClick={async () => {
@@ -1113,16 +1175,18 @@ onClick={async () => {
           <div className="flex justify-end gap-3  group-hover:opacity-100 transition-opacity">
             {/* EDIT ICON */}
             <button 
-              onClick={() => {
-                setNewEarning({
-                  date: log.dateStr,
-                  staffName: log.staffName,
-                  service: log.service || "",
-                  earning: log.earning,
-                  tip: log.tip
-                });
-                formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+             onClick={() => {
+  setNewEarning({
+    id: log.id, // NEW: Tell the form we are editing!
+    date: log.dateStr,
+    staffName: log.staffName,
+    service: log.service || "",
+    earning: log.earning,
+    oldEarningAmount: log.earning, // NEW: Save old amount for math
+    tip: log.tip
+  });
+  formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}}
               className="p-2 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
               title="Edit"
             >
@@ -1212,6 +1276,15 @@ onClick={async () => {
         </div>
       )}
 </div>
+{/* CLIENT PROFILE MODAL COMPONENT */}
+{selectedClientProfile && (
+  <ClientProfileModal 
+    client={selectedClientProfile} 
+    onClose={() => setSelectedClientProfile(null)}
+    finishedClients={finishedClients} // Pass your dashboard's state here
+    appointments={appointments}       // Pass your dashboard's state here
+  />
+)}
 
     </div>
   );
