@@ -56,11 +56,9 @@ export default function AdminDashboard() {
 }, []);
 
 // 1. Move the helper function INSIDE the component at the very top
-  const getLocalDate = () => {
-    const now = new Date();
-    const offset = now.getTimezoneOffset() * 60000;
-    return new Date(now - offset).toISOString().split('T')[0];
-  };
+const getLocalDate = () => {
+  return new Date().toLocaleDateString('en-CA');
+};
 
   const getMonthDefaults = () => {
     const now = new Date();
@@ -231,10 +229,28 @@ filteredLiveEx.forEach(ex => {
         color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
       };
     }).sort((a, b) => b.revenue - a.revenue);
+// --- NEW: CALCULATE TOP BOOKING (MOST CLIENTS) ---
+let clientCounts = {};
+  filteredLogs.forEach(log => {
+    const staff = (log.staffName || "Unknown").trim();
+    clientCounts[staff] = (clientCounts[staff] || 0) + 1;
+  });
 
+  let topBookingName = "N/A";
+  let topBookingCount = 0;
+  
+  Object.entries(clientCounts).forEach(([name, count]) => {
+    if (count > topBookingCount) {
+      topBookingCount = count;
+      topBookingName = name; // Just the name here
+    }
+  });
+  // ------------------------------------------------
   return { 
     totalEarnings, totalCash, totalGiftCard, totalExpense, 
     topEarnerName: staffPerformance[0]?.name || "N/A", 
+    topBookingName,
+    topBookingCount,
     staffPerformance, 
     trendData: Object.keys(dailyDataMap).sort().map(k => dailyDataMap[k]),
     clientCount: filteredLogs.length,
@@ -378,16 +394,16 @@ const handleAddEarning = async () => {
       }, { merge: true });
     }
 
-    // Reset Form
-    setNewEarning({
+   // Reset Form - Keep Date and Staff Name for faster entry
+    setNewEarning(prev => ({
       id: null,
-      date: getLocalDate(),
-      staffName: "TJ",
-      service: "",
-      earning: "",
+      date: prev.date,           // Keeps the date you just used
+      staffName: prev.staffName, // Keeps the person you just picked
+      service: "",               // Clears the service
+      earning: "",               // Clears the money
       oldEarningAmount: 0,
-      tip: ""
-    });
+      tip: ""                    // Clears the tip
+    }));
   } catch (e) {
     console.error("Firebase Error:", e);
   }
@@ -674,54 +690,55 @@ const {
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
   
   {/* TOTAL REVENUE - PINK */}
-  <div style={{ backgroundColor: COLORS.pink }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
+  <div style={{ backgroundColor: COLORS.pink }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
       <p style={{ color: COLORS.pinkText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Revenue</p>
-      <h3 style={{ color: COLORS.pinkText }} className="font-black text-3xl tracking-tight">${overviewStats.totalEarnings.toFixed(2)}</h3>
+      <h3 style={{ color: COLORS.pinkText }} className="font-black text-2xl tracking-tight leading-none">${overviewStats.totalEarnings.toFixed(2)}</h3>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.pinkText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+       <i className="fas fa-dollar-sign"></i>
     </div>
   </div>
 
   {/* TOTAL CASH - GREEN */}
-  <div style={{ backgroundColor: COLORS.green }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
+  <div style={{ backgroundColor: COLORS.green }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
       <p style={{ color: COLORS.greenText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Total Cash</p>
-      <h3 style={{ color: COLORS.greenText }} className="font-black text-3xl tracking-tight">${overviewStats.totalCash.toFixed(2)}</h3>
+      <h3 style={{ color: COLORS.greenText }} className="font-black text-2xl tracking-tight leading-none">${overviewStats.totalCash.toFixed(2)}</h3>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.greenText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+       <i className="fas fa-money-bill-wave"></i>
     </div>
   </div>
 
   {/* TOP EARNER - BLUE */}
-  <div style={{ backgroundColor: COLORS.blue }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
+  <div style={{ backgroundColor: COLORS.blue }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
       <p style={{ color: COLORS.blueText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Earner</p>
-      <h3 style={{ color: COLORS.blueText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topEarnerName}</h3>
+      <h3 style={{ color: COLORS.blueText }} className="text-xl font-black tracking-tight leading-none truncate max-w-[140px]">{overviewStats.topEarnerName}</h3>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.blueText }} className="absolute -right-1 -bottom-3 opacity-15 text-5xl transform -rotate-12 pointer-events-none">
+       <i className="fas fa-trophy"></i>
     </div>
   </div>
 
   {/* TOP BOOKING - PURPLE */}
-  <div style={{ backgroundColor: COLORS.purple }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-    <div>
-      <p style={{ color: COLORS.purpleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Booking</p>
-      <h3 style={{ color: COLORS.purpleText }} className="text-xl font-black tracking-tight truncate max-w-[120px]">{overviewStats.topBookingName}</h3>
+  <div style={{ backgroundColor: COLORS.purple }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
+      <p style={{ color: COLORS.purpleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Top Clients</p>
+      <div className="flex items-baseline gap-2">
+        <h3 style={{ color: COLORS.purpleText }} className="text-xl font-black tracking-tight leading-none truncate">{overviewStats.topBookingName}</h3>
+        <span className="text-purple-500 text-[10px] font-bold uppercase whitespace-nowrap">
+          ({overviewStats.topBookingCount} clients)
+        </span>
+      </div>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.purpleText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+       <i className="fas fa-user-check"></i>
     </div>
   </div>
 </div>
@@ -729,66 +746,70 @@ const {
 {/* ROW 2: OPERATIONAL STATS */}
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
   
-{/* APPOINTMENTS - PERIWINKLE CARD */}
-<div style={{ backgroundColor: COLORS.periwinkle }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-  <div>
-    <p style={{ color: COLORS.periwinkleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-      Live Appointments
-    </p>
-    <h3 style={{ color: COLORS.periwinkleText }} className="text-3xl font-black tracking-tight">
-      {/* Updated to use the new calculated count */}
-      {overviewStats.liveAppointmentCount}
-    </h3>
-  </div>
-  <div className="p-3 rounded-full bg-white/30 text-gray-400">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-  </div>
-</div>
-
-{/* CLIENTS - MINT CARD */}
-<div style={{ backgroundColor: COLORS.mint }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center group transition-all">
-  <div>
-    <p style={{ color: COLORS.mintText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
-      Total Clients
-    </p>
-    <h3 style={{ color: COLORS.mintText }} className="text-3xl font-black tracking-tight">
-      {/* CHANGE THIS LINE FROM filteredStats.rows.length TO overviewStats.clientCount */}
-      {overviewStats.clientCount}
-    </h3>
-  </div>
-  <div className="p-3 rounded-full bg-white/30 text-gray-400">
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
-  </div>
-</div>
-  {/* GIFT CARDS - ORANGE */}
-  <div style={{ backgroundColor: COLORS.orange }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
-    <div>
-      <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Gift Cards</p>
-      <h3 style={{ color: COLORS.orangeText }} className="text-xl font-black">${overviewStats.totalGiftCard.toFixed(2)}</h3>
+  {/* APPOINTMENTS - PERIWINKLE */}
+  <div style={{ backgroundColor: COLORS.periwinkle }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
+      <p style={{ color: COLORS.periwinkleText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
+        Live Appointments
+      </p>
+      <h3 style={{ color: COLORS.periwinkleText }} className="text-2xl font-black tracking-tight leading-none">
+        {overviewStats.liveAppointmentCount}
+      </h3>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.periwinkleText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+      <i className="fas fa-calendar-check"></i>
+    </div>
+  </div>
+
+  {/* CLIENTS - MINT */}
+  <div style={{ backgroundColor: COLORS.mint }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
+      <p style={{ color: COLORS.mintText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
+        Total Clients
+      </p>
+      <h3 style={{ color: COLORS.mintText }} className="text-2xl font-black tracking-tight leading-none">
+        {overviewStats.clientCount}
+      </h3>
+    </div>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.mintText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+      <i className="fas fa-users"></i>
+    </div>
+  </div>
+
+  {/* GIFT CARDS - ORANGE */}
+  <div style={{ backgroundColor: COLORS.orange }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
+      <p style={{ color: COLORS.orangeText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
+        Gift Cards
+      </p>
+      <h3 style={{ color: COLORS.orangeText }} className="text-2xl font-black tracking-tight leading-none">
+        ${overviewStats.totalGiftCard.toFixed(2)}
+      </h3>
+    </div>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.orangeText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+      <i className="fas fa-ticket-alt"></i>
     </div>
   </div>
 
   {/* EXPENSES - RED */}
-  <div style={{ backgroundColor: COLORS.red }} className="dark:!bg-slate-900/80 dark:border-slate-800  p-6 rounded-xl flex justify-between items-center">
-    <div>
-      <p style={{ color: COLORS.redText }} className="text-[10px] font-black uppercase tracking-widest opacity-80">Expenses</p>
-      <h3 style={{ color: COLORS.redText }} className="text-xl font-black">${overviewStats.totalExpense.toFixed(2)}</h3>
+  <div style={{ backgroundColor: COLORS.red }} className="relative overflow-hidden p-6 rounded-xl flex flex-col justify-center min-h-[110px] shadow-sm transition-all group">
+    <div className="relative z-10">
+      <p style={{ color: COLORS.redText }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">
+        Expenses
+      </p>
+      <h3 style={{ color: COLORS.redText }} className="text-2xl font-black tracking-tight leading-none">
+        ${overviewStats.totalExpense.toFixed(2)}
+      </h3>
     </div>
-    <div className="p-3 rounded-full bg-white/30 text-gray-400">
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
+    {/* Background Icon */}
+    <div style={{ color: COLORS.redText }} className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none">
+      <i className="fas fa-file-invoice-dollar"></i>
     </div>
   </div>
+
 </div>
 
       {/* SECTION 3: STAFF EARNINGS SUMMARY (Cards + Chart) */}
@@ -1292,11 +1313,31 @@ onClick={async () => {
 
 // --- SUB COMPONENTS ---
 
-function PastelCard({ label, value, bg, text, isText = false }) {
+function PastelCard({ label, value, bg, text, isText = false, icon }) {
     return (
-        <div style={{ backgroundColor: bg }} className="p-6 rounded-xl flex flex-col justify-center min-h-[120px]">
-            <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">{label}</span>
-            <span style={{ color: text }} className={`font-black ${isText ? 'text-xl' : 'text-3xl'} tracking-tight`}>{value}</span>
+        <div 
+          style={{ backgroundColor: bg }} 
+          className="p-6 rounded-xl flex flex-col justify-center min-h-[120px] relative overflow-hidden shadow-sm"
+        >
+            {/* The Label and Value */}
+            <div className="relative z-10">
+              <span style={{ color: text }} className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2 block">
+                {label}
+              </span>
+              <span style={{ color: text }} className={`font-black ${isText ? 'text-xl' : 'text-3xl'} tracking-tight`}>
+                {value}
+              </span>
+            </div>
+
+            {/* The Background Icon */}
+            {icon && (
+              <div 
+                style={{ color: text }} 
+                className="absolute -right-2 -bottom-4 opacity-15 text-6xl transform -rotate-12 pointer-events-none"
+              >
+                <i className={icon}></i>
+              </div>
+            )}
         </div>
     );
 }

@@ -107,15 +107,21 @@ unsubscribers.push(onSnapshot(qManual, (snap) => {
       updateNotifications('inventory', data);
     }));
 
-    // 4. Listen for UNREAD Gift Cards (Fixed field to 'read')
+   // 4. Listen for UNREAD Gift Cards
     const qGift = query(collection(db, "gift_cards"), where("isRead", "==", false));
     unsubscribers.push(onSnapshot(qGift, (snap) => {
-      const data = snap.docs.map(doc => ({
-        id: doc.id, col: "gift_cards",
-        message: `New Online Gift Card Sale`,
-        icon: 'fa-gift', color: 'bg-pink-100 text-pink-600',
-        timestamp: doc.data().purchaseDate
-      }));
+      const data = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id, 
+          col: "gift_cards",
+          // Show the name in the notification message
+          message: `New Gift Card Sale from : ${d.recipientName || 'Customer'} ($${d.amount})`,
+          icon: 'fa-gift', 
+          color: 'bg-pink-100 text-pink-600',
+          timestamp: d.purchaseDate || d.createdAt // Uses purchaseDate from step 1
+        };
+      });
       updateNotifications('giftcard', data);
     }));
 

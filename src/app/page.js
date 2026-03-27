@@ -182,29 +182,29 @@ const [giftData, setGiftData] = useState({ toName: '', toEmail: '', message: '' 
 
 const handleGiftPurchase = async () => {
   try {
-  // Generates a random number between 1 and 999999 and pads it to 6 digits
     const randomNum = Math.floor(Math.random() * 999999) + 1;
     const digitCode = randomNum.toString().padStart(6, '0');
-    const cardCode = `GC-${digitCode}`; // Result: GC-000001
+    const cardCode = `GC-${digitCode}`;
     const amountNum = Number(giftAmount);
-const localDateString = new Date().toLocaleDateString('en-CA');
-    const newGiftCard = {
+    const localDateString = new Date().toLocaleDateString('en-CA');
+
+const newGiftCard = {
       code: cardCode,
       recipientName: giftData.toName || "Customer",
       recipientEmail: giftData.toEmail,
-      // --- ADDED FOR ADMIN REPORTS ---
-  customerEmail: giftData.toEmail, 
-  type: "Online",             
-  isOnline: true,            
-  origin: "online",          
-  date: localDateString,     // Forces correct timezone for your filters
-  // -------------------------------
+      customerEmail: giftData.toEmail, 
+      type: "Online",             
+      isOnline: true,             
+      origin: "online",           
+      date: localDateString,
       amount: amountNum, 
       balance: amountNum,
-      status: "pending", // This ensures Admin sees it as 'Pending'
-      isActivated: false, // Explicit flag for admin filtering
+      status: "pending", 
+      isActivated: false, 
+      isRead: false, // <--- ADD THIS LINE so NotificationCenter can find it
       message: giftData.message || "",
       createdAt: serverTimestamp(),
+      purchaseDate: serverTimestamp(), // <--- ADD THIS so the notification has a time
       lastUsed: serverTimestamp(),
       history: [{
         date: Timestamp.fromDate(new Date()), 
@@ -216,14 +216,28 @@ const localDateString = new Date().toLocaleDateString('en-CA');
       }]
     };
 
+    // 1. Save the Gift Card to the database
     await addDoc(collection(db, "gift_cards"), newGiftCard);
-    alert(`Order Submitted! Your code is: ${cardCode}. Please complete payment to activate.`);
+
+    // 2. NEW: Send Notification to Admin Dashboard
+    await addDoc(collection(db, "notifications"), {
+      type: "gift_card",
+      message: `New Online Gift Card: ${newGiftCard.recipientName} ($${amountNum})`,
+      read: false,
+      color: "bg-blue-500", // Blue color for gift cards
+      icon: "fa-gift",      // Gift icon for the dropdown
+      timestamp: serverTimestamp()
+    });
+
+  showToast(`Order Submitted! Code: ${cardCode}. Please complete payment to activate.`, "success");
+    
+    // Reset Form
     setStep(1);
-    // Reset form
     setGiftAmount(0);
     setGiftData({ toName: '', toEmail: '', message: '' });
+
   } catch (error) {
-    console.error("Save Error:", error);
+    showToast("Failed to submit order. Please check your connection.", "error");
   }
 };
 
