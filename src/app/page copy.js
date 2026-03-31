@@ -10,14 +10,15 @@ import {
   addDoc, 
   serverTimestamp,
   Timestamp, 
-  orderBy, 
+  orderBy, setDoc,
   where 
 } from "firebase/firestore";
 import { useToast } from "@/context/ToastContext"; // Your new context
 // FIXED: Combined auth and db into one line
 import { auth, db } from "@/lib/firebase"; 
+import { Loader2 } from "lucide-react";
 import { 
-  signInWithEmailAndPassword, 
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
   setPersistence, 
   browserLocalPersistence,
   onAuthStateChanged // ADD THIS
@@ -48,14 +49,67 @@ const [isFlipped, setIsFlipped] = useState(false);
 const [step, setStep] = useState(1);
 const [staff, setStaff] = useState([]); // To store technicians
 const [showPolicy, setShowPolicy] = useState(false); // Modal state
-
+const [showAnnouncement, setShowAnnouncement] = useState(false);
   const openModal = () => setIsLoginModalOpen(true);
   const closeModal = () => setIsLoginModalOpen(false);
-
+// Add this inside your HomePage function
+const [users, setUsers] = useState([]);
   // --- NEW EFFECT TO FETCH STORE INFO ---
 const [storeSettings, setStoreSettings] = useState(null);
 const [blockedDates, setBlockedDates] = useState([]);
+const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
+useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User IS logged in. Let's find their role to route them correctly.
+        try {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const role = userDoc.data().role || 'client';
+            
+            // Redirect based on role
+            if (role === "admin") router.replace("/admin");
+            else if (role === "staff") router.replace("/staff/dashboard");
+            else router.replace("/client/dashboard");
+            
+            // NOTE: We intentionally DO NOT set isCheckingAuth to false here.
+            // We want the loading screen to stay visible while Next.js changes the page!
+          } else {
+            // Failsafe: User auth exists, but no database profile
+            setIsCheckingAuth(false);
+          }
+        } catch (error) {
+          console.error("Auth check error:", error);
+          setIsCheckingAuth(false);
+        }
+      } else {
+        // No user is logged in. Safe to show the landing page.
+        setIsCheckingAuth(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+useEffect(() => {
+  // We fetch from 'settings' collection, 'store' document
+  const unsub = onSnapshot(doc(db, "settings", "store"), (docSnap) => {
+    if (docSnap.exists()) {
+      setStoreSettings(docSnap.data());
+    }
+  });
+  return () => unsub();
+}, []);
+// Add this useEffect to fetch staff from Firestore
+useEffect(() => {
+  const q = query(collection(db, "users")); // Ensure 'db' is imported
+  const unsub = onSnapshot(q, (snap) => {
+    const userData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    setUsers(userData);
+  });
+  return () => unsub();
+}, []);
 
 useEffect(() => {
   // 1. Fetch Operating Hours
@@ -124,26 +178,34 @@ const [showDropdown, setShowDropdown] = useState(false); // To toggle results
 
 // Add these inside your HomePage function
 const [giftAmount, setGiftAmount] = useState(0);
-const [giftData, setGiftData] = useState({ toName: '', toEmail: '', message: '' });
+const [giftData, setGiftData] = useState({ toName: '', toEmail: '', fromName: '', message: '' });
 
 const handleGiftPurchase = async () => {
   try {
-  // Generates a random number between 1 and 999999 and pads it to 6 digits
     const randomNum = Math.floor(Math.random() * 999999) + 1;
     const digitCode = randomNum.toString().padStart(6, '0');
-    const cardCode = `GC-${digitCode}`; // Result: GC-000001
+    const cardCode = `GC-${digitCode}`;
     const amountNum = Number(giftAmount);
+    const localDateString = new Date().toLocaleDateString('en-CA');
 
-    const newGiftCard = {
+const newGiftCard = {
       code: cardCode,
       recipientName: giftData.toName || "Customer",
+      senderName: giftData.fromName || "Anonymous",
       recipientEmail: giftData.toEmail,
+      customerEmail: giftData.toEmail, 
+      type: "Online",             
+      isOnline: true,             
+      origin: "online",           
+      date: localDateString,
       amount: amountNum, 
       balance: amountNum,
-      status: "pending", // This ensures Admin sees it as 'Pending'
-      isActivated: false, // Explicit flag for admin filtering
+      status: "pending", 
+      isActivated: false, 
+      isRead: false, // <--- ADD THIS LINE so NotificationCenter can find it
       message: giftData.message || "",
       createdAt: serverTimestamp(),
+      purchaseDate: serverTimestamp(), // <--- ADD THIS so the notification has a time
       lastUsed: serverTimestamp(),
       history: [{
         date: Timestamp.fromDate(new Date()), 
@@ -155,14 +217,28 @@ const handleGiftPurchase = async () => {
       }]
     };
 
+    // 1. Save the Gift Card to the database
     await addDoc(collection(db, "gift_cards"), newGiftCard);
-    alert(`Order Submitted! Your code is: ${cardCode}. Please complete payment to activate.`);
+
+    // 2. NEW: Send Notification to Admin Dashboard
+    await addDoc(collection(db, "notifications"), {
+      type: "gift_card",
+      message: `New Online Gift Card: ${newGiftCard.recipientName} ($${amountNum})`,
+      read: false,
+      color: "bg-blue-500", // Blue color for gift cards
+      icon: "fa-gift",      // Gift icon for the dropdown
+      timestamp: serverTimestamp()
+    });
+
+  showToast(`Order Submitted! Code: ${cardCode}. Please complete payment to activate.`, "success");
+    
+    // Reset Form
     setStep(1);
-    // Reset form
     setGiftAmount(0);
-    setGiftData({ toName: '', toEmail: '', message: '' });
+    setGiftData({ toName: '', toEmail: '', fromName: '', message: '' });
+
   } catch (error) {
-    console.error("Save Error:", error);
+    showToast("Failed to submit order. Please check your connection.", "error");
   }
 };
 
@@ -225,26 +301,96 @@ useEffect(() => {
 const handleLogin = async (e) => {
   e.preventDefault();
   setLoading(true);
-  setError("");
-
+  
   try {
-    // 1. SET PERSISTENCE BEFORE LOGIN
-    // This is the key to staying logged in until logout
+    // 1. Fetch Global Security Settings (from settings/store)
+    const settingsSnap = await getDoc(doc(db, "settings", "store"));
+    const security = settingsSnap.data()?.bookingConfigs || { maxLoginAttempts: 3, lockoutDuration: 120 };
+
+    // 2. Look up the user by email BEFORE auth to check if they are locked out
+    const q = query(collection(db, "users"), where("email", "==", email.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    
+    let userDocId = null;
+    let currentFailedAttempts = 0;
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const userData = userDoc.data();
+      userDocId = userDoc.id;
+      currentFailedAttempts = userData.failedAttempts || 0;
+
+      // 3. Check Lockout Status
+      if (userData.lockoutUntil && userData.lockoutUntil.toDate() > new Date()) {
+        const remainingMin = Math.ceil((userData.lockoutUntil.toDate() - new Date()) / 60000);
+        showToast(`Account locked. Try again in ${remainingMin} mins.`, "error");
+        setLoading(false);
+        return; // Stop login process completely
+      }
+    }
+
+    // 4. Set persistence
     await setPersistence(auth, browserLocalPersistence);
 
-    // 2. Perform the sign in
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
+    // 5. Attempt Sign in
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, email, password);
+    } catch (authError) {
+      // IF PASSWORD FAILS: Increment attempts and trigger lockout if necessary
+      if (userDocId) {
+        const userRef = doc(db, "users", userDocId);
+        const newAttempts = currentFailedAttempts + 1;
+        
+        if (newAttempts >= security.maxLoginAttempts) {
+          const lockoutTime = new Date(Date.now() + security.lockoutDuration * 60000);
+          await setDoc(userRef, { 
+            failedAttempts: newAttempts, 
+            lockoutUntil: Timestamp.fromDate(lockoutTime) 
+          }, { merge: true });
+          showToast(`Too many attempts. Locked for ${security.lockoutDuration} mins.`, "error");
+        } else {
+          await setDoc(userRef, { failedAttempts: newAttempts }, { merge: true });
+          showToast(`Invalid password. ${security.maxLoginAttempts - newAttempts} attempts left.`, "error");
+        }
+      } else {
+        showToast("Invalid credentials. Please try again.", "error");
+      }
+      setLoading(false);
+      return; // Stop execution on failure
+    }
 
-    // 3. Fetch role and redirect
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    if (userDoc.exists() && userDoc.data().role === "admin") {
-      router.push("/admin");
+    // 6. IF LOGIN SUCCESS: Get user data and redirect (Your original logic)
+    const user = userCredential.user;
+    const finalUserRef = doc(db, "users", user.uid);
+    const finalUserSnap = await getDoc(finalUserRef);
+    
+    if (finalUserSnap.exists()) {
+      const finalUserData = finalUserSnap.data();
+      const role = finalUserData?.role || 'client';
+
+      // Reset failed attempts to 0 on successful login
+      await setDoc(finalUserRef, { failedAttempts: 0, lockoutUntil: null }, { merge: true });
+
+      showToast(`Welcome back, ${finalUserData.name || 'User'}!`, "success");
+
+      // Redirect with a slight delay to ensure Toast shows and Router triggers
+      setTimeout(() => {
+        if (role === "admin") {
+          router.replace("/admin");
+        } else if (role === "staff" || role === "technician") {
+          router.replace("/staff/dashboard");
+        } else {
+          router.replace("/client/dashboard");
+        }
+      }, 500); 
+
     } else {
-      router.push("/staff/dashboard");
+      showToast("User profile not found.", "error");
     }
   } catch (err) {
-    setError("Invalid credentials. Please try again.");
+    console.error("Login error:", err);
+    showToast("An unexpected error occurred. Please try again.", "error");
   } finally {
     setLoading(false);
   }
@@ -316,44 +462,119 @@ const filteredServices = services.filter(s =>
 
 const handleBookingSubmit = async () => {
   try {
-    // Updated validation to check dateTime
+    // 1. DATA VALIDATION
     if (!bookingData.name || !bookingData.phone || !bookingData.serviceName || !bookingData.dateTime) {
       showToast("Please fill in all fields", "error");
       return;
     }
-// Validate before anything else
-  if (!validateClientBooking(bookingData.dateTime)) {
-    return; // This blocks the submission
-  }
-    // Convert the combined dateTime string into a JavaScript Date object
+
     const appointmentDate = new Date(bookingData.dateTime);
-const now = new Date();
-if (dateObj < now) {
-  showToast("INVALID TIME: You cannot book a time in the past.", "error");
-  return false;
-}
+    const now = new Date();
+
+    // 2. MINIMUM NOTICE CHECK
+    const noticeHours = storeSettings?.bookingConfigs?.minBookingNotice || 12;
+    const earliestAllowed = new Date(now.getTime() + (noticeHours * 60 * 60 * 1000));
+
+    if (appointmentDate < earliestAllowed) {
+      showToast(`Appointments must be booked at least ${noticeHours} hours in advance.`, "error");
+      return;
+    }
+
+    // 3. TECHNICIAN SCHEDULE CHECK (The Blocker)
+    // IMPORTANT: We check if staffId is a real ID and not "anyone"
+    const selectedStaff = users.find(u => u.id === bookingData.staffId);
+    
+    console.log("Checking Schedule for:", selectedStaff?.name);
+
+    if (selectedStaff && bookingData.staffId !== "anyone") {
+      const dayName = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      const schedule = selectedStaff.schedule?.[dayName];
+
+      // If no schedule exists or active is false
+      if (!schedule || !schedule.active) {
+        showToast(`${selectedStaff.name} is not working on ${dayName}.`, "error");
+        return;
+      }
+
+      // Convert times to total minutes for 100% accuracy
+      const apptTotalMins = appointmentDate.getHours() * 60 + appointmentDate.getMinutes();
+      const [openH, openM] = schedule.open.split(':').map(Number);
+      const [closeH, closeM] = schedule.close.split(':').map(Number);
+      
+      const openTotalMins = openH * 60 + openM;
+      const closeTotalMins = closeH * 60 + closeM;
+
+      console.log(`Appt Mins: ${apptTotalMins} | Range: ${openTotalMins}-${closeTotalMins}`);
+
+      if (apptTotalMins < openTotalMins || apptTotalMins >= closeTotalMins) {
+        showToast(
+          `${selectedStaff.name} is only available between ${schedule.open} and ${schedule.close} on ${dayName}.`, 
+          "error"
+        );
+        return; // STOPS THE BOOKING
+      }
+    }
+// --- NEW: CLIENT ACCOUNT AUTO-CREATION & LOGIN ---
+    // Strip spaces/dashes from phone to make it a clean username/password
+    const cleanPhone = bookingData.phone.replace(/\D/g, ''); 
+    if (cleanPhone.length < 6) {
+        showToast("Phone number must be at least 6 digits.", "error");
+        return;
+    }
+
+    const clientEmail = `${cleanPhone}@nailsexpressky.com`;
+    const clientPassword = cleanPhone; // Phone number as default password
+    let currentClientId = "guest";
+
+    try {
+        // Attempt 1: Try to log in existing client
+        const userCred = await signInWithEmailAndPassword(auth, clientEmail, clientPassword);
+        currentClientId = userCred.user.uid;
+    } catch (error) {
+        // Attempt 2: If they don't exist, create an account automatically
+        try {
+            const newCred = await createUserWithEmailAndPassword(auth, clientEmail, clientPassword);
+            currentClientId = newCred.user.uid;
+
+            // Save their profile to a 'clients' collection in Firestore
+            await setDoc(doc(db, "clients", currentClientId), {
+                name: bookingData.name,
+                phone: bookingData.phone,
+                cleanPhone: cleanPhone,
+                createdAt: serverTimestamp()
+            });
+        } catch (createErr) {
+            console.error("Client Creation Error:", createErr);
+        }
+    }
+
+    // 4. FINAL SAVE
     await addDoc(collection(db, "appointments"), {
       name: bookingData.name,
       phone: bookingData.phone,
       service: bookingData.serviceName,
       price: Number(bookingData.price || 0),
+      technicianId: bookingData.staffId,
       technician: bookingData.staffName || "Any Technician",
       appointmentTimestamp: Timestamp.fromDate(appointmentDate),
-      note: bookingData.note || "", // Save the note
+      note: bookingData.note || "",
       bookingType: "Online",
       status: "confirmed",
+      clientId: currentClientId, // LINK APPOINTMENT TO THE CLIENT
       createdAt: serverTimestamp(),
       isRead: false
     });
 
-    showToast("Booking Confirmed!", "success");
+    showToast("Booking Confirmed! Taking you to your dashboard...", "success");
     
-    // CLEAR FORM and reset to current time
-    setBookingData({ name: "", phone: "", serviceId: "", serviceName: "", price: 0, staffId: "anyone", staffName: "Any Technician", dateTime: getCurrentDateTimeLocal(), note: "" });
-    setServiceSearch("");
+    // REDIRECT TO DASHBOARD
+    setTimeout(() => {
+        router.push("/client/dashboard");
+    }, 1500);
+
   } catch (err) {
-    console.error(err);
-    showToast("Error booking. Try again.", "error");
+    console.error("Critical Booking Error:", err);
+    showToast("Error processing booking. Please try again.", "error");
   }
 };
 
@@ -424,73 +645,215 @@ const handleTrackGiftCard = async (e) => {
   }
 };
 
+const generateSlots = (selectedDate) => {
+  const now = new Date();
+  const noticeHours = bookingConfigs?.minBookingNotice || 12; // From Admin Settings
+  const earliestAllowed = new Date(now.getTime() + (noticeHours * 60 * 60 * 1000));
+
+  // When filtering your time slots:
+  const availableSlots = allDaySlots.filter(slot => {
+    const slotTime = new Date(`${selectedDate} ${slot}`);
+    return slotTime > earliestAllowed; 
+  });
+  
+  return availableSlots;
+};
+// From your uploaded page.jsx
+const [bookingConfigs, setBookingConfigs] = useState({
+  minBookingNotice: 12,
+  defaultServiceDuration: 60,
+  // ...
+});
+
+const handleBookAppointment = async (startTime) => {
+  const duration = bookingConfigs?.defaultServiceDuration || 60; // From Admin
+  const endTime = calculateEndTime(startTime, duration);
+
+  await addDoc(collection(db, "appointments"), {
+    customerName: name,
+    start: startTime,
+    end: endTime, // This blocks the technician for the full duration
+    status: "confirmed",
+    createdAt: serverTimestamp()
+  });
+};
+
+// Add state for client login
+const [clientLoginPhone, setClientLoginPhone] = useState("");
+
+// Add this function inside HomePage
+const handleClientLogin = async (e) => {
+    e.preventDefault();
+    const cleanPhone = clientLoginPhone.replace(/\D/g, '');
+    const clientEmail = `${cleanPhone}@nailsexpressky.com`;
+
+    try {
+        await signInWithEmailAndPassword(auth, clientEmail, cleanPhone);
+        showToast("Welcome back!", "success");
+        router.push("/client/dashboard");
+        // close modal
+    } catch (err) {
+        showToast("Account not found. Please check your phone number.", "error");
+    }
+};
+
+// Update your existing useEffect that fetches storeSettings:
+useEffect(() => {
+  const fetchSettings = async () => {
+    // CHANGE THIS PATH TO MATCH YOUR SAVE FUNCTION
+    const snap = await getDoc(doc(db, "settings", "store_info")); 
+    
+    if (snap.exists()) {
+      const data = snap.data();
+      setStoreSettings(data);
+      
+      // Detailed check for the announcement
+      if (data.announcement?.enabled === true) {
+        const hasSeen = sessionStorage.getItem("announcement_shown");
+        if (!hasSeen) {
+          setShowAnnouncement(true);
+        }
+      }
+    }
+  };
+  fetchSettings();
+}, []);
+
+// Add this helper function to your HomePage
+const isWithinWorkingHours = (slotTime, techSchedule) => {
+  const dateObj = new Date(slotTime);
+  const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const schedule = techSchedule?.[dayName];
+
+  // 1. If no schedule exists or staff is inactive/off, block the booking
+  if (!schedule || !schedule.active) return false;
+
+  // 2. Convert slot time to total minutes from midnight (e.g., 09:30 = 570 mins)
+  const slotTotalMinutes = dateObj.getHours() * 60 + dateObj.getMinutes();
+
+  // 3. Convert open/close strings ("09:00") to total minutes
+  const [openH, openM] = schedule.open.split(':').map(Number);
+  const [closeH, closeM] = schedule.close.split(':').map(Number);
+  
+  const openTotalMinutes = openH * 60 + openM;
+  const closeTotalMinutes = closeH * 60 + closeM;
+
+  // 4. Return true only if the slot is between open and close times
+  return slotTotalMinutes >= openTotalMinutes && slotTotalMinutes < closeTotalMinutes;
+};
+
+const handleSlotSelection = (selectedDate, selectedTech) => {
+  const allPossibleSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"]; // Example slots
+  
+  const validSlots = allPossibleSlots.filter(slot => {
+    const slotDateTime = new Date(`${selectedDate} ${slot}`);
+    return isWithinWorkingHours(slotDateTime, selectedTech.schedule);
+  });
+
+  if (validSlots.length === 0) {
+    showToast("Technician unavailable for these hours. Please pick another time or staff.", "error");
+    return;
+  }
+  
+  setAvailableSlots(validSlots);
+};
+// 3. The Loading Gate
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-slate-900">
+        <Loader2 className="animate-spin text-pink-600 mb-4" size={40} />
+        <p className="text-[10px] uppercase tracking-widest font-bold text-slate-400">
+          Opening Salon...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-white">
-      {/* 1. ELEGANT NAVIGATION */}
-      <nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 px-6 py-4 flex justify-between items-center">
-        <div className="text-2xl font-serif font-bold text-pink-600 tracking-tighter">
-          Nails Express
-        </div>
-        <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600 uppercase tracking-widest">
-          <Link href="#" className="hover:text-pink-600 transition-colors">Home</Link>
-          <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
-          <Link href="#gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
-        </div>
-        {/* In your Header or Footer */}
-<button onClick={openModal}
-  className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm"
->
-<i className="fas fa-user"></i> Login
-</button>
-      </nav>
+{/* 1. ELEGANT NAVIGATION */}
+<nav className="fixed w-full z-50 bg-white/80 backdrop-blur-md border-b border-pink-100 px-6 py-4">
+  <div className="max-w-7xl mx-auto flex justify-between items-center">
+    <div className="text-2xl font-serif font-bold text-pink-600 tracking-tighter">
+      Nails Express <p className="text-xs text-gray-500 -mt-1">Nails salon &amp; Spa</p>
+    </div>
+    
+    <div className="hidden md:flex gap-8 text-sm font-medium text-gray-600 uppercase tracking-widest">
+      <Link href="#" className="hover:text-pink-600 transition-colors">Home</Link>
+      <Link href="#book" className="hover:text-pink-600 transition-colors">Booking</Link>
+      <Link href="#gift-cards" className="hover:text-pink-600 transition-colors">Gift Cards</Link>
+    </div>
 
-      {/* 2. REFINED HERO SECTION */}
-      <section className="relative h-[50vh] flex items-center px-6 md:px-20 overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <Image 
-            src="https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80"
-            alt="Luxury Manicure Art"
-            fill
-            priority
-            className="object-cover object-center scale-105 brightness-[0.9]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/50 to-transparent"></div>
-        </div>
-        
-        <div className="relative z-10 max-w-xl">
-          <span className="text-pink-600 font-bold tracking-[0.2em] uppercase text-xs mb-3 block">
-            Welcome to Nails Express
-          </span>
-          <h1 className="text-4xl md:text-6xl font-serif text-gray-900 mb-6 leading-tight">
-            Elevate Your <br/>
-            <span className="italic text-pink-500">Natural Beauty</span>
-          </h1>
-          <p className="text-base md:text-lg text-gray-700 mb-8 leading-relaxed max-w-md">
-            Experience the finest nail artistry and spa treatments in a serene, sophisticated environment.
-          </p>
-          <div className="flex gap-4">
-            <Link href="#book" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg">
-              Book Now
-            </Link>
-    <div class="flex gap-4 ml-4">
-  <a href="https://www.facebook.com/profile.php?id=61566760681750" target="_blank" 
-     class="bg-white/50 backdrop-blur-sm text-blue-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-  </a>
+    <button onClick={openModal} className="text-gray-500 hover:text-pink-500 transition-colors font-bold text-sm">
+      <i className="fas fa-user mr-2"></i> Login
+    </button>
+  </div>
+</nav>
+
+{/* 2. REFINED HERO SECTION */}
+<section className="relative h-[50vh] flex items-center px-6 overflow-hidden">
+  {/* Background remains full width */}
+  <div className="absolute inset-0 z-0">
+    <Image 
+      src="https://images.unsplash.com/photo-1632345031435-8727f6897d53?q=80"
+      alt="Luxury Manicure Art"
+      fill
+      priority
+      className="object-cover object-center scale-105 brightness-[0.9]"
+    />
+    <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/50 to-transparent"></div>
+  </div>
   
-  <a href="https://youtube.com/@NailExpressKY" target="_blank" 
-     class="bg-white/50 backdrop-blur-sm text-red-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+  {/* Content is constrained to the container */}
+  <div className="relative z-10 max-w-7xl mx-auto w-full">
+    <div className="max-w-xl">
+      <span className="text-pink-600 font-bold tracking-[0.2em] uppercase text-xs mb-3 block">
+        Welcome to Nails Express
+      </span>
+      <h1 className="text-4xl md:text-6xl font-serif text-gray-900 mb-6 leading-tight">
+        Elevate Your <br/>
+        <span className="italic text-pink-500">Natural Beauty</span>
+      </h1>
+      <p className="text-base md:text-lg text-gray-700 mb-8 leading-relaxed max-w-md">
+        Experience the finest nail artistry and spa treatments in a serene, sophisticated environment.
+      </p>
+      
+      <div className="flex flex-wrap gap-4 items-center">
+        <Link href="#book" className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 transition-all shadow-lg">
+          Book Now
+        </Link>
+
+        {/* Social Icons Container */}
+        <div className="flex gap-3">
+          <a href="https://facebook.com/..." target="_blank" className="bg-white/50 backdrop-blur-sm text-blue-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </a>
+           {/* YouTube */}
+
+  <a href="https://youtube.com/@NailExpressKY" target="_blank"
+
+     className="bg-white/50 backdrop-blur-sm text-red-600 border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+
   </a>
-  
-  <a href="https://www.tiktok.com/@nailsexpressky" target="_blank" 
-     class="bg-white/50 backdrop-blur-sm text-black border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
-    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+
+ 
+
+  {/* TikTok */}
+
+  <a href="https://www.tiktok.com/@nailsexpressky" target="_blank"
+
+     className="bg-white/50 backdrop-blur-sm text-black border border-gray-200 p-3 rounded-xl hover:bg-white transition-all">
+
+    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>
+
   </a>
-</div>
-          </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
 {/* --- GIFT CARD SECTION --- */}
 <section id="gift-cards" className="py-10 bg-pink-50">
@@ -647,7 +1010,12 @@ const handleTrackGiftCard = async (e) => {
     </div>
   )}
 </div>
-
+<InputItem 
+  label="Your Name (Sender)" 
+  value={giftData.fromName} 
+  onChange={(val) => setGiftData({ ...giftData, fromName: val })} 
+  placeholder="e.g. John Doe" 
+/>
         <InputItem label="Recipient Name" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
         <InputItem label="Recipient Email" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
 
@@ -918,12 +1286,15 @@ const handleTrackGiftCard = async (e) => {
       onChange={v => setBookingData({...bookingData, name: v})} 
       placeholder="Enter your name" 
     />
-    <InputItem 
-      label="" 
-      value={bookingData.phone} 
-      onChange={v => setBookingData({...bookingData, phone: v})} 
-      placeholder="(859) 123-4567" 
-    />
+   <InputItem 
+  label="Phone Number" 
+  value={bookingData.phone} 
+  onChange={v => setBookingData({...bookingData, phone: v})} 
+  placeholder="(859) 123-4567" 
+  minLength={10}   // Prevents submitting if less than 10
+  maxLength={14}   // Prevents typing more than a formatted number
+  type="tel"       // Opens the numeric keypad on mobile/tablet
+/>
     
   </div>
       </section>
@@ -1266,41 +1637,98 @@ const handleTrackGiftCard = async (e) => {
     </div>
 
     {/* Hours */}
-    <div>
-      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Hours</h4>
-      <ul className="text-gray-400 text-sm space-y-2">
-        {storeSettings?.hours ? (
-          <>
-            <li>Mon - Sat: {storeSettings.hours.MonSat?.open} - {storeSettings.hours.MonSat?.close}</li>
-            <li>Sun: {storeSettings.hours.Sun?.open} - {storeSettings.hours.Sun?.close}</li>
-          </>
-        ) : (
-          <>
-            <li>Mon - Sat: 9:00 AM - 7:00 PM</li>
-            <li>Sun: 11:00 AM - 5:00 PM</li>
-          </>
-        )}
-      </ul>
-    </div>
+<div>
+  <h4 className="font-bold uppercase tracking-widest mb-6 text-white dark:text-white">
+    Hours
+  </h4>
+  <ul className="text-slate-500 dark:text-slate-400 text-[11px] space-y-3 font-medium">
+    {/* Monday - Saturday Grouping */}
+    <li className="flex flex-col">
+      <span className="text-[9px] uppercase opacity-60">Mon - Sat</span>
+      <span>
+        {storeSettings?.hours?.['Monday']?.open ?? "9:00 AM"} - {storeSettings?.hours?.['Monday']?.close ?? "7:00 PM"}
+      </span>
+    </li>
+    
+    {/* Sunday Display (with Closed check) */}
+    <li className="flex flex-col">
+      <span className="text-[9px] uppercase opacity-60">Sunday</span>
+      <span className={storeSettings?.hours?.['Sunday']?.closed ? "text-red-500 font-bold" : ""}>
+        {storeSettings?.hours?.['Sunday']?.closed 
+          ? "CLOSED" 
+          : `${storeSettings?.hours?.['Sunday']?.open ?? "11:00 AM"} - ${storeSettings?.hours?.['Sunday']?.close ?? "5:00 PM"}`
+        }
+      </span>
+    </li>
+  </ul>
+</div>
 
     {/* Location/Link */}
-    <div>
-      <h4 className="font-bold uppercase tracking-widest text-xs mb-6">Location</h4>
-      <p className="text-gray-400 text-sm">
-        Visit our Salon Page at <br/>
-        <Link 
-          href={storeSettings?.website || "http://nailsexpressky.com"} 
-          className="text-pink-400 hover:underline"
-        >
-          {storeSettings?.website || "nailsexpressky.com"}
-        </Link>
-      </p>
-    </div>
+<div>
+  <h4 className="font-bold uppercase tracking-widest  mb-6 text-white dark:text-white">
+    Location
+  </h4>
+  <div className="text-slate-500 dark:text-slate-400 text-[11px] space-y-3 font-medium">
+    {/* Display the Address from Firebase */}
+    <p className="leading-relaxed">
+      {storeSettings?.address || "1560 Hustonville Rd #345, Danville, KY"}
+    </p>
+
+    {/* Display the Phone from Firebase */}
+    <p className="text-pink-500 font-bold">
+      {storeSettings?.phone || "859-123-4567"}
+    </p>
+
+    {/* Salon Website Link */}
+    <p className="pt-2">
+      <Link 
+        href={storeSettings?.website || "http://nailsexpressky.com"} 
+        className="text-pink-400 hover:underline flex items-center gap-1"
+      >
+        <span className="text-[9px]">🌐</span>
+        {storeSettings?.website?.replace('http://', '').replace('https://', '') || "nailsexpressky.com"}
+      </Link>
+    </p>
+  </div>
+</div>
   </div>
 </footer>
+{showAnnouncement && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+      <div className="bg-pink-500 p-6 text-white text-center">
+        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span className="text-3xl">📢</span>
+        </div>
+        <h2 className="text-2xl font-black uppercase tracking-tight">
+          {storeSettings?.announcement?.title || "Announcement"}
+        </h2>
+      </div>
+      
+      <div className="p-8 text-center">
+        <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-8">
+          {storeSettings?.announcement?.text}
+        </p>
+        
+        <button 
+          onClick={() => {
+            setShowAnnouncement(false);
+            sessionStorage.setItem("announcement_shown", "true");
+          }}
+          className="w-full py-4 bg-slate-900 dark:bg-pink-600 text-white rounded-2xl font-black uppercase text-sm hover:scale-[1.02] transition-transform"
+        >
+          Got it, thanks!
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </main>
   );
 }
+
+
 // Ensure your InputItem looks like this in page.js
 function InputItem({ label, value, onChange, placeholder }) {
   return (

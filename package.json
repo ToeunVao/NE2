@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
+    "@paypal/react-paypal-js": "^9.1.0",
+    "@stripe/stripe-js": "^9.0.0",
     "canvas-confetti": "^1.9.4",
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
@@ -25,7 +27,8 @@
     "react-calendar": "^6.0.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.3",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "stripe": "^21.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

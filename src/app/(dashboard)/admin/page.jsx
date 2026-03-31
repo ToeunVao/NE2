@@ -224,6 +224,8 @@ filteredLiveEx.forEach(ex => {
         payout: totalPayout,
         checkPayout: checkPayoutValue,
         cashPayout: cashPayoutValue,
+        tips: staffTips,
+        checkRate: rawCheckSplit.toFixed(0),
         commRateDisplay: rawComm.toFixed(0), // <--- This fixes the 'undefined%'
         isCommPlusTips: isCommPlusTips,
         color: STAFF_BAR_COLORS[index % STAFF_BAR_COLORS.length]
@@ -261,6 +263,7 @@ let clientCounts = {};
     }).length
   };
 }, [serviceLogs, earningsData, staffList, overviewStart, overviewEnd, appointments]);
+
 useEffect(() => {
   //console.log("--- STARTING FIREBASE SYNC ---");
   setLoading(true);
@@ -820,8 +823,25 @@ const {
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-10">
             {/* Change staffPerformance.map to overviewStats.staffPerformance.map */}
 {overviewStats.staffPerformance.map((staff, idx) => (
-  <div key={idx} className="p-5 rounded-xl border border-gray-50 dark:border-slate-800 " style={{backgroundColor: `${staff.color}15`}}>
-    <h4 className="text-sm font-black mb-1" style={{color: staff.color}}>{staff.name}</h4>
+  <div 
+    key={idx} 
+    className="p-5 rounded-xl border border-gray-50 dark:border-slate-800 relative overflow-hidden transition-transform hover:scale-[1.02]" 
+    style={{backgroundColor: `${staff.color}15` || '#f8fafc'}}
+  >
+    {/* --- RANK BADGE (Top Right) --- */}
+    <div className="absolute top-3 right-3 flex items-center justify-center">
+      <div className={`
+        w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] shadow-sm border
+        ${idx === 0 ? 'bg-yellow-400 border-yellow-500 text-yellow-900 scale-110' : 
+          idx === 1 ? 'bg-slate-300 border-slate-400 text-slate-700' : 
+          idx === 2 ? 'bg-orange-300 border-orange-400 text-orange-900' : 
+          'bg-white/50 border-gray-200 text-gray-400 dark:bg-slate-800 dark:border-slate-700'}
+      `}>
+        {idx + 1}
+      </div>
+    </div>
+
+    <h4 className="text-sm font-black mb-1 pr-8" style={{color: staff.color}}>{staff.name}</h4>
     <p className="text-xl font-black text-gray-800 mb-4 dark:text-white">${staff.revenue.toFixed(2)}</p>
     
     <div className="space-y-1 dark:text-white">
@@ -829,8 +849,22 @@ const {
         label={`Total Payout (${staff.commRateDisplay}%)`} 
         value={staff.payout} 
       />
-      <PayoutRow label="Check" value={staff.checkPayout} />
+      <PayoutRow 
+  label={
+    <span>
+      Check <span className="opacity-60 font-medium">({staff.checkRate}%)</span>
+    </span>
+  } 
+  value={staff.checkPayout} 
+/>
       <PayoutRow label="Cash" value={staff.cashPayout} />
+      {/* --- NEW: TIPS ROW --- */}
+  <div className="pt-1 mt-1 border-t border-dashed border-gray-200 dark:border-slate-700">
+    <PayoutRow 
+      label="Total Tips" 
+      value={staff.tips} 
+    />
+  </div>
     </div>
   </div>
 ))}

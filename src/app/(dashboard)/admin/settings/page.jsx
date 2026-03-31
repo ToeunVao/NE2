@@ -33,9 +33,10 @@ export default function SettingsPage() {
     name: "Nails Express",
     address: "1560 Hustonville Rd #345, Danville, KY",
     phone: "859-123-4567",
+    venmoClientId: "",
     hours: DAYS.reduce((acc, day) => ({ 
         ...acc, 
-        [day]: { open: '09:00', close: '19:00', isClosed: false } 
+        [day]: { open: '09:00', close: '20:00', isClosed: false } 
     }), {})
   });
 
@@ -236,6 +237,21 @@ export default function SettingsPage() {
   </div>
 </div>
             </div>
+<div className="space-y-2 mt-4 pt-4 border-t border-gray-100">
+  <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+    Stripe Publishable Key
+  </label>
+  <input 
+    type="text" 
+    value={storeSettings.stripePublicKey || ""} 
+    onChange={(e) => setStoreSettings({...storeSettings, stripePublicKey: e.target.value})} 
+    placeholder="pk_live_..."
+    className="old-app-input border-indigo-100 focus:border-indigo-400"
+  />
+  <p className="text-[9px] text-gray-400 italic">
+    * Get this from Stripe Dashboard - Developers - API Keys.
+  </p>
+</div>
 
             {/* --- NEW LOGIN SECURITY SECTION --- */}
             <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm space-y-6">

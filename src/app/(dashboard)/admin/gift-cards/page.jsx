@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { 
   collection, onSnapshot, doc, deleteDoc, 
-  serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion, Timestamp
+  serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion, Timestamp, where, addDoc
 } from "firebase/firestore";
 import { useToast } from "@/context/ToastContext";
 // --- ASSETS ---
@@ -37,9 +37,17 @@ const [isEditingCode, setIsEditingCode] = useState(false);
 const [newCodeInput, setNewCodeInput] = useState("");
 // Add this near your other useState hooks
 // TO THIS:
-const [startDate, setStartDate] = useState(new Date().toLocaleDateString('en-CA'));
-const [endDate, setEndDate] = useState(new Date().toLocaleDateString('en-CA'));
-const [activeFilter, setActiveFilter] = useState('month'); // Default to month
+const [startDate, setStartDate] = useState(() => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
+});
+
+const [endDate, setEndDate] = useState(() => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
+});
+
+const [activeFilter, setActiveFilter] = useState('month');
   const [giftCards, setGiftCards] = useState([]);
 // 1. Add this state
   const [clients, setClients] = useState([]);
@@ -81,13 +89,32 @@ const [expUnit, setExpUnit] = useState('months');
     showFrom: true
   });
   // --- FIREBASE LISTENERS ---
-  useEffect(() => {
-    const q = query(collection(db, "gift_cards"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(q, (snap) => {
-      setGiftCards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
-  }, []);
+// --- FIREBASE LISTENERS ---
+useEffect(() => {
+  // 1. Guard: Don't run if dates are missing
+  if (!startDate || !endDate) return;
+
+  // 2. Convert strings to Firestore Timestamps
+  const startTS = Timestamp.fromDate(new Date(startDate + "T00:00:00"));
+  const endTS = Timestamp.fromDate(new Date(endDate + "T23:59:59"));
+
+  // 3. Create the filtered query
+  const q = query(
+    collection(db, "gift_cards"),
+    where("createdAt", ">=", startTS),
+    where("createdAt", "<=", endTS),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsub = onSnapshot(q, (snap) => {
+    setGiftCards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, (error) => {
+    console.error("Firebase Filter Error:", error);
+    // If you see an index error in the console, click the provided link to fix it.
+  });
+
+  return () => unsub();
+}, [startDate, endDate]); // <--- This array ensures it runs on load
 
   
   const filteredCards = useMemo(() => {
@@ -842,9 +869,15 @@ const handleDelete = async (id) => {
     )}
 </td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-xl text-[9px] uppercase ${card.balance > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {card.balance > 0 ? 'Active' : 'Empty'}
-                    </span>
+                   <span className={`px-2 py-1 text-[10px] font-black ${
+  card.status === 'active' 
+    ? 'bg-green-50 text-green-700 border-green-200' 
+    : card.status === 'pending_payment'
+    ? 'bg-amber-50 text-amber-600 border-amber-200 animate-pulse'
+    : 'text-green-600 '
+}`}>
+  {card.status === 'pending_payment' ? '⏳ Waiting Payment' : card.status || 'Active'}
+</span>
                   </td>
                   <td className="px-6 py-4 text-center space-x-3">
                    <button 

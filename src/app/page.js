@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { loadStripe } from '@stripe/stripe-js';
 import { 
   getDoc, getDocs, doc,
   collection, 
@@ -25,6 +26,7 @@ import {
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
+
 const promotions = [
   { id: 1, category: "Special", title: "New Client Gel", description: "First time visit special for full set gel.", price: "45" },
   { id: 2, category: "Spa", title: "Luxury Pedi", description: "Organic scrub and extended massage.", price: "60" }
@@ -33,6 +35,7 @@ const promotions = [
 export default function HomePage() {
   const { showToast } = useToast();
   const router = useRouter();
+const [stripePublicKey, setStripePublicKey] = useState("");
   // Add these for Tracking
 const [trackCode, setTrackCode] = useState("");
 const [trackResult, setTrackResult] = useState(null);
@@ -58,6 +61,102 @@ const [users, setUsers] = useState([]);
 const [storeSettings, setStoreSettings] = useState(null);
 const [blockedDates, setBlockedDates] = useState([]);
 const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+
+useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const snap = await getDoc(doc(db, "settings", "store_info"));
+        if (snap.exists()) {
+          setStripePublicKey(snap.data().stripePublicKey);
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  
+const handleStripeCheckout = async () => {
+  // --- 1. VALIDATION ---
+  // Ensure giftAmount is treated as a number
+  const numericAmount = parseFloat(giftAmount);
+
+  if (!numericAmount || numericAmount <= 0) {
+    showToast("Please enter a valid amount", "error");
+    return;
+  }
+
+  if (!giftData.toName || !giftData.fromName) {
+    showToast("Please fill in the To and From names", "error");
+    return;
+  }
+
+  setLoading(true);
+  try {
+  // --- GENERATE 6-DIGIT NUMERIC CODE ---
+    // Generates a random number between 100000 and 999999
+    const cardCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 1. Create the card in "Pending Payment" status
+    const newGiftCard = {
+      code: cardCode, // Now "123456" instead of "GC-123456" or "ABC123"
+      recipientName: giftData.toName || "Customer",
+      senderName: giftData.fromName || "Anonymous",
+      recipientEmail: giftData.toEmail || "",
+      message: giftData.message || "",
+      amount: Number(giftAmount),
+      balance: Number(giftAmount),
+      status: "pending_payment", 
+      isActivated: false,
+      isRead: false,
+      createdAt: serverTimestamp(),
+      origin: "online"
+    };
+    // Save to Firebase
+    const docRef = await addDoc(collection(db, "gift_cards"), newGiftCard);
+
+    // --- 3. CALL STRIPE API ---
+    const response = await fetch("/api/checkout_sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: numericAmount,
+        giftCardId: docRef.id,
+        recipientName: giftData.toName,
+        senderName: giftData.fromName
+      }),
+    });
+
+    const session = await response.json();
+
+    if (session.url) {
+      // Redirect to Stripe
+      window.location.href = session.url;
+    } else {
+      throw new Error(session.error || "Failed to create checkout session");
+    }
+
+  } catch (err) {
+    console.error("Checkout Error:", err);
+    showToast("Payment system is currently unavailable. Please try again.", "error");
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  // Check if the URL has ?payment=success
+  const queryParams = new URLSearchParams(window.location.search);
+  if (queryParams.get("payment") === "success") {
+    showToast("Payment Successful! Your Gift Card is now active.", "success");
+    
+    // Optional: Clear the URL so the toast doesn't show again on refresh
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}, []);
+
+
 
 useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -178,7 +277,7 @@ const [showDropdown, setShowDropdown] = useState(false); // To toggle results
 
 // Add these inside your HomePage function
 const [giftAmount, setGiftAmount] = useState(0);
-const [giftData, setGiftData] = useState({ toName: '', toEmail: '', message: '' });
+const [giftData, setGiftData] = useState({ toName: '', toEmail: '', fromName: '', message: '' });
 
 const handleGiftPurchase = async () => {
   try {
@@ -191,6 +290,7 @@ const handleGiftPurchase = async () => {
 const newGiftCard = {
       code: cardCode,
       recipientName: giftData.toName || "Customer",
+      senderName: giftData.fromName || "Anonymous",
       recipientEmail: giftData.toEmail,
       customerEmail: giftData.toEmail, 
       type: "Online",             
@@ -234,7 +334,7 @@ const newGiftCard = {
     // Reset Form
     setStep(1);
     setGiftAmount(0);
-    setGiftData({ toName: '', toEmail: '', message: '' });
+    setGiftData({ toName: '', toEmail: '', fromName: '', message: '' });
 
   } catch (error) {
     showToast("Failed to submit order. Please check your connection.", "error");
@@ -1009,11 +1109,16 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
     </div>
   )}
 </div>
+<InputItem 
+  label="Your Name (Sender)" 
+  value={giftData.fromName} 
+  onChange={(val) => setGiftData({ ...giftData, fromName: val })} 
+  placeholder="e.g. John Doe" 
+/>
+        <InputItem label="Recipient Name" placeholder="e.g. Jane Doe" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
+        <InputItem label="Recipient Email" placeholder="john.doe@example.com" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
 
-        <InputItem label="Recipient Name" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
-        <InputItem label="Recipient Email" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
-
-        {/* --- ADDED PAYMENT GUIDE BLOCK --- */}
+        {/* --- ADDED PAYMENT GUIDE BLOCK 
         <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-xl space-y-2">
           <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">How to Pay</h4>
           <p className="text-[11px] text-blue-700 leading-tight font-medium">
@@ -1023,14 +1128,26 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
             3. Your card will be activated once payment is confirmed.
           </p>
         </div>
-
-        <div className="pt-2 space-y-3">
-          <button onClick={handleGiftPurchase} disabled={!giftAmount || !giftData.toEmail}
-            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all ${
-              giftAmount && giftData.toEmail ? 'bg-[#d63384] text-white hover:bg-pink-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            }`}>Confirm & Submit Order</button>
-          <button onClick={() => setStep(1)} className="w-full text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest hover:text-gray-600">Cancel</button>
-        </div>
+--- */}
+       {/* Checkout Action Area */}
+<button 
+  onClick={handleStripeCheckout}
+  disabled={loading || !stripePublicKey}
+  className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all ${
+    loading || !stripePublicKey 
+      ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg active:scale-95'
+  }`}
+>
+  {loading ? (
+    <div className="flex items-center justify-center gap-2">
+      <Loader2 className="animate-spin w-5 h-5" />
+      <span>Processing...</span>
+    </div>
+  ) : (
+    <span>Pay with Card / Apple Pay</span>
+  )}
+</button>
       </div>
     </div>
   </div>
