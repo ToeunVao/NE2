@@ -18,35 +18,7 @@ import {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-const printStyles = `
-  @media print {
-    /* Hide everything except the table */
-    body * { visibility: hidden; }
-    #printable-table, #printable-table * { visibility: visible; }
-    
-    /* Position the table at the very top-left of the page */
-    #printable-table {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      color: black !important;
-      background: white !important;
-    }
 
-    /* Force background colors to print if user has settings enabled */
-    tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-    /* Remove shadows and rounded corners for a clean paper look */
-    .rounded-xl, .shadow-sm { border-radius: 0 !important; box-shadow: none !important; }
-
-    /* Ensure the table doesn't get cut off */
-    .overflow-x-auto { overflow: visible !important; }
-    
-    /* Hide specific columns */
-    .print-hide { display: none !important; }
-  }
-`;
 export default function SalonEarningPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -54,35 +26,7 @@ export default function SalonEarningPage() {
   const [staffList, setStaffList] = useState([]);
 const [earnings, setEarnings] = useState([]);
 const [staffEntries, setStaffEntries] = useState([]); // NEW: Stores auto-feed data
-// --- NEW: Global Date Range State ---
-  const [startDate, setStartDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
-  });
-  
-  const [endDate, setEndDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
-  });
-  
-  const [activeFilter, setActiveFilter] = useState('month');
-
-  const handleSetToday = () => {
-    const today = new Date().toLocaleDateString('en-CA');
-    setStartDate(today);
-    setEndDate(today);
-    setActiveFilter('today');
-  };
-
-  const handleSetMonth = () => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
-    setStartDate(firstDay);
-    setEndDate(lastDay);
-    setActiveFilter('month');
-  };
-
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
 // 1. Updated State (Line 31)
 const initialFormState = {
   date: new Date().toISOString().split('T')[0],
@@ -182,10 +126,9 @@ if (cleanName) {
 }, [staffEntries]);
 
   // --- NEW LOGIC: 2. Merge Financials + Staff Totals for the Table ---
-const mergedTableData = useMemo(() => {
-    // Filter dates to ensure they fall within the selected start and end range
-    const reportDates = earnings.filter(r => r.id >= startDate && r.id <= endDate).map(r => r.id);
-    const liveDates = Object.keys(dailyStaffTotals).filter(d => d >= startDate && d <= endDate);
+  const mergedTableData = useMemo(() => {
+    const reportDates = earnings.filter(r => r.id.startsWith(selectedMonth)).map(r => r.id);
+    const liveDates = Object.keys(dailyStaffTotals).filter(d => d.startsWith(selectedMonth));
     const allDates = [...new Set([...reportDates, ...liveDates])].sort((a, b) => b.localeCompare(a));
 
     return allDates.map(dateKey => {
@@ -245,7 +188,7 @@ totalCredit: parseFloat(report.total_credit) || parseFloat(report.totalCredit) |
         rawReport: report
       };
     });
-}, [earnings, dailyStaffTotals, startDate, endDate, staffList]);
+  }, [earnings, dailyStaffTotals, selectedMonth, staffList]);
 
   // --- NEW LOGIC: 3. Monthly Footer Totals ---
 const monthTotals = useMemo(() => {
@@ -274,14 +217,13 @@ const monthTotals = useMemo(() => {
       if (key && tipAmt > 0) {
         // We only sum tips that belong to the current selected month
         let entryDate = "";
-       // Extract full YYYY-MM-DD format for precise range checking
         if (entry.date?.seconds) {
-          entryDate = new Date(entry.date.seconds * 1000).toISOString().split('T')[0];
+          entryDate = new Date(entry.date.seconds * 1000).toISOString().slice(0, 7);
         } else if (typeof entry.date === 'string') {
-          entryDate = entry.date.split('T')[0];
+          entryDate = entry.date.slice(0, 7);
         }
 
-        if (entryDate >= startDate && entryDate <= endDate) {
+        if (entryDate === selectedMonth) {
           t.staffTips[key] = (t.staffTips[key] || 0) + tipAmt;
           t.totalTips += tipAmt;
         }
@@ -289,7 +231,7 @@ const monthTotals = useMemo(() => {
     });
 
     return t;
-}, [mergedTableData, staffList, staffEntries, startDate, endDate]);
+}, [mergedTableData, staffList, staffEntries, selectedMonth]);
   // Helper for Input Form Display
   const currentDayStaffTotals = dailyStaffTotals[formData.date] || {};
 
@@ -444,7 +386,7 @@ const totals = useMemo(() => {
   
   return (
     <div className="max-w-[98%] mx-auto space-y-6 pb-20 mt-6 font-sans">
-      <style>{printStyles}</style> {/* Add this line */}
+      
       {/* HEADER SECTION */}
 {/* HEADER */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex justify-between items-end">
@@ -559,73 +501,32 @@ const inputFields = [
 
       {/* DETAILED TABLE */}
  {/* TABLE SECTION - UPDATED TO OLD UI STYLE */}
-      <div id="printable-table" className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-       <div className="px-6 py-4 bg-gray-50/50 border-b flex flex-col md:flex-row justify-between items-center gap-4 border-gray-100">
-          <h2 className="text-xs font-black text-gray-800 uppercase tracking-widest">Financial History</h2>
-          {/* PRINT BUTTON */}
-  <button 
-    onClick={() => window.print()}
-    className="print:hidden flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase hover:bg-slate-700 transition-all shadow-sm"
-  >
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-    Print Report
-  </button>
-          {/* GLOBAL DATE FILTER */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button 
-              onClick={handleSetToday}
-              className={`print:hidden px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-                activeFilter === 'today' ? 'bg-pink-100 text-pink-600 border border-pink-200 shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              Today
-            </button>
-            <button 
-              onClick={handleSetMonth}
-              className={`print:hidden px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-                activeFilter === 'month' ? 'bg-pink-100 text-pink-600 border border-pink-200 shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              This Month
-            </button>
-            
-            {/* CUSTOM RANGE INPUTS */}
-            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm">
-              <input 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => { setStartDate(e.target.value); setActiveFilter('custom'); }}
-                className="text-[10px] font-bold text-gray-600 outline-none bg-transparent cursor-pointer"
-              />
-              <span className="text-gray-300 font-bold">-</span>
-              <input 
-                type="date" 
-                value={endDate} 
-                onChange={(e) => { setEndDate(e.target.value); setActiveFilter('custom'); }}
-                className="text-[10px] font-bold text-gray-600 outline-none bg-transparent cursor-pointer"
-              />
-            </div>
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="px-6 py-4 bg-gray-50/50 border-b flex justify-between items-center border-gray-100">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xs font-black text-gray-800 uppercase tracking-widest">Financial History</h2>
+            <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-white px-3 py-1 rounded-lg border text-xs font-bold" />
           </div>
         </div>
 
-        <div className="overflow-x-auto print:overflow-visible">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse whitespace-nowrap">
-            <thead className="bg-gray-50 print:text-black text-[10px] uppercase font-black text-gray-500 border-b border-gray-100">
+            <thead className="bg-gray-50 text-[10px] uppercase font-black text-gray-500 border-b border-gray-100">
   <tr>
     <th className="px-4 py-4 sticky left-0 bg-gray-50 z-10">Date</th>
     {/* Map through filtered staff */}
-    {staffList.map(s => <th key={s.id} className="px-3 py-4 text-center print:text-black">{s.name}</th>)}
-    <th className="px-3 py-4 text-center print:hidden">Sell GC</th>
-    <th className="px-3 py-4 text-center print:hidden">Rtn GC</th>
-    <th className="px-3 py-4 text-center print:hidden">Check</th>
-    <th className="px-3 py-4 text-center print:hidden">No Credit</th>
-    <th className="px-3 py-4 text-center print:hidden">Total Credit</th>
-    <th className="px-3 py-4 text-center font-black text-green-600 print:hidden">Total Cash</th>
-    <th className="px-3 py-4 text-center font-black text-gray-800 print:hidden">Total Revenue</th>
-    <th className="px-4 py-4 text-center sticky right-0 bg-gray-50 z-10 print:hidden">Action</th>
+    {staffList.map(s => <th key={s.id} className="px-3 py-4 text-center">{s.name}</th>)}
+    <th className="px-3 py-4 text-center">Sell GC</th>
+    <th className="px-3 py-4 text-center">Rtn GC</th>
+    <th className="px-3 py-4 text-center">Check</th>
+    <th className="px-3 py-4 text-center">No Credit</th>
+    <th className="px-3 py-4 text-center">Total Credit</th>
+    <th className="px-3 py-4 text-center font-black text-green-600">Total Cash</th>
+    <th className="px-3 py-4 text-center font-black text-gray-800">Total Revenue</th>
+    <th className="px-4 py-4 text-center sticky right-0 bg-gray-50 z-10">Action</th>
   </tr>
 </thead>
-<tbody className="divide-y divide-gray-100 text-[11px] font-bold text-gray-600 print:text-black">
+<tbody className="divide-y divide-gray-100 text-[11px] font-bold text-gray-600">
   {mergedTableData.map((day) => (
     <tr key={day.id} className={day.isMissingReport ? "bg-orange-50/40" : "hover:bg-gray-50"}>
       {/* Date Column */}
@@ -657,17 +558,17 @@ const inputFields = [
 })}
 
       {/* Financial Columns */}
-      <td className="px-3 py-4 text-center text-pink-500 print:hidden">${day.sellGC.toFixed(2)}</td>
-      <td className="px-3 py-4 text-center text-red-400 print:hidden">${day.returnGC.toFixed(2)}</td>
-      <td className="px-3 py-4 text-center text-gray-500 print:hidden">${day.check.toFixed(2)}</td>
-      <td className="px-3 py-4 text-center text-blue-500 print:hidden">{day.noCredit}</td>
-      <td className="px-3 py-4 text-center text-gray-500 print:hidden">${day.totalCredit.toFixed(2)}</td>
-
-      <td className="px-3 py-4 text-center bg-green-50/30 text-green-700 font-black print:hidden">${day.totalCash.toFixed(2)}</td>
-      <td className="px-3 py-4 text-center font-black text-gray-800 print:hidden">${day.totalRevenue.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-pink-500">${day.sellGC.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-red-400">${day.returnGC.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-gray-500">${day.check.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center text-blue-500">{day.noCredit}</td>
+      <td className="px-3 py-4 text-center text-gray-500">${day.totalCredit.toFixed(2)}</td>
+      
+      <td className="px-3 py-4 text-center bg-green-50/30 text-green-700 font-black">${day.totalCash.toFixed(2)}</td>
+      <td className="px-3 py-4 text-center font-black text-gray-800">${day.totalRevenue.toFixed(2)}</td>
 
       {/* Actions */}
-      <td className="px-4 py-4 text-center sticky right-0 bg-white border-l border-gray-100 print:hidden">
+      <td className="px-4 py-4 text-center sticky right-0 bg-white border-l border-gray-100">
        <button 
   onClick={() => handleEdit(day.rawReport)} 
   className="text-blue-500 mr-3 hover:scale-110"
@@ -679,10 +580,10 @@ const inputFields = [
     </tr>
   ))}
 </tbody>
-<tfoot className="bg-slate-900 text-white text-[10px] font-black uppercase ">
+<tfoot className="bg-slate-900 text-white text-[10px] font-black uppercase">
   {/* ROW 1: MONTHLY TOTAL PER STAFF */}
-  <tr className="bg-slate-900 text-white border-b border-slate-700 ">
-    <td className="px-4 py-4 border-r border-slate-700 sticky left-0 bg-slate-900 z-10 ">Monthly Total</td>
+  <tr className="bg-slate-900 text-white border-b border-slate-700">
+    <td className="px-4 py-4 border-r border-slate-700 sticky left-0 bg-slate-900 z-10">Monthly Total</td>
     {staffList.map(s => {
       const lowerName = s.name.trim().toLowerCase();
       const total = monthTotals.staff[lowerName] || 0;
@@ -692,10 +593,10 @@ const inputFields = [
         </td>
       );
     })}
-    <td className="px-3 py-4 text-center text-pink-400 print:hidden">${monthTotals.gc.toFixed(2)}</td>
-    <td className="print:hidden" colSpan={4}></td>
-    <td className="px-3 py-4 text-center text-green-400 font-black print:hidden">${monthTotals.cash.toFixed(2)}</td>
-    <td className="px-3 py-4 text-center text-white font-black print:hidden">${monthTotals.revenue.toFixed(2)}</td>
+    <td className="px-3 py-4 text-center text-pink-400">${monthTotals.gc.toFixed(2)}</td>
+    <td colSpan={4}></td>
+    <td className="px-3 py-4 text-center text-green-400 font-black">${monthTotals.cash.toFixed(2)}</td>
+    <td className="px-3 py-4 text-center text-white font-black">${monthTotals.revenue.toFixed(2)}</td>
     <td></td>
   </tr>
 
@@ -712,7 +613,7 @@ const inputFields = [
         </td>
       );
     })}
-    <td colSpan={8} className="bg-indigo-900/10 print:hidden"></td>
+    <td colSpan={8} className="bg-indigo-900/10"></td>
   </tr>
 
   {/* ROW 3: CHECK PAYOUT (70%) */}
@@ -730,7 +631,7 @@ const inputFields = [
         </td>
       );
     })}
-    <td colSpan={8} className="print:hidden"></td>
+    <td colSpan={8}></td>
   </tr>
 
 {/* ROW 4: CASH PAYOUT (30% + TIPS) */}
@@ -764,7 +665,7 @@ const inputFields = [
       </td>
     );
   })}
-  <td colSpan={8} className="print:hidden"></td>
+  <td colSpan={8}></td>
 </tr>
 </tfoot>
 
