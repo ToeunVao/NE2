@@ -1070,9 +1070,22 @@ const handleSlotSelection = (selectedDate, selectedTech) => {
 
 {/* GIFT CARD MODAL */}
 {step === 'giftcard' && (
-  <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100">
-      <div className="bg-[#d63384] p-6 text-center">
+ <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setStep(null)}>
+    {/* 1. Added 'relative' here so the 'absolute' button stays inside this box */}
+    <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100 relative" onClick={(e) => e.stopPropagation()}>
+      
+      {/* 2. The "X" Button positioned absolutely to the top-right */}
+      <button 
+        onClick={() => setStep(null)} 
+        className="absolute top-3 right-3 text-white/50 hover:text-white transition-colors z-[120] p-2"
+        aria-label="Close"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+       <div className="bg-[#d63384] p-6 text-center">
+        
         <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Purchase Gift Card</h2>
         <p className="text-pink-100 text-[10px] font-bold uppercase tracking-widest mt-1">Order Online • Pay to Activate</p>
       </div>
