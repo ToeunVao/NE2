@@ -124,7 +124,7 @@ const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
   const [user, setUser] = useState(null);
   const [cards, setCards] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   
   // Modals/Steps
   const [step, setStep] = useState(null); // 'giftcard' or null
@@ -280,6 +280,42 @@ const handleGiftPurchase = async () => {
   }
 };
 
+const handleStripeCheckout = async () => {
+  // 1. Safety check: Ensure we have the data before sending
+  if (!giftAmount || !giftData.toEmail) {
+    alert("Please fill in the recipient email and amount.");
+    return;
+  }
+  
+  setLoading(true);
+  try {
+    const response = await fetch('/api/checkout_sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: giftAmount,
+        type: 'giftcard',
+        // 2. We use || to handle both "senderName" or "fromName" just in case
+        senderName: giftData.senderName || giftData.fromName || "Valued Customer",
+        toName: giftData.toName || "Recipient",
+        toEmail: giftData.toEmail,
+      }),
+    });
+
+    const session = await response.json();
+    
+    if (session.url) {
+      window.location.href = session.url;
+    } else {
+      console.error("Stripe Session Error:", session);
+    }
+  } catch (error) {
+    console.error("Connection Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
   if (loading) return <div className="p-20 text-center font-black text-pink-500 uppercase tracking-widest animate-pulse">Loading Wallet...</div>;
 
   return (
@@ -393,74 +429,113 @@ const handleGiftPurchase = async () => {
     </div>
   </div>
 )}
-      {/* GIFT CARD PURCHASE MODAL */}
-      {step === 'giftcard' && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100">
-            <div className="bg-[#d63384] p-6 text-center">
-              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Purchase Gift Card</h2>
-              <p className="text-pink-100 text-[10px] font-bold uppercase tracking-widest mt-1">Order Online • Pay to Activate</p>
-            </div>
+{/* GIFT CARD PURCHASE MODAL */}
+{step === 'giftcard' && (
+  <div 
+    className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in"
+    onClick={() => setStep(null)}
+  >
+    <div 
+      className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden border border-gray-100 relative"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* THE "X" CLOSE BUTTON */}
+      <button 
+        onClick={() => setStep(null)} 
+        className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-[120]"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
 
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Select Amount</label>
-                <div className="grid grid-cols-5 gap-2">
-                  {[25, 50, 100, 200].map((amt) => (
-                    <button key={amt} onClick={() => setGiftAmount(amt)}
-                      className={`py-3 rounded-xl border-2 font-black text-sm transition-all ${
-                        giftAmount === amt ? 'border-[#d63384] bg-pink-50 text-[#d63384]' : 'border-gray-50 bg-gray-50 text-gray-400'
-                      }`}>${amt}</button>
-                  ))}
-                  <button 
-                    onClick={() => setGiftAmount('custom')}
-                    className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${
-                      giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)
-                        ? 'border-[#d63384] bg-pink-50 text-[#d63384]' 
-                        : 'border-gray-50 bg-gray-50 text-gray-400'
-                    }`}>Custom</button>
-                </div>
+      {/* HEADER */}
+      <div className="bg-[#d63384] p-6 text-center">
+        <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Purchase Gift Card</h2>
+        <p className="text-pink-100 text-[10px] font-bold uppercase tracking-widest mt-1">Instant Digital Delivery • Secure Checkout</p>
+      </div>
 
-                {(giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)) && (
-                  <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
-                    <input 
-                      type="number"
-                      placeholder="Enter custom amount ($)"
-                      onChange={(e) => setGiftAmount(Number(e.target.value))}
-                      className="w-full p-4 bg-pink-50 border border-pink-100 rounded-xl outline-none focus:ring-2 focus:ring-[#d63384] font-bold text-[#d63384]"
-                    />
-                  </div>
-                )}
-              </div>
-<div className="grid grid-cols-2 gap-4">
-  <InputItem label="Sender Name" value={giftData.senderName} onChange={(val) => setGiftData({...giftData, senderName: val})} />
-  <InputItem label="Recipient Name" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
-</div>
- <InputItem label="Recipient Email" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
-
-              <div className="p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-xl space-y-2">
-                <h4 className="text-[10px] font-black text-blue-800 uppercase tracking-widest">How to Pay</h4>
-                <p className="text-[11px] text-blue-700 leading-tight font-medium">
-                  1. Submit this order to generate your code.<br/>
-                  2. Please send payment to our Venmo <br/>
-                  <span className="font-black text-blue-900 underline">@nailsexpress or Call us (859) 236-2873</span><br/>
-                  3. Your card will be activated once payment is confirmed.
-                </p>
-              </div>
-
-              <div className="pt-2 space-y-3">
-                <button 
-                  onClick={handleGiftPurchase} 
-                  disabled={!giftAmount || !giftData.toEmail}
-                  className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all ${
-                    giftAmount && giftData.toEmail ? 'bg-[#d63384] text-white hover:bg-pink-700' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  }`}>Confirm & Submit Order</button>
-                <button onClick={() => setStep(null)} className="w-full text-center text-gray-400 font-bold uppercase text-[10px] tracking-widest hover:text-gray-600">Cancel</button>
-              </div>
-            </div>
+      <div className="p-6 space-y-5">
+        {/* AMOUNT SELECTION */}
+        <div>
+          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Select Amount</label>
+          <div className="grid grid-cols-5 gap-2">
+            {[25, 50, 100, 200].map((amt) => (
+              <button 
+                key={amt} 
+                onClick={() => setGiftAmount(amt)}
+                className={`py-3 rounded-xl border-2 font-black text-sm transition-all ${
+                  giftAmount === amt ? 'border-[#d63384] bg-pink-50 text-[#d63384]' : 'border-gray-50 bg-gray-50 text-gray-400'
+                }`}
+              >
+                ${amt}
+              </button>
+            ))}
+            <button 
+              onClick={() => setGiftAmount('custom')}
+              className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${
+                giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)
+                  ? 'border-[#d63384] bg-pink-50 text-[#d63384]' 
+                  : 'border-gray-50 bg-gray-50 text-gray-400'
+              }`}
+            >
+              Custom
+            </button>
           </div>
+
+          {/* CUSTOM INPUT */}
+          {(giftAmount === 'custom' || (![25, 50, 100, 200].includes(giftAmount) && giftAmount > 0)) && (
+            <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
+              <input 
+                type="number"
+                placeholder="Enter custom amount ($)"
+                onChange={(e) => setGiftAmount(Number(e.target.value))}
+                className="w-full p-4 bg-pink-50 border border-pink-100 rounded-xl outline-none focus:ring-2 focus:ring-[#d63384] font-bold text-[#d63384]"
+              />
+            </div>
+          )}
         </div>
-      )}
+
+        {/* INPUT FIELDS */}
+        <div className="grid grid-cols-2 gap-4">
+          <InputItem label="Sender Name" value={giftData.senderName} onChange={(val) => setGiftData({...giftData, senderName: val})} />
+          <InputItem label="Recipient Name" value={giftData.toName} onChange={(val) => setGiftData({...giftData, toName: val})} />
+        </div>
+        <InputItem label="Recipient Email" value={giftData.toEmail} onChange={(val) => setGiftData({...giftData, toEmail: val})} />
+
+        {/* STRIPE PAYMENT BUTTON */}
+        <div className="pt-2">
+          <button 
+            onClick={handleStripeCheckout} 
+            disabled={loading || !giftAmount || !giftData.toEmail}
+            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg transition-all flex items-center justify-center gap-2 ${
+              !loading && giftAmount && giftData.toEmail 
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Processing...</span>
+              </>
+            ) : (
+              <span>Pay with Card / Apple Pay</span>
+            )}
+          </button>
+          
+          <p className="text-center mt-4 text-[9px] text-gray-400 font-bold uppercase tracking-widest">
+            🔒 Secure Payment via Stripe
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
