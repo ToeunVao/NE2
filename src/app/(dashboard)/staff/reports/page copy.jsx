@@ -54,7 +54,7 @@ setUserProfile(profileData);
 
     const updateCombinedLogs = () => {
       // Merge maps: Live data takes priority over Excel data for the same day
-      const combinedMap = liveMap;
+      const combinedMap = { ...excelMap, ...liveMap };
       const finalArray = Object.values(combinedMap).filter(log => log.year === selectedYear);
       
       setAllLogs(finalArray);
@@ -98,7 +98,7 @@ setUserProfile(profileData);
           let dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
           if (isNaN(dObj.getTime())) return;
 
-         const dateKey = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+          const dateKey = dObj.toISOString().split('T')[0];
           
           // If multiple entries exist for one day in 'earnings', we sum them
           const currentAmount = liveMap[dateKey]?.amount || 0;
