@@ -85,73 +85,58 @@ setStaffSettings({
     const lowerName = exactName.toLowerCase();
 
     let liveMap = {};
-    let excelMap = {};
 
 const updateLogs = () => {
-      // 1. Get arrays of all data
-      const excelEntries = Object.values(excelMap);
-      const liveEntries = Object.values(liveMap);
+  // Now we only pull from the liveMap we just filtered
+  const liveEntries = Object.values(liveMap);
 
-      // 2. Filter: Only keep Excel entries IF there is NO live entry for that same date
-      const uniqueExcel = excelEntries.filter(excel => {
-        const hasLive = liveEntries.some(live => live.dateStr === excel.dateStr);
-        return !hasLive; 
-      });
+  // Sort by date: Newest at the top
+  liveEntries.sort((a, b) => {
+    const dateA = new Date(a.year, a.month, a.day);
+    const dateB = new Date(b.year, b.month, b.day);
+    return dateB - dateA;
+  });
 
-      // 3. Set the merged result
-      setAllLogs([...uniqueExcel, ...liveEntries]); 
-      setLoading(false);
-    };
+  setAllLogs(liveEntries); 
+  setLoading(false);
+};
+// B. LIVE APP DATA LISTENER
+const liveRef = collection(db, "earnings");
 
-    // Excel Data (salon_earnings)
-    unsubExcel = onSnapshot(collection(db, "salon_earnings"), (snap) => {
-      excelMap = {};
-      snap.forEach(doc => {
-        const [y, m, d] = doc.id.split('-').map(Number);
-        const data = doc.data();
-        let val = parseFloat(String(data[exactName] || data[lowerName] || 0).replace(/[$,]/g, ""));
-        if (val > 0) {
-          excelMap[doc.id] = { 
-            id: doc.id,
-            earning: val, 
-            tip: 0, 
-            day: d, 
-            month: m - 1, 
-            year: y,
-            dateLabel: `${m}/${d}/${y}`,
-            dateStr: `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-            service: "Excel Import" 
-          };
-        }
-      });
-      updateLogs();
-    });
+// We fetch earnings, but we will filter them in Javascript to handle the space issue
+unsubLive = onSnapshot(liveRef, (snapshot) => {
+  liveMap = {}; 
+  
+  // Create a "Clean" version of the name to compare against
+  const cleanTargetName = exactName.trim().toLowerCase();
 
-    // Live Data (earnings)
-// Live Data (earnings)
-unsubLive = onSnapshot(query(collection(db, "earnings"), where("staffName", "==", exactName)), (snap) => {
-  const newLogs = []; // Use an array instead of a map
-  snap.forEach(doc => {
+  snapshot.docs.forEach((doc) => {
     const data = doc.data();
-    const dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
-    
-    newLogs.push({
-      id: doc.id,
-      earning: parseFloat(data.earning || data.earnings) || 0,
-      tip: parseFloat(data.tip || data.tips) || 0,
-      day: dObj.getDate(),
-      month: dObj.getMonth(),
-      year: dObj.getFullYear(),
-      dateLabel: `${dObj.getMonth() + 1}/${dObj.getDate()}/${dObj.getFullYear()}`,
-      dateStr: dObj.toISOString().split('T')[0],
-      service: data.service || "Standard",
-      source: "live" // Tag for filtering
-    });
+    const dbName = (data.staffName || "").trim().toLowerCase();
+
+    // Check if names match, ignoring spaces and BIG/small letters
+    if (dbName === cleanTargetName) {
+      let dObj = data.date?.toDate ? data.date.toDate() : new Date(data.date);
+      if (isNaN(dObj.getTime())) return;
+
+      const dateKey = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+      
+      liveMap[doc.id] = {
+        id: doc.id,
+        year: dObj.getFullYear(),
+        month: dObj.getMonth(),
+        day: dObj.getDate(),
+        dateStr: dateKey,
+        earning: Number(data.earning || data.earnings || 0),
+        tip: Number(data.tip || data.tips || 0),
+        clientName: data.clientName || "Walk-in",
+        service: data.service || "Standard",
+        source: 'live'
+      };
+    }
   });
   
-  // Merge with Excel data
-  setAllLogs([...Object.values(excelMap), ...newLogs]);
-  setLoading(false);
+  updateLogs(); 
 });
   });
 
@@ -527,22 +512,26 @@ useEffect(() => {
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-50">
-        {filteredData.slice(0, visibleCount).map((log, index) => {
-          // Date Formatting: YYYY-MM-DD -> MM/DD/YYYY
-          const d = log.dateStr ? log.dateStr.split('-') : [];
-          const formattedDate = d.length === 3 ? `${d[1]}/${d[2]}/${d[0]}` : "N/A";
+    {filteredData.slice(0, visibleCount).map((log, index) => {
+  const d = log.dateStr ? log.dateStr.split('-') : [];
+  const formattedDate = d.length === 3 ? `${d[1]}/${d[2]}/${d[0]}` : "N/A";
 
-          return (
-            <tr key={log.id || index} className="hover:bg-pink-50/50 transition-colors">
-              <td className="px-6 py-4 text-gray-400 font-bold">{index + 1}</td>
-              <td className="px-6 py-4 text-gray-500 font-medium">{formattedDate}</td>
-              <td className="px-6 py-4 font-black text-gray-800">{log.clientName || "Walk-in"}</td>
-              <td className="px-6 py-4 text-gray-600 truncate max-w-[120px]">{log.serviceName || "Service"}</td>
-              <td className="px-6 py-4 text-right font-black text-purple-600">${Number(log.earning || 0).toFixed(2)}</td>
-              <td className="px-6 py-4 text-right font-black text-orange-500">${Number(log.tip || 0).toFixed(2)}</td>
-            </tr>
-          );
-        })}
+  return (
+    <tr key={log.id || index} className="hover:bg-pink-50/50 transition-colors">
+      <td className="px-6 py-4 text-gray-400 font-bold">{index + 1}</td>
+      <td className="px-6 py-4 text-gray-500 font-medium">{formattedDate}</td>
+      {/* Use the specific clientName from the log entry */}
+      <td className="px-6 py-4 font-black text-gray-800">{log.clientName || "Walk-in"}</td>
+      <td className="px-6 py-4 text-gray-600 truncate max-w-[120px]">{log.service || "Service"}</td>
+      <td className="px-6 py-4 text-right font-black text-purple-600">
+        ${Number(log.earning || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </td>
+      <td className="px-6 py-4 text-right font-black text-orange-500">
+        ${Number(log.tip || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      </td>
+    </tr>
+  );
+})}
       </tbody>
     </table>
   </div>
