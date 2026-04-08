@@ -42,7 +42,7 @@ useEffect(() => {
           setAuthorized(true);
         } else {
           // If the user is a client, send them to the client dashboard
-          showToast("Access Denied: Staff Only Area", "error");
+          //showToast("Access Denied: Staff Only Area", "error");
           router.push("/client/dashboard");
         }
       } catch (error) {
@@ -63,7 +63,7 @@ useEffect(() => {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 animate-spin text-pink-600" />
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">
-            Verifying Credentials
+           Opening Salon...
           </p>
         </div>
       </div>

@@ -148,11 +148,16 @@ useEffect(() => {
 }, [startDate, endDate]);
 // Add this before your 'filteredData' definition
 const processedLogs = useMemo(() => {
+  const seenIds = new Set();
   return allLogs.filter(log => {
-    // If it's Excel, check if a Live entry exists for the same date
-    if (log.service === "Excel Import") {
+    // 1. Skip if we've already processed this specific Firestore ID
+    if (seenIds.has(log.id)) return false;
+    seenIds.add(log.id);
+
+    // 2. Original Excel vs Live logic
+    if (log.service === "Excel Import" || log.source === "excel") {
       const hasLive = allLogs.some(l => l.dateStr === log.dateStr && l.source === "live");
-      return !hasLive; // Hide Excel row if Live data exists
+      return !hasLive;
     }
     return true;
   });
@@ -228,9 +233,8 @@ const totalEarning = filteredData.reduce((sum, log) => sum + (Number(log.earning
     log.bookingId || log.type === "booking" || log.source === "dashboard" || log.source === "online"
   ).length;
 
-  const uniqueClients = new Set(filteredData.map(log => 
-    (log.clientName || log.id).toString().toLowerCase().trim()
-  )).size;
+// This counts every individual service/row as a client
+const uniqueClients = filteredData.length;
 
   // 2. CALCULATE TOP DAY EARNING (Uses filteredData)
   const dailyEarnings = {};
