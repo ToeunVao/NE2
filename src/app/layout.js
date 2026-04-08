@@ -21,8 +21,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Nails Express - Management System",
-  description: "A management system for Nails Express salon.",
+  title: "Nails Express – Beauty at Your Fingertips",
+  description: "At Nails Express, we deliver high-quality nail care with precision, style, and speed. From classic manicures to trendy nail art, our skilled technicians are dedicated to helping you look and feel your best in a relaxing, hygienic environment. Whether you're preparing for a special occasion or treating yourself, Nails Express is your go-to destination for flawless nails.",
   // ADD THIS: This helps browsers recognize it's a PWA
   manifest: "/manifest.json", 
 };

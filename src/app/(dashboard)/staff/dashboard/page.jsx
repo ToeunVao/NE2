@@ -32,6 +32,19 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 export default function StaffPersonalDashboard() {
+  // Helper to get today's date in YYYY-MM-DD format
+const getDefaultDailyDate = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // Returns today as YYYY-MM-DD
+  };
+  const formatDateForDisplay = (dateStr) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${month}/${day}/${year}`;
+  };
   const [allLogs, setAllLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 const [realName, setRealName] = useState("");
@@ -57,9 +70,10 @@ const [visibleCount, setVisibleCount] = useState(5); // Start with 5 rows
   const { firstDay: initialStart, today: initialEnd } = getMonthDefaults();
 
   // --- STATE ---
-  const [startDate, setStartDate] = useState(initialStart);
+const [startDate, setStartDate] = useState(initialStart);
   const [endDate, setEndDate] = useState(initialEnd);
   // Defaulting to "thisMonth" behavior
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("thisMonth");
 
 useEffect(() => {
@@ -299,26 +313,81 @@ useEffect(() => {
           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Welcome {realName} !</p>
         </div>
 
+
         {/* --- DATE FILTER BAR (MATCHES IMAGE) --- */}
         <div className="flex flex-wrap items-center gap-3 dark:bg-slate-900/80 dark:text-white dark:border-slate-800 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 px-2">
-            <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
-            <input 
-              type="date" 
-              value={startDate} 
-              onChange={e => { setStartDate(e.target.value); setActiveFilter('custom'); }} 
-              className="bg-gray-50 dark:bg-slate-950 dark:text-white dark:border-slate-800 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-            />
+         
+         <div className="flex items-center gap-2">
+          <div className="relative">
+            <button 
+              onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+              className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 rounded-xl px-4 py-2.5 text-xs font-black uppercase text-gray-700 dark:text-white shadow-sm"
+            >
+              <Calendar size={14} className="text-pink-500" />
+             {startDate === endDate 
+  ? `Daily: ${formatDateForDisplay(startDate)}` 
+  : `Range: ${formatDateForDisplay(startDate)} - ${formatDateForDisplay(endDate)}`}
+            </button>
+
+      {isFilterMenuOpen && (
+  <>
+    {/* 1. THE BACKDROP: Invisible fixed layer to catch clicks outside the menu */}
+    <div 
+      className="fixed inset-0 z-[40]" 
+      onClick={() => setIsFilterMenuOpen(false)}
+    />
+
+    {/* 2. THE MENU BOX: Higher z-index than the backdrop to stay clickable */}
+    <div className="absolute right-0 top-12 w-[300px] bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-2xl p-5 z-[50]">
+      <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+        Pick a Date (Daily)
+      </label>
+      <input 
+        type="date" 
+        value={startDate === endDate ? startDate : getDefaultDailyDate()}
+        onChange={(e) => {
+          const newDate = e.target.value;
+          setStartDate(newDate);
+          setEndDate(newDate);
+        }}
+        className="w-full bg-gray-50 dark:bg-slate-950 dark:text-white border border-gray-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-bold mb-4 outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+      />
+
+      <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+        Or Custom Range
+      </label>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-gray-400 uppercase">From</span>
+          <input 
+            type="date" 
+            value={startDate} 
+            onChange={e => setStartDate(e.target.value)} 
+            className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+          />
+        </div>
+        <div className="space-y-1">
+          <span className="text-[8px] font-bold text-gray-400 uppercase">To</span>
+          <input 
+            type="date" 
+            value={endDate} 
+            onChange={e => setEndDate(e.target.value)} 
+            className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+          />
+        </div>
+      </div>
+{/*--
+      <button 
+        onClick={() => setIsFilterMenuOpen(false)}
+        className="w-full mt-5 bg-pink-600 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-lg hover:bg-pink-700 transition-colors"
+      >
+        Apply Filter
+      </button>*/}
+    </div>
+  </>
+)}
           </div>
-          <div className="flex items-center gap-2 px-2 border-l border-gray-100 dark:border-slate-800">
-            <span className="text-[10px] font-black uppercase text-gray-400">To:</span>
-            <input 
-              type="date" 
-              value={endDate} 
-              onChange={e => { setEndDate(e.target.value); setActiveFilter('custom'); }} 
-              className="bg-gray-50 dark:bg-slate-950 dark:text-white dark:border-slate-800 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-            />
-          </div>
+        </div>
           
           {/* SHORTCUT BUTTONS */}
           <div className="flex gap-1 pl-2 border-l border-gray-100 dark:border-slate-800">

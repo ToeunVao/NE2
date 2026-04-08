@@ -27,11 +27,6 @@ import {
 import { useRouter } from "next/navigation";
 
 
-const promotions = [
-  { id: 1, category: "Special", title: "New Client Gel", description: "First time visit special for full set gel.", price: "45" },
-  { id: 2, category: "Spa", title: "Luxury Pedi", description: "Organic scrub and extended massage.", price: "60" }
-];
-
 export default function HomePage() {
   const { showToast } = useToast();
   const router = useRouter();
