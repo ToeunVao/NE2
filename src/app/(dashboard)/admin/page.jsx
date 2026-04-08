@@ -7,7 +7,7 @@ import {
   collection, onSnapshot, query, orderBy, where, 
   doc, updateDoc, addDoc, setDoc, deleteDoc, Timestamp, collectionGroup, serverTimestamp 
 } from "firebase/firestore";
-// ... other imports
+import { Calendar } from "lucide-react";
 import { 
   AreaChart, 
   Area, 
@@ -74,6 +74,7 @@ const getLocalDate = () => {
 
   const [overviewStart, setOverviewStart] = useState(initialFirstDay); 
   const [overviewEnd, setOverviewEnd] = useState(initialToday);
+  const [isOverviewMenuOpen, setIsOverviewMenuOpen] = useState(false);
 const formRef = useRef(null);
 const [showAllRows, setShowAllRows] = useState(false);
   // --- NEW STATES FOR FILTERED TABLE ---
@@ -90,7 +91,18 @@ const formatDisplayDate = (dateStr) => {
 
 const [startDate, setStartDate] = useState(todayStr);
 const [endDate, setEndDate] = useState(todayStr);
+// --- NEW STATES FOR DROPDOWN MENU ---
+const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+const [activeFilter, setActiveFilter] = useState("today");
 
+const getDefaultDailyDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+// ------------------------------------
 const [newEarning, setNewEarning] = useState({
   id: null, // NEW: Tracks if we are editing
   date: getLocalDate(),
@@ -642,51 +654,108 @@ const {
     <p className="text-xs text-gray-400 font-bold uppercase">Performance Metrics</p>
   </div>
 
-  {/* DATE PICKER FOR CARDS/GRAPH */}
-  <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
-    <div className="flex items-center gap-2 px-2">
-      <span className="text-[10px] font-black uppercase text-gray-400">From:</span>
-      <input 
-        type="date" 
-        value={overviewStart} 
-        onChange={e => setOverviewStart(e.target.value)} 
-        className="dark:bg-slate-950 dark:text-white bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-      />
+{/* DATE PICKER FOR CARDS/GRAPH - NEW DROPDOWN STYLE */}
+<div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm dark:bg-slate-900/80 dark:border-slate-800 dark:text-white relative">
+  <div className="flex items-center gap-2">
+    <div className="relative">
+      <button 
+        onClick={() => setIsOverviewMenuOpen(!isOverviewMenuOpen)}
+        className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-2 text-xs font-black uppercase text-gray-700 dark:text-white shadow-sm"
+      >
+        <Calendar size={14} className="text-pink-500" />
+        {overviewStart === overviewEnd 
+          ? `Daily: ${formatDisplayDate(overviewStart)}` 
+          : `Range: ${formatDisplayDate(overviewStart)} - ${formatDisplayDate(overviewEnd)}`}
+      </button>
+
+      {isOverviewMenuOpen && (
+        <>
+          {/* BACKDROP */}
+          <div 
+            className="fixed inset-0 z-[40]" 
+            onClick={() => setIsOverviewMenuOpen(false)}
+          />
+
+          {/* MENU BOX */}
+          <div className="absolute left-0 top-12 w-[300px] bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-2xl p-5 z-[50]">
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Pick a Date (Daily)
+            </label>
+            <input 
+              type="date" 
+              value={overviewStart === overviewEnd ? overviewStart : getDefaultDailyDate()}
+              onChange={(e) => {
+                const newDate = e.target.value;
+                setOverviewStart(newDate);
+                setOverviewEnd(newDate);
+              }}
+              className="w-full bg-gray-50 dark:bg-slate-950 dark:text-white border border-gray-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-bold mb-4 outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+            />
+
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Or Custom Range
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">From</span>
+                <input 
+                  type="date" 
+                  value={overviewStart} 
+                  onChange={e => setOverviewStart(e.target.value)} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">To</span>
+                <input 
+                  type="date" 
+                  value={overviewEnd} 
+                  onChange={e => setOverviewEnd(e.target.value)} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setIsOverviewMenuOpen(false)}
+              className="w-full mt-5 bg-pink-600 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:bg-pink-700 transition-colors"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </>
+      )}
     </div>
-    <div className="flex items-center gap-2 px-2 border-l border-gray-100">
-      <span className="text-[10px] font-black uppercase text-gray-400">To:</span>
-      <input 
-        type="date" 
-        value={overviewEnd} 
-        onChange={e => setOverviewEnd(e.target.value)} 
-        className="dark:bg-slate-950 dark:text-white bg-gray-50 border-none rounded-lg text-xs font-bold p-1.5 outline-none focus:ring-2 focus:ring-pink-100" 
-      />
-    </div>
-    
-    {/* SHORTCUT BUTTONS */}
-    <div className="flex gap-1 pl-2 border-l border-gray-100">
-     <button 
+  </div>
+  
+  {/* SHORTCUT BUTTONS */}
+  <div className="flex gap-1 pl-2 border-l border-gray-100 dark:border-slate-800">
+    <button 
       onClick={() => { setOverviewStart(getLocalDate()); setOverviewEnd(getLocalDate()); }}
-      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors ${
-        overviewStart === overviewEnd ? 'bg-pink-600 text-white shadow-lg shadow-pink-100 dark:bg-pink-500' : 'dark:bg-slate-950 bg-gray-100 hover:bg-gray-200'
+      className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+        overviewStart === overviewEnd && overviewStart === getLocalDate() 
+        ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' 
+        : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-400 hover:bg-gray-200'
       }`}
     >
       Today
     </button>
     <button 
-  onClick={() => { 
-    const { firstDay, today } = getMonthDefaults();
-    setOverviewStart(firstDay); 
-    setOverviewEnd(today); 
-  }}
-  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
-    overviewStart === initialFirstDay ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-400 hover:bg-gray-200'
-  }`}
->
-  This Month
-</button>
-    </div>
+      onClick={() => { 
+        const { firstDay, today } = getMonthDefaults();
+        setOverviewStart(firstDay); 
+        setOverviewEnd(today); 
+      }}
+      className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
+        overviewStart === getMonthDefaults().firstDay && overviewEnd === getMonthDefaults().today
+        ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' 
+        : 'dark:bg-slate-950 dark:text-white bg-gray-100 text-gray-400 hover:bg-gray-200'
+      }`}
+    >
+      This Month
+    </button>
   </div>
+</div>
 </div>
 
 {/* ROW 1: PRIMARY BUSINESS STATS */}
@@ -1142,65 +1211,112 @@ onClick={async () => {
     </div>
 
     {/* Date Filter (Right) */}
-<div className="flex flex-wrap items-center dark:bg-slate-900/80 dark:border-slate-800 dark:text-white gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-  {/* START DATE */}
-  <div className="flex flex-col gap-1">
-    <input 
-      type="date" 
-      value={startDate} 
-      onChange={e => setStartDate(e.target.value)} 
-      className="dark:bg-slate-900/80 dark:border-slate-800 bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
-    />
+{/* Date Filter (Right) - NEW DROPDOWN STYLE */}
+<div className="flex flex-wrap items-center gap-3 dark:bg-slate-900/80 dark:text-white dark:border-slate-800 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+  <div className="flex items-center gap-2">
+    <div className="relative">
+      <button 
+        onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+        className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-2 text-xs font-black uppercase text-gray-700 dark:text-white shadow-sm"
+      >
+        <Calendar size={14} className="text-pink-500" />
+        {startDate === endDate 
+          ? `Daily: ${formatDisplayDate(startDate)}` 
+          : `Range: ${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`}
+      </button>
+
+      {isFilterMenuOpen && (
+        <>
+          {/* BACKDROP */}
+          <div 
+            className="fixed inset-0 z-[40]" 
+            onClick={() => setIsFilterMenuOpen(false)}
+          />
+
+          {/* MENU BOX */}
+          <div className="absolute right-0 top-12 w-[300px] bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-2xl p-5 z-[50]">
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Pick a Date (Daily)
+            </label>
+            <input 
+              type="date" 
+              value={startDate === endDate ? startDate : getDefaultDailyDate()}
+              onChange={(e) => {
+                const newDate = e.target.value;
+                setStartDate(newDate);
+                setEndDate(newDate);
+                setActiveFilter('custom');
+              }}
+              className="w-full bg-gray-50 dark:bg-slate-950 dark:text-white border border-gray-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-bold mb-4 outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer"
+            />
+
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Or Custom Range
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">From</span>
+                <input 
+                  type="date" 
+                  value={startDate} 
+                  onChange={e => { setStartDate(e.target.value); setActiveFilter('custom'); }} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">To</span>
+                <input 
+                  type="date" 
+                  value={endDate} 
+                  onChange={e => { setEndDate(e.target.value); setActiveFilter('custom'); }} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setIsFilterMenuOpen(false)}
+              className="w-full mt-5 bg-pink-600 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:bg-pink-700 transition-colors"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   </div>
 
-  {/* END DATE */}
-  <div className="flex flex-col gap-1">
-    <input 
-      type="date" 
-      value={endDate} 
-      onChange={e => setEndDate(e.target.value)} 
-      className="dark:bg-slate-900/80 dark:border-slate-800 bg-white border border-gray-200 rounded-lg text-xs font-bold px-3 py-2 outline-none focus:ring-2 focus:ring-pink-100" 
-    />
+  {/* SHORTCUT BUTTONS */}
+  <div className="flex gap-1 pl-2 border-l border-gray-100 dark:border-slate-800">
+    <button 
+      onClick={() => { 
+        const today = getLocalDate();
+        setStartDate(today); 
+        setEndDate(today); 
+        setActiveFilter('today');
+      }}
+      className={`px-4 py-2 dark:bg-slate-950 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase transition-all ${
+        activeFilter === 'today' ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+      }`}
+    >
+      Today
+    </button>
+    <button 
+      onClick={() => { 
+        const { firstDay, today } = getMonthDefaults();
+        setStartDate(firstDay); 
+        setEndDate(today); 
+        setActiveFilter('thisMonth');
+      }}
+      className={`px-4 py-2 dark:bg-slate-950 dark:border-slate-800 rounded-xl text-[10px] font-black uppercase transition-all ${
+        activeFilter === 'thisMonth' ? 'bg-pink-600 text-white shadow-lg shadow-pink-500/30 dark:bg-pink-500' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+      }`}
+    >
+      This Month
+    </button>
   </div>
-
-  {/* QUICK FILTERS */}
- <div className="flex gap-2 h-[38px]">
-  {/* TODAY BUTTON */}
-  <button 
-    onClick={() => {
-      const localToday = getLocalDate();
-      setStartDate(localToday);
-      setEndDate(localToday);
-    }}
-    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-      startDate === getLocalDate() && endDate === getLocalDate()
-        ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
-        : 'bg-white border border-gray-200 text-gray-400 hover:bg-gray-50 dark:border-slate-800  dark:bg-slate-950 dark:text-white' // Inactive Style
-    }`}
-  >
-    Today
-  </button>
-
-  {/* THIS MONTH BUTTON */}
-  <button 
-    onClick={() => {
-      const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
-      const firstDayStr = firstDay.toISOString().split('T')[0];
-      
-      setStartDate(firstDayStr);
-      setEndDate(getLocalDate());
-    }}
-    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${
-      startDate !== getLocalDate() 
-        ? 'bg-pink-600 text-white shadow-lg shadow-pink-100' // Active Style
-        : 'bg-white border border-gray-200 text-gray-400 dark:border-slate-800  hover:bg-gray-50 dark:bg-slate-950 dark:text-white' // Inactive Style
-    }`}
-  >
-    This Month
-  </button>
 </div>
-</div>
+
   </div>
 
   {/* Table */}
