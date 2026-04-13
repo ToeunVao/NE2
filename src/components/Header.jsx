@@ -88,7 +88,7 @@ const handleLogout = async () => {
 
 return (
     <>
-      <header className="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-[60] transition-colors duration-300">
+      <header className="h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800 px-6 flex items-center justify-between sticky top-0 z-[60] transition-colors duration-300">
         
         {/* LEFT: Logo + 3-Dash Menu Icon */}
        {/* LEFT: Logo + 3-Dash Menu Icon */}

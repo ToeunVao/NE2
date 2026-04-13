@@ -6,6 +6,7 @@ import {
   serverTimestamp, query, orderBy, writeBatch, updateDoc, arrayUnion, Timestamp, where, addDoc
 } from "firebase/firestore";
 import { useToast } from "@/context/ToastContext";
+import { Calendar } from "lucide-react";
 // --- ASSETS ---
 const giftCardBackgrounds = {
     'General': [
@@ -31,38 +32,60 @@ const giftCardBackgrounds = {
 };
 export default function GiftCardPage() {
   const { showToast } = useToast();
+  // --- ADD THESE HELPER FUNCTIONS HERE ---
+
+
+  const getMonthDefaults = () => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return {
+      firstDay: getLocalDate(firstDay),
+      today: getLocalDate(now)
+    };
+  };
+
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${month}/${day}/${year}`;
+  };
+
+  const getDefaultDailyDate = () => {
+    return getLocalDate();
+  };
+  // ----------------------------------------
+
   // Add these near your other useState hooks
 const [transaction, setTransaction] = useState({ type: 'Redeem', amount: '', note: '' });
 const [isEditingCode, setIsEditingCode] = useState(false);
 const [newCodeInput, setNewCodeInput] = useState("");
 // Add this near your other useState hooks
 // TO THIS:
-const [startDate, setStartDate] = useState(() => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA');
-});
+const [startDate, setStartDate] = useState(null);
+const [endDate, setEndDate] = useState(null);
+const [activeFilter, setActiveFilter] = useState('all');
+const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
-const [endDate, setEndDate] = useState(() => {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('en-CA');
-});
-
-const [activeFilter, setActiveFilter] = useState('month');
   const [giftCards, setGiftCards] = useState([]);
+  const [filteredStatsCards, setFilteredStatsCards] = useState([]);
 // 1. Add this state
   const [clients, setClients] = useState([]);
 
-    // 2. Add this useEffect to get your clients
-    useEffect(() => {
-        const q = query(collection(db, "clients"), orderBy("name", "asc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setClients(snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })));
-        });
-        return () => unsubscribe();
-    }, []);
+// LISTENER 1: Get ALL cards for the Registry Table (No Filters)
+useEffect(() => {
+  const q = query(
+    collection(db, "gift_cards"),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsub = onSnapshot(q, (snap) => {
+    setGiftCards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  }, (error) => {
+    console.error("Firebase Registry Error:", error);
+  });
+
+  return () => unsub();
+}, []); // Empty dependency array = runs once on load
 
     // 3. Define the missing variable here (Fixes your error)
     const autocompleteNames = useMemo(() => {
@@ -88,34 +111,37 @@ const [expUnit, setExpUnit] = useState('months');
     showTo: true,
     showFrom: true
   });
-  // --- FIREBASE LISTENERS ---
-// --- FIREBASE LISTENERS ---
+// LISTENER 2: Get FILTERED cards for the Top Report Cards
 useEffect(() => {
-  // 1. Guard: Don't run if dates are missing
-  if (!startDate || !endDate) return;
+  let q;
 
-  // 2. Convert strings to Firestore Timestamps
-  const startTS = Timestamp.fromDate(new Date(startDate + "T00:00:00"));
-  const endTS = Timestamp.fromDate(new Date(endDate + "T23:59:59"));
+  // If dates are null, fetch ALL gift cards for the reports
+  if (!startDate || !endDate) {
+    q = query(
+      collection(db, "gift_cards"),
+      orderBy("createdAt", "desc")
+    );
+  } else {
+    // Otherwise, fetch within the selected range
+    const startTS = Timestamp.fromDate(new Date(startDate + "T00:00:00"));
+    const endTS = Timestamp.fromDate(new Date(endDate + "T23:59:59"));
 
-  // 3. Create the filtered query
-  const q = query(
-    collection(db, "gift_cards"),
-    where("createdAt", ">=", startTS),
-    where("createdAt", "<=", endTS),
-    orderBy("createdAt", "desc")
-  );
+    q = query(
+      collection(db, "gift_cards"),
+      where("createdAt", ">=", startTS),
+      where("createdAt", "<=", endTS),
+      orderBy("createdAt", "desc")
+    );
+  }
 
   const unsub = onSnapshot(q, (snap) => {
-    setGiftCards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    setFilteredStatsCards(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   }, (error) => {
-    console.error("Firebase Filter Error:", error);
-    // If you see an index error in the console, click the provided link to fix it.
+    console.error("Firebase Stats Filter Error:", error);
   });
 
   return () => unsub();
-}, [startDate, endDate]); // <--- This array ensures it runs on load
-
+}, [startDate, endDate]);
   
   const filteredCards = useMemo(() => {
     return giftCards.filter(card => 
@@ -468,46 +494,33 @@ const stats = useMemo(() => {
   let onlineSales = 0;
   let allTimeRemaining = 0;
 
+  // Use ALL cards for All-Time Remaining Balance
   giftCards.forEach(card => {
+    allTimeRemaining += Number(card.balance || 0);
+  });
+
+  // Use ONLY filtered cards for the date-specific Report Cards
+  filteredStatsCards.forEach(card => {
     const current = Number(card.balance || 0);
-    allTimeRemaining += current;
+    const initial = Number(card.initialAmount || card.amount || 0);
+    
+    totalSales += initial;
+    totalRemaining += current;
+    totalReturned += (initial - current);
 
-    // 1. Better Date Parsing
-// --- FIX: BETTER DATE PARSING ---
-    let cardDate = "";
-    if (card.date) {
-      // Prioritize the hardcoded local date from the landing page
-      cardDate = card.date; 
-    } else if (card.createdAt?.toDate) {
-      // If it's an older card, convert UTC to local YYYY-MM-DD
-      cardDate = card.createdAt.toDate().toLocaleDateString('en-CA'); 
-    }
-    // ---------------------------------
+    const isOnlinePurchase = 
+      card.isOnline === true || 
+      card.origin === 'online' || 
+      card.type === 'Online' || 
+      (card.customerEmail && card.customerEmail.trim() !== "");
 
-    // 2. Filter by Date Range
-    if (cardDate >= startDate && cardDate <= endDate) {
-      const initial = Number(card.initialAmount || card.amount || 0);
-      
-      totalSales += initial;
-      totalRemaining += current;
-      totalReturned += (initial - current);
-
-      // 3. IMPROVED ONLINE CHECK: 
-      // Checks for 'isOnline', 'origin', 'type', or if an email exists
-      const isOnlinePurchase = 
-        card.isOnline === true || 
-        card.origin === 'online' || 
-        card.type === 'Online' || 
-        (card.customerEmail && card.customerEmail.trim() !== "");
-
-      if (isOnlinePurchase) {
-        onlineSales += initial;
-      }
+    if (isOnlinePurchase) {
+      onlineSales += initial;
     }
   });
 
   return { totalSales, totalReturned, totalRemaining, onlineSales, allTimeRemaining };
-}, [giftCards, startDate, endDate]);
+}, [giftCards, filteredStatsCards]); // Update dependencies
 
 // Add this helper at the top of your component or outside it
 const getLocalDate = (date = new Date()) => {
@@ -563,58 +576,115 @@ const handleDelete = async (id) => {
     <div className="max-w-[95%] mx-auto space-y-8 pb-20 pt-4">
 
 <div className="space-y-6 mb-8">
- {/* DATE FILTER BAR */}
-<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
+{/* DATE FILTER BAR */}
+<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900/80 p-5 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm relative">
   <div>
-    <h1 className="text-xl font-black uppercase tracking-tight text-gray-900">Gift Card Reports</h1>
+    <h1 className="text-xl font-black uppercase tracking-tight text-gray-900 dark:text-white">Gift Card Reports</h1>
     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Financial Performance</p>
   </div>
   
   <div className="flex flex-wrap items-center gap-3">
-    {/* Quick Filters */}
-{/* Quick Filters */}
-<div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-  <button 
-    onClick={setFilterToday}
-    className={`px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${
-      activeFilter === 'today' 
-      ? 'bg-white shadow-sm text-pink-600' 
-      : 'text-gray-500 hover:text-gray-700'
-    }`}
-  >
-    Today
-  </button>
-  <button 
-    onClick={setFilterMonth}
-    className={`px-4 py-2 text-[10px] font-black uppercase rounded-xl transition-all ${
-      activeFilter === 'month' 
-      ? 'bg-white shadow-sm text-pink-600' 
-      : 'text-gray-500 hover:text-gray-700'
-    }`}
-  >
-    This Month
-  </button>
-</div>
+    {/* Main Dropdown Button */}
+    <div className="relative">
+      <button 
+        onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+        className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs font-black uppercase text-gray-700 dark:text-white shadow-sm"
+      >
+        <Calendar size={14} className="text-pink-500" />
+        {!startDate || !endDate 
+          ? "All Time" 
+          : startDate === endDate 
+            ? `Daily: ${formatDisplayDate(startDate)}` 
+            : `Range: ${formatDisplayDate(startDate)} - ${formatDisplayDate(endDate)}`}
+      </button>
 
-{/* Custom Date Inputs */}
-<div className={`flex items-center gap-2 p-2 rounded-xl border transition-all ${
-  activeFilter === 'custom' ? 'bg-white border-pink-200 shadow-sm' : 'bg-gray-50 border-gray-100'
-}`}>
-  <input 
-    type="date" 
-    value={startDate} 
-    onChange={(e) => handleCustomDate('start', e.target.value)}
-    className="bg-transparent border-none text-[10px] font-black uppercase focus:ring-0 cursor-pointer text-gray-700" 
-  />
-  <span className="text-gray-300 text-[9px] font-black">TO</span>
-  <input 
-    type="date" 
-    value={endDate} 
-    onChange={(e) => handleCustomDate('end', e.target.value)}
-    className="bg-transparent border-none text-[10px] font-black uppercase focus:ring-0 cursor-pointer text-gray-700" 
-  />
-</div>
+      {isFilterMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-[40]" onClick={() => setIsFilterMenuOpen(false)} />
+          <div className="absolute right-0 top-12 w-[300px] bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-2xl p-5 z-[50]">
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Pick a Date (Daily)
+            </label>
+            <input 
+              type="date" 
+              value={startDate === endDate && startDate ? startDate : getDefaultDailyDate()}
+              onChange={(e) => {
+                const newDate = e.target.value;
+                setStartDate(newDate);
+                setEndDate(newDate);
+                setActiveFilter('custom');
+              }}
+              className="w-full bg-gray-50 dark:bg-slate-950 dark:text-white border border-gray-200 dark:border-slate-800 rounded-lg p-2.5 text-xs font-bold mb-4 outline-none focus:ring-2 focus:ring-pink-500"
+            />
 
+            <label className="text-[10px] font-black uppercase text-gray-400 block mb-2 tracking-widest">
+              Or Custom Range
+            </label>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">From</span>
+                <input 
+                  type="date" 
+                  value={startDate || ""} 
+                  onChange={e => { setStartDate(e.target.value); setActiveFilter('custom'); }} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[8px] font-bold text-gray-400 uppercase">To</span>
+                <input 
+                  type="date" 
+                  value={endDate || ""} 
+                  onChange={e => { setEndDate(e.target.value); setActiveFilter('custom'); }} 
+                  className="w-full text-[10px] p-2 border border-gray-200 dark:border-slate-800 dark:bg-slate-950 dark:text-white rounded-lg outline-none" 
+                />
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setIsFilterMenuOpen(false)}
+              className="w-full bg-pink-600 text-white font-black text-[10px] uppercase tracking-widest py-3 rounded-xl hover:bg-pink-700 transition-colors"
+            >
+              Apply Filter
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Quick Filter Shortcut Buttons */}
+    <div className="flex gap-1 bg-gray-100 dark:bg-slate-950 p-1 rounded-xl border dark:border-slate-800">
+      <button 
+        onClick={() => { setStartDate(null); setEndDate(null); setActiveFilter('all'); }}
+        className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
+          !startDate ? 'bg-white dark:bg-slate-800 shadow-sm text-pink-600' : 'text-gray-500'
+        }`}
+      >
+        All Time
+      </button>
+      <button 
+        onClick={() => { 
+          const today = getLocalDate();
+          setStartDate(today); setEndDate(today); setActiveFilter('today'); 
+        }}
+        className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
+          activeFilter === 'today' && startDate ? 'bg-white dark:bg-slate-800 shadow-sm text-pink-600' : 'text-gray-500'
+        }`}
+      >
+        Today
+      </button>
+      <button 
+        onClick={() => { 
+          const { firstDay, today } = getMonthDefaults();
+          setStartDate(firstDay); setEndDate(today); setActiveFilter('month'); 
+        }}
+        className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg transition-all ${
+          activeFilter === 'month' ? 'bg-white dark:bg-slate-800 shadow-sm text-pink-600' : 'text-gray-500'
+        }`}
+      >
+        This Month
+      </button>
+    </div>
   </div>
 </div>
 
@@ -656,13 +726,13 @@ const handleDelete = async (id) => {
     SIMPLE GIFT CARD CREATOR 
 ======================= */}
 <div className="mx-auto mb-12">
-    <div className="bg-white p-8 rounded-xl shadow-sm border dark:bg-slate-900/80 dark:border-slate-800 border-gray-100">
+    <div className="bg-white dark:text-white p-8 rounded-xl shadow-sm border dark:bg-slate-900/80 dark:border-slate-800 border-gray-100">
         <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-pink-50 rounded-xl flex items-center justify-center">
                 <i className="fas fa-plus text-pink-500 text-xl"></i>
             </div>
             <div>
-                <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Create Gift Card</h2>
+                <h2 className="text-2xl font-black text-gray-800 dark:text-white uppercase tracking-tight">Create Gift Card</h2>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Enter details to generate new cards</p>
             </div>
         </div>
@@ -671,37 +741,37 @@ const handleDelete = async (id) => {
 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
       {/* Row 1: Names with Autocomplete */}
     <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Name</label>
+        <label className="text-[10px] dark:text-white font-black text-gray-400 uppercase tracking-widest ml-1">Recipient Name</label>
         <input 
             type="text" 
             list="client-list" 
             value={form.recipient} 
             onChange={e => setForm({...form, recipient: e.target.value})} 
             placeholder="To clients"
-            className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+            className="w-full dark:text-white dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
         />
     </div>
     <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Sender Name</label>
+        <label className="text-[10px] dark:text-white font-black text-gray-400 uppercase tracking-widest ml-1">Sender Name</label>
         <input 
             type="text" 
             list="client-list" 
             value={form.sender} 
             onChange={e => setForm({...form, sender: e.target.value})} 
             placeholder="From clients"
-            className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
+            className="w-full dark:text-white dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" 
         />
     </div>
 
 
     {/* Row 2: Qty & Amount */}
     <div className="space-y-1.5">
-        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
+        <label className="text-[10px] dark:text-white font-black text-gray-400 uppercase tracking-widest ml-1">Quantity</label>
         <input type="number" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
     </div>
     <div className="space-y-1.5">
         <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Amount ($)</label>
-        <input type="number" placeholder="50"  value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
+        <input type="number" placeholder="50"  value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} className="w-full dark:text-white dark:bg-slate-900/80 dark:border-slate-800 p-4 bg-gray-50 rounded-xl text-sm font-bold outline-none border-none focus:ring-2 focus:ring-pink-100" />
     </div>
 
 
@@ -813,13 +883,13 @@ const handleDelete = async (id) => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-black text-gray-800 uppercase italic">Gift Card Registry</h2>
+            <h2 className="text-xl dark:text-white font-black text-gray-800 uppercase italic">Gift Card Registry</h2>
            
       <span className="text-[12px] font-black text-orange-600 uppercase tracking-widest bg-orange-100 border border-orange-200 px-3 py-1 rounded-3xl flex items-center gap-1 shadow-sm">
        ${stats.allTimeRemaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
       </div>
-      <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white dark:bg-slate-900/80 dark:border-slate-80 border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
+      <input type="text" placeholder="Search Code or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white dark:text-white text-gray-400 dark:bg-slate-900/80 dark:border-slate-80 border border-slate-300 rounded-xl px-4 py-2 text-xs font-bold w-64 outline-none focus:border-pink-300" />
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 shadow-sm overflow-hidden text-nowrap overflow-x-auto">
@@ -841,11 +911,11 @@ const handleDelete = async (id) => {
               {filteredCards.length > 0 ? filteredCards.map((card) => (
                 <tr key={card.id} className="hover:bg-gray-50 transition-colors dark:border-slate-800">
                   <td className="px-6 py-4">{card.createdAt?.seconds ? new Date(card.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
-                  <td className="px-6 py-4 font-mono text-pink-600">{card.code}</td>
-                  <td className="px-6 py-4 text-gray-900 font-black">${Number(card.balance).toFixed(2)}</td>
+                  <td className="px-6 py-4 dark:text-white font-mono text-pink-600">{card.code}</td>
+                  <td className="px-6 py-4 dark:text-white text-gray-900 font-black">${Number(card.balance).toFixed(2)}</td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                        <span>{card.recipientName || '---'}</span>
+                        <span className="dark:text-white">{card.recipientName || '---'}</span>
                         <span className="text-[9px] text-gray-400">Fr: {card.senderName || '---'}</span>
                     </div>
                   </td>

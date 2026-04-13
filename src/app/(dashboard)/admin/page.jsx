@@ -664,8 +664,8 @@ const {
       >
         <Calendar size={14} className="text-pink-500" />
         {overviewStart === overviewEnd 
-          ? `Daily: ${formatDisplayDate(overviewStart)}` 
-          : `Range: ${formatDisplayDate(overviewStart)} - ${formatDisplayDate(overviewEnd)}`}
+          ? ` ${formatDisplayDate(overviewStart)}` 
+          : `${formatDisplayDate(overviewStart)} - ${formatDisplayDate(overviewEnd)}`}
       </button>
 
       {isOverviewMenuOpen && (
@@ -958,7 +958,7 @@ const {
 
       {/* SECTION 4: REVENUE TREND */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
-         <h3 className="text-xl font-black text-gray-700 italic mb-6">Salon Revenue Trend</h3>
+         <h3 className="text-xl font-black text-gray-700 dark:text-white italic mb-6">Salon Revenue Trend</h3>
       <div className="h-[300px] w-full">
   <ResponsiveContainer width="100%" height="100%">
     <AreaChart data={overviewStats.trendData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -1029,15 +1029,15 @@ const {
 
       {/* SECTION 5: UPCOMING APPOINTMENTS */}
 {/* SECTION 5: UPCOMING APPOINTMENTS */}
-<div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
+<div className="bg-white p-3 dark:text-white rounded-xl shadow-sm border border-gray-100 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white">
   <div className="flex justify-between items-center mb-6">
-    <h3 className="text-xl font-serif text-slate-700 font-bold">Upcoming Appointments</h3>
+    <h3 className="text-xl font-serif dark:text-white text-slate-700 font-bold">Upcoming Appointments</h3>
     <div className="flex gap-4 overflow-x-auto pb-2">
       {['All', 'Any Technician', 'Linda', 'TJ', 'Sokleng'].map((tech) => (
         <button 
           key={tech} 
            onClick={() => setSelectedTechFilter(tech)} // <--- CRITICAL LINE
-          className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${selectedTechFilter === tech ? 'bg-pink-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+          className={`px-4 py-2 dark:text-white rounded-full text-sm font-bold transition-all whitespace-nowrap ${selectedTechFilter === tech ? 'bg-pink-600 text-white' : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
           {tech}
@@ -1050,7 +1050,7 @@ const {
   <div className="overflow-x-auto">
     <table className="w-full text-left">
       <thead>
-        <tr className="bg-gray-50 text-[10px] uppercase font-black text-gray-400 tracking-wider">
+        <tr className="bg-gray-50 dark:bg-slate-900/80 dark:border-slate-800 dark:text-white text-[10px] uppercase font-black text-gray-400 tracking-wider">
           <th className="px-6 py-4">Name</th>
           <th className="px-6 py-4">Services</th>
           <th className="px-6 py-4">Technician</th>
@@ -1160,13 +1160,13 @@ onClick={async () => {
       </div>
     </div>
     </div>
-  <div className="grid dark:bg-slate-950 dark:border-slate-800 grid-cols-2 md:grid-cols-6 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+  <div className="grid dark:bg-slate-950 dark:border-slate-800 grid-cols-2 md:grid-cols-5 gap-4 items-end bg-gray-50/50 p-6 rounded-xl border border-gray-100">
     <div className="space-y-2">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Date</label>
       <input type="date" value={newEarning.date} onChange={e => setNewEarning({...newEarning, date: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
     
-    <div className="space-y-2">
+    <div className="space-y-2 hidden">
       <label className="text-[10px] font-black uppercase text-gray-500 ml-1">Service</label>
       <input placeholder="Service..." value={newEarning.service} onChange={e => setNewEarning({...newEarning, service: e.target.value})} className="dark:bg-slate-900/80  dark:border-slate-800  w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none" />
     </div>
